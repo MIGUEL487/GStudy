@@ -1,9 +1,9 @@
 export type Notebook = { id: string; title: string; text: string; updatedAt: string };
 export type Course = { id: string; title: string; url: string };
-export type Subject = { id: string; name: string; emoji?: string; notebooks: Notebook[]; courses: Course[] };
+export type Subject = { id: string; name: string; emoji?: string | undefined; notebooks: Notebook[]; courses: Course[] };
 export type Grade = { score: string; absences: string; behavior: string; warnings: string };
 export type Performance = { max: string; min: string; limit: string; goal: string; perWeek?: string; grades: Grade[]; sessions: { date: string; minutes: number }[] };
-export type StudyData = { version: 1; name: string; avatar?: string; schoolDays?: number[]; attendance?: Record<string,'present'|'absent'>; subjects: Subject[]; performance: Record<string, Performance> };
+export type StudyData = { version: 1; name: string; avatar?: string | undefined; schoolDays?: number[]; attendance?: Record<string,'present'|'absent'>; subjects: Subject[]; performance: Record<string, Performance> };
 export const storageKey = 'gstudy.workspace.v1';
 export const uid = () => crypto.randomUUID();
 export function initialData(): StudyData { return { version: 1, name: '', subjects: ['Matemática', 'Rotina', 'Física'].map((name,i) => ({id: `subject-${i}`,name, notebooks: [], courses: []})), performance: {} }; }
