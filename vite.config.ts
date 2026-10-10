@@ -7,6 +7,24 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    optimizeDeps: {
+      // Build the interactive dependency graph together before serving it.
+      // Reject stale optimizer URLs instead of mixing React module instances.
+      include: [
+        "@radix-ui/react-slot",
+        "@radix-ui/react-dialog",
+        "@tanstack/react-router",
+        "@tanstack/react-query",
+        "lucide-react",
+        "sonner",
+        "class-variance-authority",
+        "clsx",
+        "tailwind-merge",
+      ],
+      ignoreOutdatedRequests: false,
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

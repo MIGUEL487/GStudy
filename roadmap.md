@@ -1,0 +1,3 @@
+- [x] Recriar o GStudy a partir dos arquivos enviados, com transições fluidas.
+- [x] Corrigir e testar a criação de cadernos e cursos.
+- [x] Usar a marca enviada também no ícone da página.

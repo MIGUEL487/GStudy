@@ -1,24 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
-
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
-export const Route = createFileRoute("/")({
-  component: Index,
-});
-
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { useState } from 'react';
+import { BookOpen, NotebookPen, Play, Plus, ArrowUpRight, Sprout, Calculator, Orbit, Clock, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { useStudy } from '@/components/study-provider';
+import { CreateDialog } from '@/components/create-dialog';
+import { cleanName, uid } from '@/lib/study-model';
+import studyImage from '@/assets/study-background.asset.json';
+export const Route = createFileRoute('/')({head:()=>({meta:[{title:'GStudy · Meu espaço de estudo'},{name:'description',content:'Organize suas matérias, crie cadernos e reúna seus cursos no GStudy.'},{property:'og:title',content:'GStudy · Meu espaço de estudo'},{property:'og:description',content:'Seu ritmo. Sua jornada. Um espaço tranquilo para aprender.'},{property:'og:type',content:'website'},{name:'twitter:card',content:'summary_large_image'}]}),component:Index});
+function Index() {const {data,update,ready}=useStudy();const [creating,setCreating]=useState(false);const totalNotes=data.subjects.reduce((n,s)=>n+s.notebooks.length,0);const totalCourses=data.subjects.reduce((n,s)=>n+s.courses.length,0);return <>
+ <div className="eyebrow">UM NOVO DIA, NOVAS POSSIBILIDADES</div><div className="welcome-row"><div><h1>{data.name?`Olá, ${data.name.split(' ')[0]}.`:'Seu próximo capítulo.'}</h1><p>Que tal continuar evoluindo hoje? Um passo de cada vez.</p></div><span className="day-label"><Sprout size={14} className="inline mr-2"/>Aprender é cultivar o futuro.</span></div>
+ <section className="study-banner"><img src={studyImage.url} alt="Mesa de estudos iluminada pelo sol, com livros, caderno e uma xícara"/><div className="banner-copy"><div className="eyebrow">SEU MOMENTO DE CONCENTRAÇÃO</div><h2>Pequenos passos.<br/>Grandes descobertas.</h2><p>O conhecimento floresce quando você cuida dele todos os dias.</p><div className="banner-bottom"><Clock size={13}/>Reserve um momento para você.</div></div></section>
+ <div className="overview">{[{icon:BookOpen,count:data.subjects.length,label:'Matérias para explorar'},{icon:NotebookPen,count:totalNotes,label:'Cadernos de ideias'},{icon:Play,count:totalCourses,label:'Cursos na sua jornada'}].map(s=><div className="overview-item" key={s.label}><div className="stat-icon"><s.icon size={19}/></div><div><strong>{String(s.count).padStart(2,'0')}</strong><small>{s.label}</small></div></div>)}</div>
+ <div className="section-heading"><div><h2>Suas matérias</h2><p>Cada assunto é uma porta para algo novo.</p></div><Button variant="outline" size="sm" disabled={!ready} onClick={()=>setCreating(true)}><Plus/>Nova matéria</Button></div>
+ <div className="subject-grid">{data.subjects.map((s,i)=>{const Icon=i%3===0?Calculator:i%3===1?Sprout:Orbit;return <article className="subject-card" key={s.id}><Link to="/materias/$subjectId" params={{subjectId:s.id}} className="card-link"><div className={`cover-icon ${i%3===1?'tone-green':i%3===2?'tone-blue':''}`}><Icon size={23}/></div><h3>{s.name}</h3><div className="card-meta"><span>{s.notebooks.length} {s.notebooks.length===1?'caderno':'cadernos'}</span><span>·</span><span>{s.courses.length} {s.courses.length===1?'curso':'cursos'}</span></div><div className="card-footer"><span>Continuar aprendendo</span><ArrowUpRight size={15}/></div></Link><Button variant="ghost" size="icon" className="delete-item" title={`Excluir ${s.name}`} aria-label={`Excluir ${s.name}`} onClick={()=>{if(confirm(`Excluir a matéria “${s.name}” e seus cadernos e cursos?`)&&update(d=>({...d,subjects:d.subjects.filter(x=>x.id!==s.id)})))toast.success('Matéria excluída.');}}><Trash2 size={13}/></Button></article>;})}<Button variant="ghost" className="add-card" disabled={!ready} onClick={()=>setCreating(true)}><span className="add-symbol"><Plus size={18}/></span>Explorar uma nova matéria</Button></div>
+ <CreateDialog kind="matéria" open={creating} onOpenChange={setCreating} onCreate={name=>{const ok=update(d=>{const clean=cleanName(name);if(d.subjects.some(s=>s.name.toLocaleLowerCase()===clean.toLocaleLowerCase()))throw new Error('Essa matéria já existe.');return {...d,subjects:[...d.subjects,{id:uid(),name:clean,notebooks:[],courses:[]}]};});if(ok)toast.success('Matéria criada. Um novo começo!');return ok;}}/>
+ </>;}
