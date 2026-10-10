@@ -1,9 +1,9 @@
 export type Notebook = { id: string; title: string; text: string; updatedAt: string };
 export type Course = { id: string; title: string; url: string };
-export type Subject = { id: string; name: string; notebooks: Notebook[]; courses: Course[] };
+export type Subject = { id: string; name: string; emoji?: string; notebooks: Notebook[]; courses: Course[] };
 export type Grade = { score: string; absences: string; behavior: string; warnings: string };
-export type Performance = { max: string; min: string; limit: string; goal: string; grades: Grade[]; sessions: { date: string; minutes: number }[] };
-export type StudyData = { version: 1; name: string; subjects: Subject[]; performance: Record<string, Performance> };
+export type Performance = { max: string; min: string; limit: string; goal: string; perWeek?: string; grades: Grade[]; sessions: { date: string; minutes: number }[] };
+export type StudyData = { version: 1; name: string; avatar?: string; schoolDays?: number[]; attendance?: Record<string,'present'|'absent'>; subjects: Subject[]; performance: Record<string, Performance> };
 export const storageKey = 'gstudy.workspace.v1';
 export const uid = () => crypto.randomUUID();
 export function initialData(): StudyData { return { version: 1, name: '', subjects: ['Matemática', 'Rotina', 'Física'].map((name,i) => ({id: `subject-${i}`,name, notebooks: [], courses: []})), performance: {} }; }
@@ -14,10 +14,18 @@ export function addCourse(data: StudyData, subjectId: string, title: string, lin
 export function emptyPerformance(): Performance { return {max:'',min:'',limit:'',goal:'',grades:Array.from({length:4},()=>({score:'',absences:'',behavior:'',warnings:''})),sessions:[]}; }
 export function loadData(storage: Pick<Storage,'getItem'>): StudyData {
  const saved = storage.getItem(storageKey);
- if (saved) { const parsed = JSON.parse(saved); if (parsed.version !== 1 || !Array.isArray(parsed.subjects) || parsed.subjects.some((s:Subject)=>!s.id || typeof s.name !== 'string' || !Array.isArray(s.notebooks) || !Array.isArray(s.courses))) throw new Error('Os dados salvos não puderam ser carregados.'); return {...parsed,performance:parsed.performance || {}}; }
+ if (saved) { const parsed = JSON.parse(saved); if (parsed.version !== 1 || !Array.isArray(parsed.subjects) || parsed.subjects.some((s:Subject)=>!s.id || typeof s.name !== 'string' || !Array.isArray(s.notebooks) || !Array.isArray(s.courses))) throw new Error('Os dados salvos não puderam ser carregados.'); return {...parsed,performance:parsed.performance || {},schoolDays:Array.isArray(parsed.schoolDays)?parsed.schoolDays.filter((n:unknown)=>Number.isInteger(n)&&(n as number)>=0&&(n as number)<=6):defaultSchoolDays,attendance:parsed.attendance&&typeof parsed.attendance==='object'?parsed.attendance:{}}; }
  const legacy = storage.getItem('materias'); if (!legacy) return initialData();
  const names: unknown = JSON.parse(legacy); if (!Array.isArray(names)) throw new Error('As matérias antigas não puderam ser carregadas.');
  const notebooks = JSON.parse(storage.getItem('cadernos') || '{}'); const courses = JSON.parse(storage.getItem('cursos') || '{}'); const notes = JSON.parse(storage.getItem('notas') || '{}');
  const data = initialData(); data.subjects = names.filter((n):n is string=>typeof n==='string').map((name,i)=>({id:`subject-${i}`,name,notebooks:(Array.isArray(notebooks[name]) ? notebooks[name] : []).filter((c:{titulo:unknown})=>typeof c?.titulo==='string').map((c:{titulo:string;texto:string})=>({id:uid(),title:c.titulo,text:typeof c.texto==='string'?c.texto:'',updatedAt:new Date().toISOString()})),courses:(Array.isArray(courses[name])?courses[name]:[]).filter((c:{nome:unknown;link:unknown})=>typeof c?.nome==='string'&&typeof c.link==='string').flatMap((c:{nome:string;link:string})=>{try{return [{id:uid(),title:c.nome,url:courseUrl(c.link)}];}catch{return [];}})}));
  data.subjects.forEach(s=>{ const old=notes[s.name]; if(old) data.performance[s.id]={max:String(old.config?.maxNota || ''),min:String(old.config?.minBim || ''),limit:String(old.config?.limiteFaltas || ''),goal:String(old.config?.metaFaltas || ''),grades:(old.bimestres || []).map((g:{nota:string;faltas:string;comportamento:string;advertencias:string})=>({score:g.nota,absences:g.faltas,behavior:g.comportamento,warnings:g.advertencias})),sessions:(old.estudo || []).map((e:{data:string;minutos:number})=>({date:e.data,minutes:e.minutos}))}; }); return data;
 }
+
+export const defaultSchoolDays = [1,2,3,4,5];
+export const schoolYearDays = 200;
+export const maxAbsenceRate = 0.25;
+/** Aulas por semana × 4 semanas × 12 meses; reprova acima de 25% de faltas. */
+export function absenceBudget(perWeek: number, absences: number) { const total = Math.max(0, Math.floor(perWeek)) * 4 * 12; const limit = Math.floor(total * maxAbsenceRate); return { total, limit, absences, remaining: Math.max(0, limit - absences), over: absences > limit, frequency: total ? Math.round((1 - absences / total) * 1000) / 10 : null }; }
+export function dayBudget(absentDays: number) { return { total: schoolYearDays, limit: schoolYearDays * maxAbsenceRate, absences: absentDays, remaining: Math.max(0, schoolYearDays * maxAbsenceRate - absentDays), over: absentDays > schoolYearDays * maxAbsenceRate }; }
+export const subjectEmojis = ['📘','📐','🧮','🧪','🔭','🌱','🧠','🎨','🎵','🌍','📜','💻','⚽','🗣️','✍️','🧬'];
