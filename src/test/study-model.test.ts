@@ -11,3 +11,10 @@ describe('Course creation',()=>{
  it('migrates legacy notebooks and courses together',()=>{const records:Record<string,string>={materias:'["Física"]',cadernos:'{"Física":[{"titulo":"Aula 1","texto":"Anotações"}]}',cursos:'{"Física":[{"nome":"Curso 1","link":"https://example.com"}]}'};const loaded=loadData({getItem:key=>records[key]||null});expect(loaded.subjects[0]?.notebooks[0]?.text).toBe('Anotações');expect(loaded.subjects[0]?.courses[0]?.title).toBe('Curso 1');});
  it('does not swallow corrupt saved data',()=>expect(()=>loadData({getItem:()=>'{bad'})).toThrow());
 });
+
+import { absenceBudget, dayBudget } from '@/lib/study-model';
+describe('limite de faltas', () => {
+  it('3 aulas por semana = 144 aulas no ano e limite de 36 faltas (25%)', () => { const b = absenceBudget(3, 10); expect(b.total).toBe(144); expect(b.limit).toBe(36); expect(b.remaining).toBe(26); expect(b.over).toBe(false); });
+  it('reprova ao ultrapassar 25%', () => { expect(absenceBudget(3, 37).over).toBe(true); expect(absenceBudget(3, 36).over).toBe(false); });
+  it('200 dias letivos permitem 50 faltas', () => { expect(dayBudget(0).limit).toBe(50); expect(dayBudget(51).over).toBe(true); expect(dayBudget(20).remaining).toBe(30); });
+});
