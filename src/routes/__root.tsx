@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StudyProvider } from "@/components/study-provider";
 import { StudyLayout } from "@/components/study-layout";
+import { AuthGate } from "@/components/auth-gate";
 import { Toaster } from "sonner";
 
 function NotFoundComponent() {
@@ -123,7 +124,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <StudyProvider><StudyLayout><Outlet /></StudyLayout><Toaster position="bottom-center" /></StudyProvider>
+      <StudyProvider><AuthGate><StudyLayout><Outlet /></StudyLayout></AuthGate><Toaster position="bottom-center" /></StudyProvider>
     </QueryClientProvider>
   );
 }

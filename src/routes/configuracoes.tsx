@@ -1,8 +1,48 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
-import { Save,Download } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Save, Download, LogOut, Camera, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStudy } from '@/components/study-provider';
+import { useAuth } from '@/components/auth-gate';
+import { Avatar, useDisplayName } from '@/components/avatar';
 import { Button } from '@/components/ui/button';
-export const Route=createFileRoute('/configuracoes')({head:()=>({meta:[{title:'GStudy · Configurações'},{name:'description',content:'Personalize seu espaço de estudo e exporte seus dados.'},{property:'og:title',content:'GStudy · Configurações'},{property:'og:description',content:'Um espaço de estudo que tem a sua cara.'},{property:'og:type',content:'website'},{name:'twitter:card',content:'summary_large_image'}]}),component:Settings});
-function Settings(){const {data,update}=useStudy();const [name,setName]=useState<string|null>(null);return <><div className="eyebrow">DO SEU JEITO</div><div className="welcome-row"><div><h1>Configurações</h1><p>Os pequenos detalhes do seu espaço.</p></div></div><section className="settings-section"><h2>Seu perfil</h2><label className="form-label">Como podemos chamar você?<input className="form-input" value={name??data.name} maxLength={100} onChange={e=>setName(e.target.value)} placeholder="Seu nome"/></label><Button className="mt-3" onClick={()=>{if(update(d=>({...d,name:(name??data.name).trim()})))toast.success('Seu perfil foi atualizado.');}}><Save/>Salvar perfil</Button></section><section className="settings-section"><h2>Seus dados</h2><p>Seus cadernos e cursos ficam salvos somente neste navegador. Exporte uma cópia para guardá-los com você.</p><Button variant="outline" onClick={()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='gstudy-meus-estudos.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}><Download/>Exportar meus estudos</Button></section></>;}
+import { defaultSchoolDays } from '@/lib/study-model';
+
+export const Route = createFileRoute('/configuracoes')({ head: () => ({ meta: [{ title: 'GStudy · Configurações' }, { name: 'description', content: 'Personalize seu espaço de estudo e exporte seus dados.' }, { property: 'og:title', content: 'GStudy · Configurações' }, { property: 'og:description', content: 'Um espaço de estudo que tem a sua cara.' }, { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary_large_image' }] }), component: Settings });
+
+const weekNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+function resizeImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) return reject(new Error('Escolha um arquivo de imagem.'));
+    if (file.size > 10 * 1024 * 1024) return reject(new Error('Use uma imagem de até 10 MB.'));
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const s = 192; const c = document.createElement('canvas'); c.width = s; c.height = s; const ctx = c.getContext('2d')!; const m = Math.min(img.width, img.height); ctx.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, s, s); URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.85)); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler essa imagem.')); };
+    img.src = url;
+  });
+}
+
+function Settings() {
+  const { data, update } = useStudy(); const { user, signOut } = useAuth(); const display = useDisplayName();
+  const [name, setName] = useState<string | null>(null); const file = useRef<HTMLInputElement>(null);
+  const days = data.schoolDays ?? defaultSchoolDays;
+  return <>
+    <div className="eyebrow">DO SEU JEITO</div>
+    <div className="welcome-row"><div><h1>Configurações</h1><p>Os pequenos detalhes do seu espaço.</p></div></div>
+    <section className="settings-section"><h2>Seu perfil</h2>
+      <div className="profile-photo"><Avatar className="avatar-lg" /><div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={() => file.current?.click()}><Camera />Mudar foto</Button>
+        {data.avatar && <Button variant="ghost" size="sm" onClick={() => { if (update(d => ({ ...d, avatar: undefined }))) toast.success('Foto removida.'); }}><Trash2 />Remover</Button>}
+        <input ref={file} type="file" accept="image/*" hidden onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; try { const url = await resizeImage(f); if (update(d => ({ ...d, avatar: url }))) toast.success('Foto de perfil atualizada.'); } catch (err) { toast.error((err as Error).message); } }} />
+      </div></div>
+      <label className="form-label">Como podemos chamar você?<input className="form-input" value={name ?? data.name} maxLength={100} onChange={e => setName(e.target.value)} placeholder={display} /></label>
+      <Button className="mt-3" onClick={() => { if (update(d => ({ ...d, name: (name ?? data.name).trim() }))) toast.success('Seu perfil foi atualizado.'); }}><Save />Salvar perfil</Button>
+    </section>
+    <section className="settings-section"><h2>Dias de aula</h2><p>Esses dias aparecem liberados no calendário de presença.</p>
+      <div className="day-chips">{weekNames.map((n, i) => <button key={n} className={`day-chip ${days.includes(i) ? 'on' : ''}`} aria-pressed={days.includes(i)} onClick={() => update(d => { const cur = d.schoolDays ?? defaultSchoolDays; return { ...d, schoolDays: cur.includes(i) ? cur.filter(x => x !== i) : [...cur, i].sort() }; })}>{n}</button>)}</div>
+    </section>
+    <section className="settings-section"><h2>Seus dados</h2><p>Seus cadernos e cursos ficam salvos neste navegador. Exporte uma cópia para guardá-los com você.</p><Button variant="outline" onClick={() => { const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'gstudy-meus-estudos.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }}><Download />Exportar meus estudos</Button></section>
+    <section className="settings-section"><h2>Conta</h2><p>Conectado como {user.email}</p><Button variant="outline" onClick={signOut}><LogOut />Sair da conta</Button></section>
+  </>;
+}
