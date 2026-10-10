@@ -39,7 +39,7 @@ function LoginScreen() {
   const submit = async (e: FormEvent) => {
     e.preventDefault(); setError('');
     const parsed = schema.safeParse({ email, password });
-    if (!parsed.success) return setError(parsed.error.issues[0].message);
+    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? 'Dados inválidos.');
     setBusy(true);
     const res = mode === 'in'
       ? await supabase.auth.signInWithPassword(parsed.data)
