@@ -1,3 +1,4 @@
+import type React from 'react';
 import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { useRouter } from '@tanstack/react-router';
@@ -9,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { logo } from '@/lib/images';
 import { studyImage } from '@/lib/images';
 
-const AuthContext = createContext<{ user: User; signOut: () => Promise<void> } | null>(null);
+type AuthValue = { user: User; signOut: () => Promise<void> };
+const ag = globalThis as { __gstudyAuthContext?: React.Context<AuthValue | null> };
+const AuthContext = (ag.__gstudyAuthContext ??= createContext<AuthValue | null>(null));
 export const useAuth = () => { const c = useContext(AuthContext); if (!c) throw new Error('AuthGate missing'); return c; };
 
 const schema = z.object({ email: z.string().trim().email('Digite um e-mail válido.').max(255), password: z.string().min(6, 'A senha precisa de pelo menos 6 caracteres.').max(72) });
