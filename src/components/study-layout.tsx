@@ -3,7 +3,7 @@ import { Home, SlidersHorizontal, ChevronRight, Leaf, BookOpen, CalendarDays, Lo
 import { useAuth } from './auth-gate';
 import { Avatar, useDisplayName } from './avatar';
 import type { ReactNode } from 'react';
-import logo from '@/assets/logo.asset.json';
+import { logo } from '@/lib/images';
 import { useStudy } from './study-provider';
 import { Button } from '@/components/ui/button';
 export function StudyLayout({children}:{children:ReactNode}) { const {data}=useStudy(); const {signOut}=useAuth(); const path=useLocation({select:l=>l.pathname}); const name=useDisplayName();return <div className="app-shell">

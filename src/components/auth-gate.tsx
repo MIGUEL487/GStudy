@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable';
 import { Button } from '@/components/ui/button';
-import logo from '@/assets/logo.asset.json';
-import studyImage from '@/assets/study-background.asset.json';
+import { logo } from '@/lib/images';
+import { studyImage } from '@/lib/images';
 
 const AuthContext = createContext<{ user: User; signOut: () => Promise<void> } | null>(null);
 export const useAuth = () => { const c = useContext(AuthContext); if (!c) throw new Error('AuthGate missing'); return c; };

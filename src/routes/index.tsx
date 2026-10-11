@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useStudy } from '@/components/study-provider';
 import { CreateDialog } from '@/components/create-dialog';
 import { cleanName, uid, subjectEmojis } from '@/lib/study-model';
-import studyImage from '@/assets/study-background.asset.json';
+import { studyImage } from '@/lib/images';
 export const Route = createFileRoute('/')({head:()=>({meta:[{title:'GStudy · Meu espaço de estudo'},{name:'description',content:'Organize suas matérias, crie cadernos e reúna seus cursos no GStudy.'},{property:'og:title',content:'GStudy · Meu espaço de estudo'},{property:'og:description',content:'Seu ritmo. Sua jornada. Um espaço tranquilo para aprender.'},{property:'og:type',content:'website'},{name:'twitter:card',content:'summary_large_image'}]}),component:Index});
 function Index() {const {data,update,ready}=useStudy();const [creating,setCreating]=useState(false);const [picking,setPicking]=useState<string|null>(null);const totalNotes=data.subjects.reduce((n,s)=>n+s.notebooks.length,0);const totalCourses=data.subjects.reduce((n,s)=>n+s.courses.length,0);return <>
  <div className="eyebrow">UM NOVO DIA, NOVAS POSSIBILIDADES</div><div className="welcome-row"><div><h1>{data.name?`Olá, ${data.name.split(' ')[0]}.`:'Seu próximo capítulo.'}</h1><p>Que tal continuar evoluindo hoje? Um passo de cada vez.</p></div><span className="day-label"><Sprout size={14} className="inline mr-2"/>Aprender é cultivar o futuro.</span></div>
