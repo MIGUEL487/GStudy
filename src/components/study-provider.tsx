@@ -1,7 +1,11 @@
+import type React from 'react';
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { initialData, loadData, storageKey, type StudyData } from '@/lib/study-model';
-const StudyContext = createContext<{data:StudyData;ready:boolean;update:(fn:(d:StudyData)=>StudyData)=>boolean} | null>(null);
+type StudyValue={data:StudyData;ready:boolean;update:(fn:(d:StudyData)=>StudyData)=>boolean};
+// Keep one context instance across hot reloads so provider and consumers always match.
+const g=globalThis as {__gstudyContext?:React.Context<StudyValue|null>};
+const StudyContext=(g.__gstudyContext??=createContext<StudyValue|null>(null));
 export function StudyProvider({children}:{children:ReactNode}) {
  const [data,setData]=useState(initialData); const [ready,setReady]=useState(false); const current=useRef(data); const readable=useRef(true);
  useEffect(()=>{try {const loaded=loadData(localStorage);current.current=loaded;setData(loaded);}catch {readable.current=false;toast.error('Não foi possível carregar os dados deste navegador. Não sobrescreveremos seus dados.');}finally{setReady(true);}},[]);

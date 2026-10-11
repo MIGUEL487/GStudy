@@ -1,3 +1,4 @@
+import type React from 'react';
 import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { useRouter } from '@tanstack/react-router';
@@ -6,10 +7,12 @@ import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable';
 import { Button } from '@/components/ui/button';
-import logo from '@/assets/logo.asset.json';
-import studyImage from '@/assets/study-background.asset.json';
+import { logo } from '@/lib/images';
+import { studyImage } from '@/lib/images';
 
-const AuthContext = createContext<{ user: User; signOut: () => Promise<void> } | null>(null);
+type AuthValue = { user: User; signOut: () => Promise<void> };
+const ag = globalThis as { __gstudyAuthContext?: React.Context<AuthValue | null> };
+const AuthContext = (ag.__gstudyAuthContext ??= createContext<AuthValue | null>(null));
 export const useAuth = () => { const c = useContext(AuthContext); if (!c) throw new Error('AuthGate missing'); return c; };
 
 const schema = z.object({ email: z.string().trim().email('Digite um e-mail válido.').max(255), password: z.string().min(6, 'A senha precisa de pelo menos 6 caracteres.').max(72) });
@@ -32,7 +35,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={{ user, signOut }}>{children}</AuthContext.Provider>;
 }
 
+// O login com Google usa a hospedagem do Lovable; em hospedagens externas ele não existe.
+const externalHost = (h: string) => /(\.vercel\.app|\.netlify\.app|\.github\.io|\.pages\.dev)$/.test(h);
+
 function LoginScreen() {
+  const [googleOk, setGoogleOk] = useState(true);
+  useEffect(() => { setGoogleOk(!externalHost(window.location.hostname)); }, []);
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [sent, setSent] = useState(false);
@@ -59,8 +67,8 @@ function LoginScreen() {
       <h1>{mode === 'in' ? 'Bem-vindo(a) de volta!' : 'Quer ingressar nessa?'}</h1>
       <p className="page-subtitle">Seu ritmo. Sua jornada. Entre para continuar estudando.</p>
       {sent ? <p className="login-sent">Enviamos um link de confirmação para <b>{email}</b>. Abra seu e-mail para ativar a conta.</p> : <>
-        <Button variant="outline" className="w-full" disabled={busy} onClick={google}><GoogleMark />Continuar com o Google</Button>
-        <div className="login-or"><span>ou</span></div>
+        {googleOk && <><Button variant="outline" className="w-full" disabled={busy} onClick={google}><GoogleMark />Continuar com o Google</Button>
+        <div className="login-or"><span>ou</span></div></>}
         <form onSubmit={submit} className="grid gap-3">
           <label className="form-label">E-mail<input className="form-input" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
           <label className="form-label">Senha<input className="form-input" type="password" autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={e => setPassword(e.target.value)} /></label>
