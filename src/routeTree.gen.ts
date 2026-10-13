@@ -13,6 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CalendarioRouteImport } from './routes/calendario'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as AprenderIndexRouteImport } from './routes/aprender.index'
+import { Route as AprenderExplicacoesRouteImport } from './routes/aprender.explicacoes'
+import { Route as AprenderFeynmanRouteImport } from './routes/aprender.feynman'
+import { Route as AprenderFlashcardsRouteImport } from './routes/aprender.flashcards'
+import { Route as AprenderQuizRouteImport } from './routes/aprender.quiz'
 import { Route as CadernosNotebookIdRouteImport } from './routes/cadernos.$notebookId'
 import { Route as DesempenhoSubjectIdRouteImport } from './routes/desempenho.$subjectId'
 import { Route as MateriasSubjectIdRouteImport } from './routes/materias.$subjectId'
@@ -37,6 +41,26 @@ const AprenderIndexRoute = AprenderIndexRouteImport.update({
   path: '/aprender/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AprenderExplicacoesRoute = AprenderExplicacoesRouteImport.update({
+  id: '/aprender/explicacoes',
+  path: '/aprender/explicacoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AprenderFeynmanRoute = AprenderFeynmanRouteImport.update({
+  id: '/aprender/feynman',
+  path: '/aprender/feynman',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AprenderFlashcardsRoute = AprenderFlashcardsRouteImport.update({
+  id: '/aprender/flashcards',
+  path: '/aprender/flashcards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AprenderQuizRoute = AprenderQuizRouteImport.update({
+  id: '/aprender/quiz',
+  path: '/aprender/quiz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CadernosNotebookIdRoute = CadernosNotebookIdRouteImport.update({
   id: '/cadernos/$notebookId',
   path: '/cadernos/$notebookId',
@@ -57,6 +81,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/aprender/explicacoes': typeof AprenderExplicacoesRoute
+  '/aprender/feynman': typeof AprenderFeynmanRoute
+  '/aprender/flashcards': typeof AprenderFlashcardsRoute
+  '/aprender/quiz': typeof AprenderQuizRoute
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
@@ -66,6 +94,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/aprender/explicacoes': typeof AprenderExplicacoesRoute
+  '/aprender/feynman': typeof AprenderFeynmanRoute
+  '/aprender/flashcards': typeof AprenderFlashcardsRoute
+  '/aprender/quiz': typeof AprenderQuizRoute
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
@@ -76,6 +108,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/aprender/explicacoes': typeof AprenderExplicacoesRoute
+  '/aprender/feynman': typeof AprenderFeynmanRoute
+  '/aprender/flashcards': typeof AprenderFlashcardsRoute
+  '/aprender/quiz': typeof AprenderQuizRoute
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
@@ -87,6 +123,10 @@ export interface FileRouteTypes {
     | '/'
     | '/calendario'
     | '/configuracoes'
+    | '/aprender/explicacoes'
+    | '/aprender/feynman'
+    | '/aprender/flashcards'
+    | '/aprender/quiz'
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
     | '/materias/$subjectId'
@@ -96,6 +136,10 @@ export interface FileRouteTypes {
     | '/'
     | '/calendario'
     | '/configuracoes'
+    | '/aprender/explicacoes'
+    | '/aprender/feynman'
+    | '/aprender/flashcards'
+    | '/aprender/quiz'
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
     | '/materias/$subjectId'
@@ -105,6 +149,10 @@ export interface FileRouteTypes {
     | '/'
     | '/calendario'
     | '/configuracoes'
+    | '/aprender/explicacoes'
+    | '/aprender/feynman'
+    | '/aprender/flashcards'
+    | '/aprender/quiz'
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
     | '/materias/$subjectId'
@@ -115,6 +163,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CalendarioRoute: typeof CalendarioRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
+  AprenderExplicacoesRoute: typeof AprenderExplicacoesRoute
+  AprenderFeynmanRoute: typeof AprenderFeynmanRoute
+  AprenderFlashcardsRoute: typeof AprenderFlashcardsRoute
+  AprenderQuizRoute: typeof AprenderQuizRoute
   CadernosNotebookIdRoute: typeof CadernosNotebookIdRoute
   DesempenhoSubjectIdRoute: typeof DesempenhoSubjectIdRoute
   MateriasSubjectIdRoute: typeof MateriasSubjectIdRoute
@@ -151,6 +203,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AprenderIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aprender/explicacoes': {
+      id: '/aprender/explicacoes'
+      path: '/aprender/explicacoes'
+      fullPath: '/aprender/explicacoes'
+      preLoaderRoute: typeof AprenderExplicacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aprender/feynman': {
+      id: '/aprender/feynman'
+      path: '/aprender/feynman'
+      fullPath: '/aprender/feynman'
+      preLoaderRoute: typeof AprenderFeynmanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aprender/flashcards': {
+      id: '/aprender/flashcards'
+      path: '/aprender/flashcards'
+      fullPath: '/aprender/flashcards'
+      preLoaderRoute: typeof AprenderFlashcardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aprender/quiz': {
+      id: '/aprender/quiz'
+      path: '/aprender/quiz'
+      fullPath: '/aprender/quiz'
+      preLoaderRoute: typeof AprenderQuizRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cadernos/$notebookId': {
       id: '/cadernos/$notebookId'
       path: '/cadernos/$notebookId'
@@ -179,6 +259,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CalendarioRoute: CalendarioRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
+  AprenderExplicacoesRoute: AprenderExplicacoesRoute,
+  AprenderFeynmanRoute: AprenderFeynmanRoute,
+  AprenderFlashcardsRoute: AprenderFlashcardsRoute,
+  AprenderQuizRoute: AprenderQuizRoute,
   CadernosNotebookIdRoute: CadernosNotebookIdRoute,
   DesempenhoSubjectIdRoute: DesempenhoSubjectIdRoute,
   MateriasSubjectIdRoute: MateriasSubjectIdRoute,
