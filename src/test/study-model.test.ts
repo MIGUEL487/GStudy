@@ -18,3 +18,13 @@ describe('limite de faltas', () => {
   it('reprova ao ultrapassar 25%', () => { expect(absenceBudget(3, 37).over).toBe(true); expect(absenceBudget(3, 36).over).toBe(false); });
   it('200 dias letivos permitem 50 faltas', () => { expect(dayBudget(0).limit).toBe(50); expect(dayBudget(51).over).toBe(true); expect(dayBudget(20).remaining).toBe(30); });
 });
+
+import { calendarAbsences, classesOn } from '@/lib/study-model';
+describe('faltas pelo horário', () => {
+  const schedule = { rows: 3, cells: { '1': ['mat', 'mat', 'fis'], '2': ['fis', '', ''] } };
+  it('conta aulas da matéria no dia da semana', () => { expect(classesOn(schedule, 1, 'mat')).toBe(2); expect(classesOn(schedule, 2, 'mat')).toBe(0); });
+  it('falta numa segunda soma 2 aulas de matemática e 1 de física', () => {
+    const data = { schedule, attendance: { '2026-10-12': 'absent' as const, '2026-10-13': 'present' as const } };
+    expect(calendarAbsences(data, 'mat')).toBe(2); expect(calendarAbsences(data, 'fis')).toBe(1);
+  });
+});
