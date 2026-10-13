@@ -3,7 +3,7 @@ export type Course = { id: string; title: string; url: string };
 export type Subject = { id: string; name: string; emoji?: string | undefined; notebooks: Notebook[]; courses: Course[] };
 export type Grade = { score: string; absences: string; behavior: string; warnings: string };
 export type Performance = { max: string; min: string; limit: string; goal: string; perWeek?: string; grades: Grade[]; sessions: { date: string; minutes: number }[] };
-export type StudyData = { version: 1; name: string; avatar?: string | undefined; schoolDays?: number[]; attendance?: Record<string,'present'|'absent'>; subjects: Subject[]; performance: Record<string, Performance> };
+export type StudyData = { version: 1; name: string; avatar?: string | undefined; schoolDays?: number[]; attendance?: Record<string,'present'|'absent'>; schedule?: Schedule; subjects: Subject[]; performance: Record<string, Performance> };
 export const storageKey = 'gstudy.workspace.v1';
 export const uid = () => crypto.randomUUID();
 export function initialData(): StudyData { return { version: 1, name: '', subjects: ['Matemática', 'Rotina', 'Física'].map((name,i) => ({id: `subject-${i}`,name, notebooks: [], courses: []})), performance: {} }; }
@@ -29,3 +29,12 @@ export const maxAbsenceRate = 0.25;
 export function absenceBudget(perWeek: number, absences: number) { const total = Math.max(0, Math.floor(perWeek)) * 4 * 12; const limit = Math.floor(total * maxAbsenceRate); return { total, limit, absences, remaining: Math.max(0, limit - absences), over: absences > limit, frequency: total ? Math.round((1 - absences / total) * 1000) / 10 : null }; }
 export function dayBudget(absentDays: number) { return { total: schoolYearDays, limit: schoolYearDays * maxAbsenceRate, absences: absentDays, remaining: Math.max(0, schoolYearDays * maxAbsenceRate - absentDays), over: absentDays > schoolYearDays * maxAbsenceRate }; }
 export const subjectEmojis = ['📘','📐','🧮','🧪','🔭','🌱','🧠','🎨','🎵','🌍','📜','💻','⚽','🗣️','✍️','🧬'];
+
+/** Horário semanal: cells[dia da semana][linha] = id da matéria ('' = vago). */
+export type Schedule = { rows: number; cells: Record<string, string[]> };
+export const emptySchedule = (): Schedule => ({ rows: 1, cells: {} });
+/** Aulas da matéria num dia da semana, segundo o horário. */
+export function classesOn(schedule: Schedule | undefined, weekday: number, subjectId: string) { return (schedule?.cells[String(weekday)] ?? []).slice(0, schedule?.rows ?? 0).filter(id => id === subjectId).length; }
+/** Faltas vindas do calendário: cada dia marcado como falta soma as aulas daquela matéria no dia. */
+export function calendarAbsences(data: Pick<StudyData,'attendance'|'schedule'>, subjectId: string) { return Object.entries(data.attendance ?? {}).filter(([,v]) => v === 'absent').reduce((n,[date]) => { const [y,m,d] = date.split('-').map(Number); return n + classesOn(data.schedule, new Date(y!, m!-1, d!).getDay(), subjectId); }, 0); }
+export function addSubject(data: StudyData, name: string): { data: StudyData; id: string } { const clean = cleanName(name); const id = uid(); return { id, data: { ...data, subjects: [...data.subjects, { id, name: clean, emoji: '📘', notebooks: [], courses: [] }] } }; }
