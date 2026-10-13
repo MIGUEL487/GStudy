@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarCheck, Table2 } from 'lucide-react';
+import { ScheduleTable } from '@/components/schedule-table';
 import { useStudy } from '@/components/study-provider';
 import { Button } from '@/components/ui/button';
 import { dayBudget, defaultSchoolDays } from '@/lib/study-model';
@@ -12,6 +13,7 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 function CalendarPage() {
   const { data, update } = useStudy();
+  const [tab, setTab] = useState<'presenca' | 'horario'>('presenca');
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const days = data.schoolDays ?? defaultSchoolDays; const att = data.attendance ?? {};
   const cells: (Date | null)[] = Array(month.getDay()).fill(null);
@@ -23,6 +25,8 @@ function CalendarPage() {
   return <>
     <div className="eyebrow">UM DIA DE CADA VEZ</div>
     <div className="welcome-row"><div><h1>Calendário de presença</h1><p>Toque no dia: uma vez para “fui”, duas para “faltei”, três para limpar.</p></div></div>
+    <div className="tabs"><Button variant="ghost" className={tab === 'presenca' ? 'selected' : ''} onClick={() => setTab('presenca')}><CalendarCheck />Presença</Button><Button variant="ghost" className={tab === 'horario' ? 'selected' : ''} onClick={() => setTab('horario')}><Table2 />Horário das aulas</Button></div>
+    {tab === 'horario' ? <ScheduleTable /> : <div className="page-enter">
     <div className={`absence-box ${b.over ? 'danger' : ''}`}>
       <div><small>Dias presentes</small><strong>{present}</strong></div>
       <div><small>Faltas</small><strong>{absent}</strong></div>
@@ -38,6 +42,7 @@ function CalendarPage() {
           return <button key={key} disabled={!school && !st} onClick={() => toggle(key)} aria-label={`${d.toLocaleDateString('pt-BR')}: ${st === 'present' ? 'presente' : st === 'absent' ? 'falta' : 'sem registro'}`} className={`calendar-day ${st ?? ''} ${key === today ? 'today' : ''} ${school ? '' : 'off'}`}><span>{d.getDate()}</span><small>{st === 'present' ? 'Fui' : st === 'absent' ? 'Faltei' : ''}</small></button>; })}
       </div>
     </div>
-    <p className="page-subtitle mt-4">Os dias de aula podem ser ajustados em Configurações.</p>
+    <p className="page-subtitle mt-4">Quando você marca “Faltei”, as aulas daquele dia (do seu Horário) entram nas faltas de cada matéria. Os dias de aula podem ser ajustados em Configurações.</p>
+    </div>}
   </>;
 }
