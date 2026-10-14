@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
+import { requireStudyAuth } from '@/lib/study-auth-middleware';
 import { z } from 'zod';
 
 const str = (n: number) => z.string().max(n);
@@ -19,7 +19,7 @@ const addInput = z.object({
 });
 
 export const addMaterial = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireStudyAuth])
   .inputValidator((i: unknown) => addInput.parse(i))
   .handler(async ({ data, context }) => {
     const { aiText } = await import('./ai.server');
@@ -69,7 +69,7 @@ export type Cards = { cards: { front: string; back: string }[] };
 export type Explain = { topics: { title: string; explanation: string; example: string }[] };
 
 export const generateActivity = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireStudyAuth])
   .inputValidator((i: unknown) => genInput.parse(i))
   .handler(async ({ data, context }) => {
     const { aiObject } = await import('./ai.server');
@@ -97,7 +97,7 @@ const feynInput = z.object({
 });
 
 export const feynmanReply = createServerFn({ method: 'POST' })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireStudyAuth])
   .inputValidator((i: unknown) => feynInput.parse(i))
   .handler(async ({ data, context }) => {
     const { aiText } = await import('./ai.server');

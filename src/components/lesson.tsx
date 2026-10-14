@@ -3,10 +3,10 @@ import { X, Flame, Gem } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 export function LessonShell({ progress, children, hearts, title }: { progress: number; children: ReactNode; hearts?: number; title: string }) {
-  return <div className="lesson page-enter">
+  return <div className="lesson">
     <div className="lesson-top">
       <Link to="/aprender" className="lesson-close" aria-label="Sair da lição"><X size={20} /></Link>
-      <div className="lesson-bar" role="progressbar" aria-label={title} aria-valuenow={Math.round(progress * 100)}><span style={{ width: `${Math.max(3, progress * 100)}%` }} /></div>
+      <div className="lesson-bar" role="progressbar" aria-label={title} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}><span style={{ width: `${Math.max(3, progress * 100)}%` }} /></div>
       {hearts !== undefined && <span className="lesson-hearts" aria-label={`${hearts} vidas`}>❤️ {hearts}</span>}
     </div>
     {children}
@@ -14,7 +14,7 @@ export function LessonShell({ progress, children, hearts, title }: { progress: n
 }
 
 export function Thinking({ text }: { text: string }) {
-  return <div className="lesson-thinking"><div className="owl-bounce">🦉</div><p>{text}</p><div className="dots"><i /><i /><i /></div></div>;
+  return <div className="lesson-thinking" role="status" aria-live="polite"><div className="owl-bounce" aria-hidden="true">🦉</div><p>{text}</p><div className="dots" aria-hidden="true"><i /><i /><i /></div></div>;
 }
 
 export function Finish({ xp, title, line, again }: { xp: number; title: string; line: string; again: () => void }) {

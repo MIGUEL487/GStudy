@@ -25,11 +25,15 @@ function FeynmanPage() {
   const board = useRef<Board>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [msgs, busy]);
-  useEffect(() => { if (started && !busy) input.current?.focus(); }, [started, busy]);
+  useEffect(() => {
+    const chat = end.current?.parentElement;
+    if (chat) chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
+  }, [msgs, busy]);
+  useEffect(() => { if (started && !busy) input.current?.focus({ preventScroll: true }); }, [started, busy]);
 
   const start = () => { if (!topic.trim()) return; setStarted(true); setMsgs([{ role: 'assistant', text: `Oi, prof! 👋 Hoje a aula é sobre **${topic.trim()}**, né? Eu não sei nada disso ainda… pode começar do começo? Se quiser, desenha na lousa!` }]); };
   const send = async () => {
+    if (busy) return;
     const shot = board.current?.snapshot();
     if (!text.trim() && !shot) return;
     const mine: Msg = { role: 'user', text: text.trim(), ...(shot ? { board: shot } : {}) };

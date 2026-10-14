@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
-import { useServerFn } from '@tanstack/react-start';
-import { generateActivity, type Quiz } from '@/lib/learn.functions';
-import { awardXp, idsFrom } from '@/lib/learn-client';
+import { useEffect, useState } from 'react';
+import { awardXp } from '@/lib/learn-client';
+import { useGeneratedActivity } from '@/hooks/use-generated-activity';
 import { LessonShell, Thinking, Finish, ErrorBox } from '@/components/lesson';
 
 export const Route = createFileRoute('/aprender/quiz')({
@@ -13,17 +12,15 @@ export const Route = createFileRoute('/aprender/quiz')({
 
 function QuizPage() {
   const { m } = Route.useSearch();
-  const gen = useServerFn(generateActivity);
-  const [quiz, setQuiz] = useState<Quiz | null>(null); const [error, setError] = useState('');
+  const { result, error, reload: load } = useGeneratedActivity('quiz', m);
+  const quiz = result?.mode === 'quiz' ? result.quiz : null;
   const [i, setI] = useState(0); const [pick, setPick] = useState<number | null>(null); const [checked, setChecked] = useState(false);
   const [hearts, setHearts] = useState(3); const [right, setRight] = useState(0); const [done, setDone] = useState(false);
-  const load = useCallback(() => { setQuiz(null); setError(''); setI(0); setPick(null); setChecked(false); setHearts(3); setRight(0); setDone(false);
-    gen({ data: { mode: 'quiz', ids: idsFrom(m) } }).then(r => { if (r.mode === 'quiz') setQuiz(r.quiz); }).catch(e => setError(e instanceof Error ? e.message : 'Erro ao gerar o quiz.')); }, [gen, m]);
-  useEffect(load, [load]);
-  if (error) return <LessonShell progress={0} title="Quiz"><ErrorBox message={error} retry={load} /></LessonShell>;
-  if (!quiz) return <LessonShell progress={0} title="Quiz"><Thinking text="Montando perguntas com o seu material…" /></LessonShell>;
+  useEffect(() => { if (!quiz) { setI(0); setPick(null); setChecked(false); setHearts(3); setRight(0); setDone(false); } }, [quiz]);
+  if (error) return <LessonShell progress={0} hearts={hearts} title="Quiz"><ErrorBox message={error} retry={load} /></LessonShell>;
+  if (!quiz) return <LessonShell progress={0} hearts={hearts} title="Quiz"><Thinking text="Montando perguntas com o seu material…" /></LessonShell>;
   const q = quiz.questions[i];
-  if (done || !q) return <LessonShell progress={1} title="Quiz"><Finish xp={right * 10} title={hearts > 0 ? 'Lição completa!' : 'Acabaram as vidas'} line={`Você acertou ${right} de ${quiz.questions.length}.`} again={load} /></LessonShell>;
+  if (done || !q) return <LessonShell progress={1} hearts={hearts} title="Quiz"><Finish xp={right * 10} title={hearts > 0 ? 'Lição completa!' : 'Acabaram as vidas'} line={`Você acertou ${right} de ${quiz.questions.length}.`} again={load} /></LessonShell>;
   const ok = pick === q.answer;
   const next = () => {
     const last = i + 1 >= quiz.questions.length || (!ok && hearts - 1 <= 0);

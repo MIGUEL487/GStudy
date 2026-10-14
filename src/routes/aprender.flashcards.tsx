@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
-import { useServerFn } from '@tanstack/react-start';
-import { generateActivity } from '@/lib/learn.functions';
-import { awardXp, idsFrom } from '@/lib/learn-client';
+import { useEffect, useState } from 'react';
+import { awardXp } from '@/lib/learn-client';
+import { useGeneratedActivity } from '@/hooks/use-generated-activity';
 import { LessonShell, Thinking, Finish, ErrorBox } from '@/components/lesson';
 
 export const Route = createFileRoute('/aprender/flashcards')({
@@ -14,12 +13,14 @@ export const Route = createFileRoute('/aprender/flashcards')({
 type Card = { front: string; back: string };
 function CardsPage() {
   const { m } = Route.useSearch();
-  const gen = useServerFn(generateActivity);
+  const { result, error, reload: load } = useGeneratedActivity('flashcards', m);
   const [queue, setQueue] = useState<Card[] | null>(null); const [total, setTotal] = useState(0); const [known, setKnown] = useState(0);
-  const [flip, setFlip] = useState(false); const [error, setError] = useState(''); const [round, setRound] = useState(0);
-  const load = useCallback(() => { setQueue(null); setError(''); setKnown(0); setFlip(false);
-    gen({ data: { mode: 'flashcards', ids: idsFrom(m) } }).then(r => { if (r.mode === 'flashcards') { setQueue(r.cards.cards); setTotal(r.cards.cards.length); } }).catch(e => setError(e instanceof Error ? e.message : 'Erro ao gerar cartas.')); }, [gen, m]);
-  useEffect(load, [load]);
+  const [flip, setFlip] = useState(false); const [round, setRound] = useState(0);
+  useEffect(() => {
+    setKnown(0); setFlip(false); setRound(0);
+    if (result?.mode === 'flashcards') { setQueue(result.cards.cards); setTotal(result.cards.cards.length); }
+    else { setQueue(null); setTotal(0); }
+  }, [result]);
   if (error) return <LessonShell progress={0} title="Flashcards"><ErrorBox message={error} retry={load} /></LessonShell>;
   if (!queue) return <LessonShell progress={0} title="Flashcards"><Thinking text="Embaralhando suas cartas…" /></LessonShell>;
   const card = queue[0];

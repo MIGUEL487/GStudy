@@ -1,9 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
-import { useServerFn } from '@tanstack/react-start';
+import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { generateActivity, type Explain } from '@/lib/learn.functions';
-import { awardXp, idsFrom } from '@/lib/learn-client';
+import { awardXp } from '@/lib/learn-client';
+import { useGeneratedActivity } from '@/hooks/use-generated-activity';
 import { LessonShell, Thinking, Finish, ErrorBox } from '@/components/lesson';
 
 export const Route = createFileRoute('/aprender/explicacoes')({
@@ -14,11 +13,10 @@ export const Route = createFileRoute('/aprender/explicacoes')({
 
 function ExplainPage() {
   const { m } = Route.useSearch();
-  const gen = useServerFn(generateActivity);
-  const [data, setData] = useState<Explain | null>(null); const [i, setI] = useState(0); const [error, setError] = useState('');
-  const load = useCallback(() => { setData(null); setError(''); setI(0);
-    gen({ data: { mode: 'explain', ids: idsFrom(m) } }).then(r => { if (r.mode === 'explain') setData(r.explain); }).catch(e => setError(e instanceof Error ? e.message : 'Erro ao gerar explicações.')); }, [gen, m]);
-  useEffect(load, [load]);
+  const { result, error, reload: load } = useGeneratedActivity('explain', m);
+  const data = result?.mode === 'explain' ? result.explain : null;
+  const [i, setI] = useState(0);
+  useEffect(() => { setI(0); }, [data]);
   if (error) return <LessonShell progress={0} title="Explicações"><ErrorBox message={error} retry={load} /></LessonShell>;
   if (!data) return <LessonShell progress={0} title="Explicações"><Thinking text="Preparando explicações simples…" /></LessonShell>;
   const t = data.topics[i];
