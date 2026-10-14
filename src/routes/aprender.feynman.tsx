@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { useServerFn } from '@tanstack/react-start';
 import ReactMarkdown from 'react-markdown';
 import { Eraser, Send, Trash2 } from 'lucide-react';
@@ -78,7 +78,6 @@ function FeynmanPage() {
 }
 
 type Board = { snapshot: () => string | undefined; clear: () => void };
-import { forwardRef, useImperativeHandle } from 'react';
 const Whiteboard = forwardRef<Board>(function Whiteboard(_, ref) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [color, setColor] = useState(colors[0]!); const [erase, setErase] = useState(false);

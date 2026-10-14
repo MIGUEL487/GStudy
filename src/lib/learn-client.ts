@@ -16,7 +16,7 @@ export function useMaterials() {
     setItems((data as Material[]) ?? []);
   }, []);
   useEffect(() => { void load(); }, [load]);
-  const remove = async (id: string) => { const { error } = await supabase.from('study_materials').delete().eq('id', id); if (error) return toast.error('Não foi possível apagar.'); setItems(i => i?.filter(m => m.id !== id) ?? null); };
+  const remove = async (id: string) => { const { error } = await supabase.from('study_materials').delete().eq('id', id); if (error) { toast.error('Não foi possível apagar.'); return; } setItems(i => i?.filter(m => m.id !== id) ?? null); };
   return { items, reload: load, remove };
 }
 

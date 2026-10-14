@@ -83,7 +83,7 @@ function AddMaterial({ onAdded }: { onAdded: () => void }) {
     if (!t) return setError('Dê um nome ao material.');
     try {
       setBusy(true);
-      const payload: Parameters<typeof add>[0]['data'] = { title: t.slice(0, 120), kind };
+      const payload: { title: string; kind: typeof kind; text?: string; url?: string; file?: { dataUrl: string; mediaType: string; name: string } } = { title: t.slice(0, 120), kind };
       if (kind === 'link') { if (!url.trim()) throw new Error('Cole um link.'); payload.url = url.trim(); }
       if (kind === 'summary') { if (text.trim().length < 20) throw new Error('Escreva um pouco mais (pelo menos 20 letras).'); payload.text = text; }
       if (kind === 'file') {
