@@ -1,96 +1,128 @@
-# GStudy — login e IA na Vercel
+# GStudy v5 — Google + Notion
 
-Esta versão mantém as imagens, cores, fontes, cartões, telas e navegação do ZIP enviado. As mudanças são o fluxo de e-mail e recuperação de senha, a estabilidade do carregamento e a configuração da sessão/IA fora do Lovable.
+Esta versão usa Google e Notion na entrada, sem depender de e-mail de confirmação enviado pelo SMTP do aplicativo. Imagens, fontes, cores e estrutura visual foram preservadas, mantendo as correções solicitadas para estabilizar as animações de carregamento. Há uma nova seção Notion nas configurações e um cronograma importado no calendário.
 
-## 1. Aplicar os arquivos
+## 1. Publicar no GitHub e na Vercel
 
-Extraia o ZIP e abra a pasta que contém `package.json`. Substitua os arquivos do seu projeto pelos arquivos desta versão. Preserve seu `.env` local: ele não está no ZIP. O `.env.example` mostra os campos necessários. `node_modules` e arquivos compilados não precisam ser enviados ao GitHub.
+1. Extraia o ZIP e abra a pasta interna `notebook-quest-web-main`, que contém `package.json` e `src`.
+2. No GitHub Desktop, selecione o repositório e use **Repository → Show in Explorer**.
+3. Copie o conteúdo da pasta interna extraída para a raiz do repositório, substituindo os arquivos. Preserve `.git` e seu `.env` local. Não coloque uma pasta de projeto dentro de outra.
+4. Faça **Commit** e **Push origin** para a branch publicada pela Vercel. Não force o push.
+5. Confira que o deployment **Production** corresponde ao commit novo. A raiz configurada deve conter `package.json`. Use `npm run build`: é um projeto TanStack Start com servidor Nitro.
+6. Salve as variáveis em **Settings → Environment Variables**, no ambiente Production, e faça **Redeploy**. As variáveis `VITE_` são incluídas durante a compilação.
 
-No PowerShell, dentro dessa pasta:
+A versão nova mostra dois botões na entrada: Google e Notion, sem campo de senha.
+
+## 2. Variáveis do Supabase
+
+No `.env` local, ao lado de `package.json`, ou nas variáveis da Vercel:
+
+```dotenv
+SUPABASE_PROJECT_ID=axbuxmtshbflpiguoips
+SUPABASE_URL=https://axbuxmtshbflpiguoips.supabase.co
+SUPABASE_PUBLISHABLE_KEY=COLE_SUA_CHAVE_PUBLICA
+VITE_SUPABASE_PROJECT_ID=axbuxmtshbflpiguoips
+VITE_SUPABASE_URL=https://axbuxmtshbflpiguoips.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=COLE_A_MESMA_CHAVE_PUBLICA
+```
+
+PROJECT_ID recebe apenas o identificador; URL recebe a URL completa. Use a mesma chave pública dos dois lados. A chave secreta/service_role não é necessária. Não envie senhas ou chaves secretas no chat.
+
+## 3. Google — já configurado por você
+
+Confira **Authentication → Sign In / Providers → Google** habilitado. Em **Authentication → URL Configuration**:
+
+- Site URL: `https://gstudy.vercel.app`
+- Redirect URLs: `https://gstudy.vercel.app/` e `https://gstudy.vercel.app/configuracoes?notion=connected`
+- Para desenvolvimento local, acrescente `http://localhost:8080/` e `http://localhost:8080/configuracoes?notion=connected`.
+
+O callback do provedor Google é `https://axbuxmtshbflpiguoips.supabase.co/auth/v1/callback`.
+
+O botão usa diretamente o Supabase em qualquer hospedagem. Se a sessão antiga pertencer a outro projeto, saia e entre novamente após publicar.
+
+Para impedir também cadastro por senha via API, desative o provedor **Email** no Supabase. O código removeu esse fluxo da interface, mas não altera seu painel administrativo. Não apague usuários existentes.
+
+## 4. Criar a conexão pública do Notion
+
+A conexão pública permite que cada pessoa autorize o próprio espaço.
+
+1. Em [My integrations do Notion](https://www.notion.so/my-integrations), crie a integração GStudy como **Public integration**.
+2. Ative **Read content** e **Read user information including email addresses**. A importação não precisa editar páginas.
+3. Cadastre o Redirect URI `https://axbuxmtshbflpiguoips.supabase.co/auth/v1/callback`.
+4. Preencha os campos de identificação/publicação solicitados pelo Notion. Copie **OAuth client ID** e **OAuth client secret**.
+5. No Supabase, em **Authentication → Sign In / Providers → Notion**, habilite o provedor e salve essas credenciais.
+6. Habilite **Allow manual linking** nas configurações de autenticação para conectar Notion à conta que entrou com Google. A posição desse controle pode variar no painel.
+
+Referências: [Notion no Supabase](https://supabase.com/docs/guides/auth/social-login/auth-notion), [vínculo de identidades](https://supabase.com/docs/guides/auth/auth-identity-linking).
+
+## 5. Preparar o banco
+
+Se as tabelas `study_materials` e `learner_stats` ainda não existem, execute primeiro `drizzle/migrations/0000_learning.sql` no SQL Editor do Supabase. Não repita essa migração inicial se as tabelas já existem.
+
+Depois execute **todo** o arquivo `drizzle/migrations/0001_notion.sql`. Entreguei também uma cópia chamada `GSTUDY-NOTION-v5.sql`.
+
+A migração cria as tabelas do Notion, regras de acesso por usuário e uma função para salvar página e material na mesma transação. Pode ser executada novamente e não apaga materiais existentes. Use o SQL Editor do banco, não o explorador de logs.
+
+## 6. Variáveis do Notion no servidor
+
+Na Vercel, acrescente:
+
+```dotenv
+NOTION_TOKEN_ENCRYPTION_KEY=CHAVE_ALEATORIA_COM_64_CARACTERES_HEXADECIMAIS
+NOTION_CLIENT_ID=SEU_OAUTH_CLIENT_ID_DO_NOTION
+NOTION_CLIENT_SECRET=SEU_OAUTH_CLIENT_SECRET_DO_NOTION
+```
+
+Gere a chave de criptografia no seu computador:
+
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+Copie o resultado apenas para `NOTION_TOKEN_ENCRYPTION_KEY`. Não publique essa chave nem use prefixo `VITE_` nessas três variáveis. Mantenha a mesma chave entre deployments: trocá-la exige reconectar os usuários.
+
+As credenciais OAuth são as mesmas cadastradas no Supabase. Elas permitem renovar a autorização quando o Notion fornece um refresh token; quando não for possível renovar, o aplicativo pedirá uma nova conexão.
+
+Os tokens recebidos no retorno OAuth são enviados ao servidor autenticado. O banco guarda tokens criptografados com AES-256-GCM, vinculados ao usuário. Após salvar, o código substitui a sessão do navegador por uma sessão apenas do Supabase. Os textos importados ficam na conta com regras de acesso por usuário.
+
+Faça **Redeploy** depois de salvar. Localmente, preencha essas variáveis no `.env` e reinicie o Vite.
+
+## 7. Como funciona para cada pessoa
+
+- Entra com Notion ou entra com Google e usa **Configurações → Seus estudos do Notion → Conectar Notion**.
+- Escolhe as páginas autorizadas durante a conexão. O aplicativo não recebe acesso a páginas privadas que não foram compartilhadas.
+- Em **Ver páginas autorizadas**, sugestões de estudo vêm marcadas pelo título e pelos nomes das matérias existentes. A pessoa revisa a seleção antes de importar; não é uma análise de todo o conteúdo do espaço.
+- Use **Abrir tabela** para selecionar suas linhas e **Carregar mais** para continuar a listagem.
+- **Matéria de destino** é opcional. Preenchida, vale para os itens selecionados; vazia, o app procura campos Matéria/Disciplina/Subject/Course, títulos e a página superior. Sem correspondência, guarda na matéria Notion. Matérias ausentes são criadas ao importar.
+- As páginas viram cadernos e materiais da conta em **Teste seu conhecimento**, disponíveis para quiz, flashcards, explicações e Feynman.
+- Datas em campos do Notion ou no texto (`DD/MM/AAAA` ou `AAAA-MM-DD`) aparecem no **Cronograma do Notion**, no calendário. Notas sem data continuam como anotações. Horários semanais não são deduzidos de texto ambíguo.
+- Para atualizar, selecione e importe novamente. O material é atualizado; edições locais do caderno são preservadas em uma cópia. A atualização é manual, sem sincronização contínua.
+- Subpáginas, tabelas e relações são itens separados. Compartilhe-os e importe-os também; importar a página pai não copia automaticamente todas as páginas relacionadas.
+- A importação lê texto, blocos internos, listas, tabelas simples e legendas. Não baixa nem interpreta imagens, PDFs ou anexos; esses casos geram aviso.
+- Cada página aceita até 200 mil caracteres, 1500 blocos, 12 níveis e 200 datas. Divida páginas maiores: a operação falha em vez de salvar conteúdo cortado. Para uma atividade de IA, selecione materiais que somem até 90 mil caracteres.
+- **Desconectar importação** remove as credenciais guardadas pelo app e mantém as anotações importadas. Para retirar o acesso no provedor, remova também a conexão GStudy no Notion.
+
+Materiais do Notion ficam na conta e podem ser recuperados em outro navegador. Cadernos manuais, presença, horários e perfil continuam no armazenamento local, separados por conta. Os dados locais antigos são atribuídos à primeira conta que entrar nesta versão naquele navegador; a cópia antiga é preservada. Use **Exportar meus estudos** para ter uma cópia local.
+
+Referência sobre as páginas disponíveis para busca: [API de busca do Notion](https://developers.notion.com/reference/post-search).
+
+## 8. IA / AionLabs
+
+Google e importação do Notion não precisam de chave de IA. Para gerar atividades, mantenha no servidor `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` e `AI_API_MODE=chat` com os valores do provedor. Não use prefixo `VITE_` para a chave de IA.
+
+O modelo precisa suportar a operação solicitada; desenhos e PDFs exigem suporte a essas entradas. A troca de login não corrige credenciais ou créditos recusados pela IA.
+
+## 9. Abrir no computador
+
+Abra o PowerShell na pasta que contém `package.json`:
 
 ```powershell
 npm.cmd install
 npm.cmd run dev
 ```
 
-Abra a URL `Local` mostrada no terminal. Atualize seu repositório para a Vercel publicar a nova versão.
+Mantenha o terminal aberto e acesse o endereço exibido pelo Vite, normalmente `http://localhost:8080/`. O arquivo deve se chamar `.env`, e não `.env.example`. Reinicie o Vite depois de alterá-lo.
 
-## 2. Exigir confirmação por e-mail
+## Conferência desta entrega
 
-No projeto Supabase `axbuxmtshbflpiguoips`, abra **Authentication → Sign In / Providers → Email** (em algumas versões: **Providers → Email**). Ative **Enable Email provider**, **Allow new users to sign up** e **Confirm email**. A confirmação é uma configuração do servidor: o código do navegador não consegue ativar essa opção.
-
-Na consulta pública feita em 14/10/2026, este projeto já tinha e-mail habilitado, cadastro permitido e confirmação obrigatória. Mantenha essas opções. A consulta não enviou nenhuma mensagem e não acessou contas de usuários.
-
-Com `Confirm email` ligado, o cadastro aguarda o link de confirmação antes de permitir o login. Se o Supabase retornar uma sessão imediata, o aplicativo encerra essa sessão e avisa que a confirmação está desativada, sem anunciar um envio inexistente. Contas antigas que já foram confirmadas automaticamente continuam confirmadas; ligar a opção protege os cadastros novos.
-
-Mantenha o **Custom SMTP** do Brevo ou Resend configurado em **Authentication → Emails → SMTP Settings**. O cadastro e o botão **Esqueci a senha** usam esse SMTP. As credenciais SMTP ficam no painel Supabase, não no `.env` do navegador.
-
-Em **Authentication → URL Configuration**:
-
-- **Site URL:** `https://gstudy.vercel.app`
-- **Redirect URLs:** `https://gstudy.vercel.app/` e `https://gstudy.vercel.app/?auth=recovery`
-- Para uso local, adicione `http://localhost:8080/` e `http://localhost:8080/?auth=recovery` (use a porta real do terminal).
-
-O aplicativo usa o domínio onde o usuário solicitou o e-mail. Configure também as URLs exatas de outros domínios que você queira usar. O link de recuperação abre a tela de nova senha, inclusive se o link criar uma sessão autenticada. Depois da troca, o aplicativo pede login com a nova senha. Links expirados mostram uma mensagem para solicitar outro.
-
-Se você personalizou os templates, preserve o link `{{ .ConfirmationURL }}` nos modelos **Confirm signup** e **Reset password**.
-
-## 3. Corrigir a configuração do Supabase na Vercel
-
-Abra **Vercel → GStudy → Settings → Environment Variables**. Configure para Production e para Preview, se usar previews:
-
-| Variável | Valor |
-| --- | --- |
-| `SUPABASE_URL` | `https://axbuxmtshbflpiguoips.supabase.co` |
-| `VITE_SUPABASE_URL` | o mesmo URL |
-| `SUPABASE_PUBLISHABLE_KEY` | chave pública desse projeto |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | a mesma chave pública |
-| `SUPABASE_PROJECT_ID` | `axbuxmtshbflpiguoips` |
-| `VITE_SUPABASE_PROJECT_ID` | `axbuxmtshbflpiguoips` |
-
-Depois faça **Deployments → Redeploy**. As variáveis `VITE_*` entram durante a compilação; alterar apenas o painel sem publicar novamente não atualiza o navegador. Saia da conta e entre novamente se mudou de projeto Supabase.
-
-O servidor agora aceita as variáveis públicas como fallback, detecta chaves divergentes e valida a sessão no serviço Auth do projeto. O navegador renova uma sessão que estiver perto de expirar antes de chamar a IA. Não use `service_role`, `sb_secret_*`, chave SMTP ou chave de IA em variáveis `VITE_*`.
-
-## 4. Configurar a IA — necessário na sua Vercel
-
-Você confirmou que `LOVABLE_API_KEY` não está configurada na Vercel. O ZIP também não contém uma chave de IA. Assim, nenhuma geração real de quiz, flashcards, explicações ou respostas do Feynman pode funcionar lá até você configurar um provedor no servidor.
-
-Escolha uma das configurações abaixo. Não precisa me enviar nenhuma chave.
-
-### Usar o gateway do projeto Lovable
-
-Se você tiver acesso à chave de IA do seu projeto, cadastre **`LOVABLE_API_KEY`** na Vercel. Essa é a chave de IA gerenciada para o aplicativo, não a chave da API do workspace Lovable e não a chave do Supabase. O código conserva o gateway e o modelo usados no ZIP original. Se a chave não estiver acessível, use um provedor próprio pela opção abaixo.
-
-### Usar outro provedor compatível
-
-Esta versão aceita estas variáveis apenas no servidor:
-
-| Variável | O que preencher |
-| --- | --- |
-| `AI_API_KEY` | sua chave do provedor |
-| `AI_BASE_URL` | URL HTTPS da API compatível, geralmente terminando em `/v1` |
-| `AI_MODEL` | identificador exato do modelo no provedor |
-| `AI_API_MODE` | `chat` para Chat Completions ou `responses` para Responses |
-
-`AI_API_KEY` preenchida tem prioridade sobre o gateway Lovable. Escolha um modelo com saída JSON e visão para o desenho da lousa. PDF também depende do suporte do modelo/provedor; esses recursos não são garantidos por qualquer API compatível. O uso e eventuais custos dependem do provedor escolhido. Não há simulação de respostas quando uma chave está ausente.
-
-Após configurar, faça **Redeploy**. Não basta colocar as chaves em GitHub Secrets: elas precisam estar nas variáveis de ambiente do projeto Vercel, disponíveis para o servidor.
-
-## 5. Materiais e memória da conta
-
-As tabelas e políticas de acesso estão em `drizzle/migrations/0000_learning.sql`. Se elas já existem no seu Supabase, mantenha-as. Se aparecer erro de tabela ausente, aplique essa migração uma vez no SQL Editor do mesmo projeto. Os materiais e XP continuam separados por usuário com RLS; o servidor usa o token do usuário, sem chave administrativa.
-
-## 6. Conferir após a publicação
-
-1. Cadastre uma conta de teste e confirme que ela só entra depois de abrir o e-mail.
-2. Em **Esqueci a senha**, solicite um link para essa conta; abra o link e escolha a nova senha.
-3. Entre com a nova senha e adicione um material de estudo.
-4. Gere quiz, flashcards e explicações; a coruja e o avatar não sobem e descem durante o carregamento, e a barra do quiz conserva o espaço das vidas.
-5. No Feynman, envie uma explicação e um desenho. O chat rola por dentro, mantendo a barra superior no lugar.
-
-Na entrega, passaram 40 testes automatizados, a verificação TypeScript e a compilação completa para a Vercel. As imagens e demais arquivos públicos foram comparados com o ZIP original e continuam idênticos. A conferência em navegador não pôde ser concluída porque este ambiente não conseguiu acessar o servidor local.
-
-Os testes locais usam respostas simuladas para validar os fluxos sem mandar e-mails nem gastar créditos. Entrega de e-mail e resposta real da IA precisam ser conferidas depois que SMTP, confirmação, URLs e chave estiverem configurados na hospedagem.
-
-Referências: [SMTP Supabase](https://supabase.com/docs/guides/auth/auth-smtp), [recuperação de senha](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail), [IA Lovable](https://docs.lovable.dev/features/ai).
+TypeScript e compilação para Vercel executados. Não houve login real nas contas Google/Notion nem aplicação da migração no seu Supabase: dependem da configuração e autorização nos seus painéis. Não foram executados testes automatizados nesta alteração. O código está no ZIP e ainda precisa ser publicado no seu repositório/deployment.

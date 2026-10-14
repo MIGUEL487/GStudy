@@ -1,3 +1,4 @@
+import { NotionPanel } from '@/components/notion-panel';
 import { createFileRoute } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 import { Save, Download, LogOut, Camera, Trash2 } from 'lucide-react';
@@ -42,6 +43,7 @@ function Settings() {
     <section className="settings-section"><h2>Dias de aula</h2><p>Esses dias aparecem liberados no calendário de presença.</p>
       <div className="day-chips">{weekNames.map((n, i) => <button key={n} className={`day-chip ${days.includes(i) ? 'on' : ''}`} aria-pressed={days.includes(i)} onClick={() => update(d => { const cur = d.schoolDays ?? defaultSchoolDays; return { ...d, schoolDays: cur.includes(i) ? cur.filter(x => x !== i) : [...cur, i].sort() }; })}>{n}</button>)}</div>
     </section>
+    <NotionPanel />
     <section className="settings-section"><h2>Seus dados</h2><p>Seus cadernos e cursos ficam salvos neste navegador. Exporte uma cópia para guardá-los com você.</p><Button variant="outline" onClick={() => { const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'gstudy-meus-estudos.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }}><Download />Exportar meus estudos</Button></section>
     <section className="settings-section"><h2>Conta</h2><p>Conectado como {user.email}</p><Button variant="outline" onClick={signOut}><LogOut />Sair da conta</Button></section>
   </>;

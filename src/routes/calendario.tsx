@@ -1,3 +1,4 @@
+import { NotionCalendar } from '@/components/notion-calendar';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, CalendarCheck, Table2 } from 'lucide-react';
@@ -44,5 +45,6 @@ function CalendarPage() {
     </div>
     <p className="page-subtitle mt-4">Quando você marca “Faltei”, as aulas daquele dia (do seu Horário) entram nas faltas de cada matéria. Os dias de aula podem ser ajustados em Configurações.</p>
     </div>}
+    <NotionCalendar month={month} />
   </>;
 }

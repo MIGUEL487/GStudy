@@ -15,7 +15,7 @@ export function useMaterials() {
     if (error) toast.error('Não foi possível carregar seus materiais.');
     setItems((data as Material[]) ?? []);
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); const refresh=()=>void load(); window.addEventListener('gstudy-notion-changed',refresh); return ()=>window.removeEventListener('gstudy-notion-changed',refresh); }, [load]);
   const remove = async (id: string) => { const { error } = await supabase.from('study_materials').delete().eq('id', id); if (error) { toast.error('Não foi possível apagar.'); return; } setItems(i => i?.filter(m => m.id !== id) ?? null); };
   return { items, reload: load, remove };
 }

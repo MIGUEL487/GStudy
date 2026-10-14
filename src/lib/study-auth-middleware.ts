@@ -9,7 +9,7 @@ export const requireStudyAuth = createMiddleware({ type: 'function' }).server(as
   const authorization = getRequest().headers.get('authorization');
   const token = /^Bearer\s+(.+)$/i.exec(authorization ?? '')?.[1];
   if (!token || token.split('.').length !== 3) {
-    throw new Error('Sua sessão não está disponível. Entre novamente com seu e-mail e senha.');
+    throw new Error('Sua sessão não está disponível. Entre novamente com Google ou Notion.');
   }
   const supabase = createClient<Database>(url, key, {
     global: { headers: { Authorization: `Bearer ${token}` } },

@@ -54,12 +54,14 @@ export const addMaterial = createServerFn({ method: 'POST' })
   });
 
 async function memoryOf(supabase: { from: (t: 'study_materials') => any }, ids: string[]) {
-  let q = supabase.from('study_materials').select('title, memory').order('created_at', { ascending: false }).limit(12);
+  let q = supabase.from('study_materials').select('title, memory').order('created_at', { ascending: false }).limit(ids.length || 12);
   if (ids.length) q = q.in('id', ids);
   const { data, error } = await q;
   if (error) throw new Error('Não foi possível ler seus materiais.');
   if (!data?.length) throw new Error('Adicione um material de estudo primeiro.');
-  return (data as { title: string; memory: string }[]).map(m => `## ${m.title}\n${m.memory}`).join('\n\n');
+  const memory = (data as { title: string; memory: string }[]).map(m => `## ${m.title}\n${m.memory}`).join('\n\n');
+  if (memory.length > 90000) throw new Error('Os materiais selecionados são muito extensos para uma atividade. Selecione menos páginas ou divida o conteúdo no Notion e importe novamente.');
+  return memory;
 }
 
 const genInput = z.object({ mode: z.enum(['quiz', 'flashcards', 'explain']), ids: z.array(z.string().uuid()).max(20) });
@@ -102,7 +104,7 @@ export const feynmanReply = createServerFn({ method: 'POST' })
   .handler(async ({ data, context }) => {
     const { aiText } = await import('./ai.server');
     let mem = '';
-    try { mem = await memoryOf(context.supabase, data.ids); } catch { /* sem materiais: segue só com o tema */ }
+    try { mem = await memoryOf(context.supabase, data.ids); } catch (error) { if (!(error instanceof Error) || error.message !== 'Adicione um material de estudo primeiro.') throw error; }
     const last = data.messages.length - 1;
     const messages = data.messages.map((m, i) => m.role === 'assistant'
       ? { role: 'assistant' as const, content: m.text }
