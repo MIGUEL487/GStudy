@@ -1,7 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { streamText, Output, jsonSchema, NoObjectGeneratedError, type ModelMessage } from 'ai';
+import { generateText, Output, jsonSchema, NoObjectGeneratedError, type ModelMessage } from 'ai';
 import { aiConfig, boardAiConfig, AiSetupError } from './ai-config';
+import { providerFailure, safeAiFailure } from './ai-errors';
 
 const RUN = 'X-Lovable-AIG-Run-ID';
 
@@ -18,9 +19,8 @@ function provider(messages: ModelMessage[], whiteboard = false) {
       const res = await fetch(input, { ...init, headers: h });
       runId ??= res.headers.get(RUN)?.trim() || undefined;
       if (!res.ok) {
-        const keyName = whiteboard ? 'BOARD_AI_API_KEY' : config.lovable ? 'LOVABLE_API_KEY' : 'AI_API_KEY';
-        const msg = res.status === 401 ? `A chave de IA foi recusada. Confira ${keyName} na hospedagem e publique novamente.` : res.status === 403 ? 'O provedor bloqueou o acesso à IA. Confira as permissões da conta antes de tentar novamente.' : res.status === 402 ? 'Os créditos de IA acabaram. Adicione créditos no provedor para continuar.' : res.status === 429 ? 'Muitos pedidos agora. Espere um pouco e tente de novo.' : res.status === 404 ? `O modelo ou endereço da IA não está disponível. Confira ${whiteboard ? 'BOARD_AI_MODEL e BOARD_AI_BASE_URL' : 'AI_MODEL e AI_BASE_URL'} na hospedagem.` : null;
-        if (msg) throw new AiSetupError(msg);
+        const payload: unknown = await res.clone().json().catch(() => null);
+        throw providerFailure(res.status, payload, { whiteboard, google: new URL(config.baseURL).hostname === 'generativelanguage.googleapis.com', lovable: config.lovable });
       }
       return res;
     };
@@ -34,27 +34,29 @@ function provider(messages: ModelMessage[], whiteboard = false) {
 
 const options = { openai: { forceReasoning: true, reasoningEffort: 'low', reasoningSummary: 'auto', store: false, include: ['reasoning.encrypted_content'] } } as const;
 
-function friendly(e: unknown): never {
-  const m = e instanceof Error ? e.message : '';
-  if (e instanceof AiSetupError || /créditos|Muitos pedidos|chave de IA/.test(m)) throw new Error(m);
-  // Do not log requests, prompts or provider credentials.
-  console.error('[GStudy AI] Falha na geração:', e instanceof Error ? e.name : 'unknown');
-  throw new Error('A IA não conseguiu responder agora. Tente de novo em instantes.');
+function friendly(error: unknown, whiteboard = false): never {
+  const baseURL = whiteboard ? process.env['BOARD_AI_BASE_URL'] : process.env['AI_BASE_URL'];
+  let google = false;
+  try { google = new URL(baseURL || '').hostname === 'generativelanguage.googleapis.com'; } catch { /* invalid config is reported separately */ }
+  const failure = safeAiFailure(error, { whiteboard, google, lovable: !whiteboard && !process.env['AI_API_KEY']?.trim() });
+  // Record only safe fields, never SDK errors (which can contain request bodies).
+  console.error('[GStudy AI] Falha na geração:', { whiteboard, google, status: failure.status ?? null });
+  throw new Error(failure.message);
 }
 
 export async function aiText(instructions: string, messages: ModelMessage[], whiteboard = false) {
   try {
-    const r = streamText({ ...provider(messages, whiteboard), system: instructions, messages, maxRetries: 0 });
-    const text = (await r.text).trim();
-    if (!text) throw new Error('empty');
+    const r = await generateText({ ...provider(messages, whiteboard), system: instructions, messages, maxRetries: 0 });
+    const text = r.text.trim();
+    if (!text) throw new AiSetupError(r.finishReason === 'length' ? 'A IA atingiu o limite de geração antes de concluir a resposta. Tente uma explicação ou um desenho menor.' : 'O provedor de IA não retornou uma resposta de texto. Tente novamente ou confira se o modelo escolhido gera texto.');
     return text;
-  } catch (e) { return friendly(e); }
+  } catch (e) { return friendly(e, whiteboard); }
 }
 
 export async function aiObject<T>(instructions: string, messages: ModelMessage[], schema: Record<string, unknown>): Promise<T> {
   try {
-    const r = streamText({ ...provider(messages), system: instructions, messages, maxRetries: 0, output: Output.object({ schema: jsonSchema<T>(schema as never) }) });
-    return (await r.output) as T;
+    const r = await generateText({ ...provider(messages), system: instructions, messages, maxRetries: 0, output: Output.object({ schema: jsonSchema<T>(schema as never) }) });
+    return r.output as T;
   } catch (e) {
     if (NoObjectGeneratedError.isInstance(e)) throw new Error('A IA respondeu num formato inesperado. Tente gerar de novo.');
     return friendly(e);
