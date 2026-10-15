@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Whiteboard, type Board } from '@/components/whiteboard';
 
 const g = { fillRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), fill: vi.fn(), arc: vi.fn(), rect: vi.fn(), ellipse: vi.fn(), fillText: vi.fn() };
-function mount(disabled = false) {
-  const ref = createRef<Board>(); render(<Whiteboard ref={ref} disabled={disabled} />);
+function mount(disabled = false, variant: 'chalk' | 'paper' = 'chalk') {
+  const ref = createRef<Board>(); render(<Whiteboard ref={ref} disabled={disabled} variant={variant} />);
   const canvas = screen.getByLabelText('Lousa para desenhar, inserir texto e formas');
   vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 360, height: 210 } as DOMRect);
   return { ref, canvas };
@@ -47,6 +47,18 @@ describe('Lousa', () => {
     expect(ref.current?.snapshot()).toContain('data:image/jpeg');
     if (label === 'Elipse') expect(g.ellipse).toHaveBeenCalledWith(110, 100, 90, 60, 0, 0, Math.PI * 2);
     else expect(g.lineTo).toHaveBeenCalledWith(20, 40);
+  });
+  it('exporta o papel claro em maior resolução com a cor de tinta escolhida', () => {
+    const { ref, canvas } = mount(false, 'paper');
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 600, height: 360 } as DOMRect);
+    expect(canvas).toHaveAttribute('width', '1200'); expect(canvas).toHaveAttribute('height', '720');
+    expect(g.fillRect).toHaveBeenCalledWith(0, 0, 1200, 720);
+    fireEvent.click(screen.getByRole('button', { name: 'Giz Terracota' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retângulo' }));
+    fireEvent.pointerDown(canvas, point(10, 20)); fireEvent.pointerUp(canvas, point(100, 80));
+    expect(g.rect).toHaveBeenLastCalledWith(20, 40, 180, 120);
+    expect((canvas as HTMLCanvasElement).getContext('2d')?.strokeStyle).toBe('#ac5a3e');
+    expect(ref.current?.snapshot()).toContain('data:image/jpeg');
   });
   it('um clique com giz deixa um ponto visível', () => {
     const { ref, canvas } = mount(); fireEvent.pointerDown(canvas, point(10, 20)); fireEvent.pointerUp(canvas, point(10, 20));

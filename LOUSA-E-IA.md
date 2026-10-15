@@ -1,41 +1,37 @@
-# Lousa com texto, formas e IA de visão
+# Lousa de estudos e Gemini
 
-Atualização aplicada ao repositório MIGUEL487/notebook-quest-web, conectado ao site gstudy.vercel.app. As integrações existentes foram preservadas. As novas chaves devem ser configuradas como variáveis do servidor na hospedagem; não as adicione ao Git. O package-lock.json foi sincronizado com o package.json para permitir npm ci.
+Repositório: MIGUEL487/notebook-quest-web, conectado ao site gstudy.vercel.app.
 
-## Ferramentas
+## Aula Feynman
 
-Na aula Feynman, use os botões Giz, Apagador, Texto, Retângulo, Elipse, Linha ou Seta. Para texto, digite no campo que aparece, escolha o tamanho e clique na lousa para posicionar. Para formas, arraste do início até o fim. As cores funcionam com texto e formas. Desfazer/refazer e limpar também estão disponíveis. O desenho inteiro é incluído na imagem enviada ao aluno virtual. A lousa fica bloqueada durante o envio para evitar perder edições feitas enquanto a IA responde. O texto digitado na lousa vira parte da imagem; a explicação no chat continua sendo texto.
+A lousa ocupa a área principal da aula. As ferramentas ficam no topo: giz, apagador, texto, retângulo, elipse, linha, seta e desfazer/refazer. Para texto, digite no campo que aparece, escolha o tamanho e clique para posicionar. Para formas, arraste do início até o fim. O papel claro e as cores de tinta também são preservados na imagem enviada à IA.
 
-## Usar outra IA só na lousa
+O cartão do Gui, seu aluno virtual, mostra a pergunta atual da IA e indica quando a resposta está sendo preparada. O campo para explicar fica abaixo da lousa. A conversa inteira, incluindo imagens enviadas, pode ser aberta em **Ver conversa**. Em telas menores, o cartão fica acima da área de desenho. O desenho permanece disponível para tentar novamente se houver erro; ele é limpo depois de um envio bem-sucedido, como na versão anterior.
 
-Mantenha AI_API_KEY, AI_BASE_URL, AI_MODEL e AI_API_MODE do Aion. Adicione somente no servidor/Vercel (sem prefixo VITE_):
+## Uma configuração de IA para tudo
+
+Mantenha somente estas variáveis de IA no servidor/Vercel (sem prefixo VITE_):
 
 ```
-BOARD_AI_API_KEY=<chave do provedor de visão>
-BOARD_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+BOARD_AI_API_KEY=<chave do Google AI Studio>
+BOARD_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 BOARD_AI_MODEL=gemini-3.5-flash-lite
 ```
 
-Esse é um exemplo para a API Gemini pela interface compatível com OpenAI. Confirme no Google AI Studio se esse modelo e a cota gratuita estão disponíveis na sua conta; se necessário, selecione outro modelo com entrada de imagem e atualize BOARD_AI_MODEL. Chaves de provedores diferentes não são intercambiáveis. Na Vercel, defina o Install Command como `npm ci` para usar o package-lock.json atualizado (o bun.lock legado do ZIP não foi atualizado). Salve as variáveis no ambiente do deployment que usa e faça Redeploy. Se houver restrição de rede, permita o hostname do provedor (no exemplo, generativelanguage.googleapis.com).
+Elas são usadas em todas as chamadas: conversas com e sem desenho, leitura de materiais, quizzes, flashcards e explicações. As variáveis antigas `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, `AI_API_MODE` e `LOVABLE_API_KEY` não são mais lidas. Os nomes `BOARD_AI_*` foram mantidos para reaproveitar a chave Gemini que já está configurada. Não é preciso copiar a chave para outro nome.
 
-Com uma imagem na última mensagem, somente a resposta Feynman usa o provedor BOARD_AI_*. Sem desenho, continua usando o Aion. Upload de PDF/imagem em outras áreas não foi redirecionado para essa IA. Sem as três variáveis, o app informa exatamente o que falta, sem enviar o desenho ao Aion. Um modelo de visão vê o contexto da conversa e as notas de estudo usadas na aula junto com a imagem.
+Na Vercel, use `npm ci` como Install Command, configure as variáveis no ambiente de Production do projeto GStudy e faça Redeploy do commit atual. As configurações da hospedagem podem prevalecer sobre o arquivo .env. Não publique chaves no Git e não use prefixo VITE_ para credenciais de IA. A API recebe o conteúdo da aula ou do material necessário à tarefa. A disponibilidade e a cota gratuita dependem da conta; nenhuma configuração de cobrança é alterada pelo aplicativo.
 
-Não há chave de demonstração nem conexão de conta incluída. O roteamento tem testes com provedores simulados e a integração Gemini foi testada com uma imagem simples usando a chave já existente, sem alterar configuração de cobrança.
+O aplicativo usa o SDK nativo do Gemini, inclusive para imagens, PDFs e respostas estruturadas. O endereço antigo terminado em /openai também é aceito e normalizado automaticamente. Se houver restrição de rede, permita generativelanguage.googleapis.com. Em Node 24 dentro deste ambiente cloud, NODE_USE_ENV_PROXY=1 habilita o proxy disponibilizado pela plataforma.
 
-## Opções de API com acesso gratuito ou cota gratuita
+## Modelo e diagnóstico
 
-- Google Gemini: modelos multimodais com cota gratuita para modelos/regiões/contas elegíveis. https://ai.google.dev/gemini-api/docs/pricing e https://ai.google.dev/gemini-api/docs/openai
-- Groq: acesso de desenvolvimento com limites; confirme um modelo de visão ativo, como os da família Llama 4 quando disponíveis. Base compatível: https://api.groq.com/openai/v1. https://console.groq.com/docs/vision
-- OpenRouter: catálogo variável de modelos gratuitos; filtre por preço zero e entrada de imagem. Use o ID exato exibido no catálogo, geralmente com sufixo :free quando indicado. Base: https://openrouter.ai/api/v1. https://openrouter.ai/models
+Em 15/10/2026, a API informou que gemini-2.5-flash não estava mais disponível para novos usuários desta conta. Gemini-3.8-flash retornou indisponibilidade temporária. Uma imagem de teste foi corretamente identificada por gemini-3.5-flash-lite. O aplicativo distingue erros de chave, cota, parâmetros, modelo e indisponibilidade sem mostrar dados privados do provedor.
 
-O catálogo Gemini foi consultado via API nesta correção. As cotas gratuitas e os preços atuais não foram verificados; confirme as condições da sua conta antes de usar. As outras opções da lista têm modalidades gratuitas conhecidas, sem garantia de disponibilidade atual de um modelo ou cota específica. Ter um chat gratuito no site de um fornecedor não significa que sua API seja gratuita. Verifique limites e condições de uso de dados antes de enviar anotações pessoais.
+## Desenvolvimento
 
-## Validação local
+Use Node 24 e npm: `npm ci`, `npm test`, `npx tsc --noEmit`, `NITRO_PRESET=vercel npm run build`. Para desenvolver: `NODE_USE_ENV_PROXY=1 npm run dev`. As integrações de autenticação e Notion continuam usando as configurações existentes.
 
-Use Node 24 e npm: npm ci, npm test, npx tsc --noEmit e npm run build. Para desenvolvimento: npm run dev. Configure as credenciais de Supabase e provedores na hospedagem ou no .env local, sem versioná-las. O arquivo .env agora é ignorado pelo Git.
+## Validação desta atualização
 
-Validação desta entrega: 59 testes passaram em 9 arquivos; TypeScript sem erros; build com NITRO_PRESET=vercel concluído; rota /aprender/feynman respondeu HTTP 200 com o HTML esperado. Uma chamada real pelo código aiText identificou corretamente uma imagem vermelha com gemini-3.5-flash-lite. As integrações autenticadas do Notion e o provedor principal de texto não foram exercitados nesta correção.
-
-## Modelo indisponível para novas contas
-
-Em 15/10/2026, a API retornou HTTP 404 para gemini-2.5-flash nesta conta, informando que não está mais disponível para novos usuários. O modelo sugerido pelo Google, gemini-3.8-flash, retornou HTTP 503 por alta demanda. Uma chamada real com uma imagem de teste funcionou com gemini-3.5-flash-lite. Atualize BOARD_AI_MODEL nas variáveis de Production da Vercel para esse modelo e faça Redeploy. Variáveis da hospedagem podem prevalecer sobre o .env. A disponibilidade e a cota dependem da conta; nenhuma configuração de cobrança foi alterada.
+67 testes automatizados passaram. A aula foi exercitada no navegador em 1512 px e 390 px de largura, sem erros de JavaScript nem rolagem horizontal: desenho, texto, envio, pergunta do aluno e histórico com imagem funcionaram com respostas de teste. Foram feitas chamadas reais pelo código da aplicação para ler uma imagem, gerar dois flashcards em JSON e resumir um PDF de teste com o Gemini nativo. Não foi necessário alterar configurações de cobrança.

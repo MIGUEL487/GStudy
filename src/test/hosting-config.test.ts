@@ -16,19 +16,26 @@ describe('Configuração na hospedagem', () => {
     expect(() => supabaseConfig({ ...publicEnv, VITE_SUPABASE_URL: 'project-id' })).toThrow('URL');
     expect(() => supabaseConfig({ ...publicEnv, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_secret_private' })).toThrow('chave pública');
   });
-  it('explica quando a chave do Lovable não foi configurada na Vercel', () => {
-    expect(() => aiConfig({})).toThrow('IA não está configurada');
+  it('explica qual chave Gemini falta na hospedagem', () => {
+    expect(() => aiConfig({})).toThrow('BOARD_AI_API_KEY');
   });
-  it('preserva o gateway do Lovable e permite outro provedor configurado no servidor', () => {
-    expect(aiConfig({ LOVABLE_API_KEY: 'private-test-key' }).lovable).toBe(true);
-    const config = aiConfig({ AI_API_KEY: 'other-private-test-key', AI_BASE_URL: 'https://provider.example/v1', AI_MODEL: 'vision-model' });
-    expect(config.lovable).toBe(false); expect(config.mode).toBe('chat');
-    expect(aiConfig({ AI_API_KEY: 'private-test-key' })).toMatchObject({ model: 'aion-labs/aion-2.0', baseURL: 'https://openrouter.ai/api/v1', mode: 'chat', lovable: false });
+  it('usa os mesmos dados Gemini para todas as funções de IA', () => {
+    expect(aiConfig({ BOARD_AI_API_KEY: 'google-private-test-key' })).toEqual({ key: 'google-private-test-key', model: 'gemini-3.5-flash-lite', baseURL: 'https://generativelanguage.googleapis.com/v1beta' });
   });
-  it('usa Aion 2.0 somente via Chat Completions', () => {
-    expect(() => aiConfig({ AI_API_KEY: 'private-test-key', AI_MODEL: 'aion-labs/aion-2.0', AI_API_MODE: 'responses' })).toThrow('AI_API_MODE=chat');
+  it('ignora credenciais antigas e preserva o modelo Gemini escolhido', () => {
+    const config = aiConfig({ BOARD_AI_API_KEY: 'gemini-key', BOARD_AI_MODEL: 'gemini-model', AI_API_KEY: 'legacy-key', AI_BASE_URL: 'https://legacy.example/v1' });
+    expect(config.key).toBe('gemini-key'); expect(config.model).toBe('gemini-model');
+    expect(() => aiConfig({ AI_API_KEY: 'legacy-key' })).toThrow('BOARD_AI_API_KEY');
   });
-  it('não duplica o endpoint do provedor', () => {
-    expect(() => aiConfig({ AI_API_KEY: 'private-test-key', AI_BASE_URL: 'https://openrouter.ai/api/v1/chat/completions' })).toThrow('base da API');
+  it('recusa bases de outros provedores, credenciais na URL e o endpoint completo', () => {
+    expect(() => aiConfig({ BOARD_AI_API_KEY: 'key', BOARD_AI_BASE_URL: 'https://provider.example/v1' })).toThrow('API Gemini');
+    expect(() => aiConfig({ BOARD_AI_API_KEY: 'key', BOARD_AI_BASE_URL: 'https://key@generativelanguage.googleapis.com/v1beta/openai' })).toThrow('API Gemini');
+    expect(() => aiConfig({ BOARD_AI_API_KEY: 'key', BOARD_AI_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' })).toThrow('base da API');
+  });
+  it('reaproveita a base antiga da lousa com /openai, normalizando para a API nativa', () => {
+    expect(aiConfig({ BOARD_AI_API_KEY: 'key', BOARD_AI_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai/' }).baseURL).toBe('https://generativelanguage.googleapis.com/v1beta');
+  });
+  it('identifica um endereço colado no campo de modelo', () => {
+    expect(() => aiConfig({ BOARD_AI_API_KEY: 'key', BOARD_AI_MODEL: 'https://generativelanguage.googleapis.com' })).toThrow('não uma URL');
   });
 });

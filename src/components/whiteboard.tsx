@@ -1,15 +1,17 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { ArrowUpRight, Circle, Eraser, Minus, Pencil, Redo2, Square, Trash2, Type, Undo2 } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Circle, Eraser, Minus, Pencil, Redo2, Square, Trash2, Type, Undo2 } from 'lucide-react';
 
 export type Board = { snapshot: () => string | undefined; clear: () => void };
 type Tool = 'pen' | 'eraser' | 'text' | 'rectangle' | 'ellipse' | 'line' | 'arrow';
 type Point = { x: number; y: number };
 type Mark = { tool: Tool; color: string; size: number; points: Point[]; text: string };
-const background = '#2f4a3a';
-const colors = [{ value: '#f3efe2', name: 'Branco' }, { value: '#f5d76e', name: 'Amarelo' }, { value: '#7fd1ae', name: 'Verde' }, { value: '#f28b82', name: 'Rosa' }];
+const chalkBackground = '#2f4a3a';
+const paperBackground = '#fcf7ec';
+const chalkColors = [{ value: '#f3efe2', name: 'Branco' }, { value: '#f5d76e', name: 'Amarelo' }, { value: '#7fd1ae', name: 'Verde' }, { value: '#f28b82', name: 'Rosa' }];
+const paperColors = [{ value: '#493729', name: 'Marrom' }, { value: '#ac5a3e', name: 'Terracota' }, { value: '#4f7561', name: 'Verde' }, { value: '#486d89', name: 'Azul' }];
 const tools = [{ id: 'pen', label: 'Giz', Icon: Pencil }, { id: 'eraser', label: 'Apagador', Icon: Eraser }, { id: 'text', label: 'Texto', Icon: Type }, { id: 'rectangle', label: 'Retângulo', Icon: Square }, { id: 'ellipse', label: 'Elipse', Icon: Circle }, { id: 'line', label: 'Linha', Icon: Minus }, { id: 'arrow', label: 'Seta', Icon: ArrowUpRight }] as const;
 
-function drawMark(g: CanvasRenderingContext2D, mark: Mark) {
+function drawMark(g: CanvasRenderingContext2D, mark: Mark, background: string) {
   const a = mark.points[0]; const b = mark.points.at(-1);
   if (!a || !b) return;
   g.strokeStyle = mark.tool === 'eraser' ? background : mark.color;
@@ -41,7 +43,10 @@ function drawMark(g: CanvasRenderingContext2D, mark: Mark) {
   g.stroke();
 }
 
-export const Whiteboard = forwardRef<Board, { disabled?: boolean }>(function Whiteboard({ disabled = false }, ref) {
+export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: 'chalk' | 'paper' }>(function Whiteboard({ disabled = false, variant = 'chalk' }, ref) {
+  const paper = variant === 'paper';
+  const background = paper ? paperBackground : chalkBackground;
+  const colors = paper ? paperColors : chalkColors;
   const canvas = useRef<HTMLCanvasElement>(null);
   const marks = useRef<Mark[]>([]); const undone = useRef<Mark[]>([]);
   const gesture = useRef<{ pointerId: number; mark: Mark } | null>(null);
@@ -51,8 +56,12 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean }>(function Whi
   const refresh = () => {
     const c = canvas.current; const g = c?.getContext('2d'); if (!c || !g) return;
     g.fillStyle = background; g.fillRect(0, 0, c.width, c.height);
-    marks.current.forEach(mark => drawMark(g, mark));
-    if (gesture.current) drawMark(g, gesture.current.mark);
+    if (paper) {
+      g.fillStyle = '#dfd4c1';
+      for (let x = 24; x < c.width; x += 24) for (let y = 24; y < c.height; y += 24) g.fillRect(x, y, 1, 1);
+    }
+    marks.current.forEach(mark => drawMark(g, mark, background));
+    if (gesture.current) drawMark(g, gesture.current.mark, background);
   };
   const historyChanged = () => setHistory({ undo: marks.current.length, redo: undone.current.length });
   const clear = () => { gesture.current = null; marks.current = []; undone.current = []; refresh(); historyChanged(); };
@@ -69,7 +78,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean }>(function Whi
   const commit = (mark: Mark) => { marks.current.push(mark); undone.current = []; refresh(); historyChanged(); };
   const pos = (e: RPointerEvent<HTMLCanvasElement>): Point => {
     const r = e.currentTarget.getBoundingClientRect();
-    return { x: Math.max(0, Math.min(720, (e.clientX - r.left) * 720 / r.width)), y: Math.max(0, Math.min(420, (e.clientY - r.top) * 420 / r.height)) };
+    return { x: Math.max(0, Math.min(e.currentTarget.width, (e.clientX - r.left) * e.currentTarget.width / r.width)), y: Math.max(0, Math.min(e.currentTarget.height, (e.clientY - r.top) * e.currentTarget.height / r.height)) };
   };
   const down = (e: RPointerEvent<HTMLCanvasElement>) => {
     if (disabled || gesture.current || e.button !== 0) return;
@@ -102,7 +111,11 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean }>(function Whi
   const undo = () => { const mark = marks.current.pop(); if (mark) undone.current.push(mark); cancel(); historyChanged(); };
   const redo = () => { const mark = undone.current.pop(); if (mark) marks.current.push(mark); cancel(); historyChanged(); };
 
-  return <div className="whiteboard">
+  const palette = colors.map(c => <button key={c.value} type="button" disabled={disabled} title={c.name} aria-label={`Giz ${c.name}`} aria-pressed={color === c.value} className={`chalk ${color === c.value ? 'on' : ''}`} style={{ background: c.value }} onClick={() => setColor(c.value)} />);
+  const hint = tool === 'text' ? 'Digite acima e clique para inserir.' : tool === 'pen' || tool === 'eraser' ? 'Desenhe com o mouse ou com o dedo.' : 'Arraste para desenhar a forma.';
+  return <div className={`whiteboard ${paper ? 'whiteboard--paper' : ''}`}>
+    <div className="wb-toolbar-shell">
+    {paper && <div className="wb-title"><BookOpen size={20} /><span>Sua lousa</span></div>}
     <div className="wb-tools" role="toolbar" aria-label="Ferramentas da lousa">
       {tools.map(({ id, label, Icon }) => <button key={id} type="button" disabled={disabled} title={label} aria-label={label} aria-pressed={tool === id} className={`icon-btn ${tool === id ? 'on' : ''}`} onClick={() => setTool(id)}><Icon size={18} /></button>)}
       <span className="wb-divider" />
@@ -110,14 +123,17 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean }>(function Whi
       <button type="button" disabled={disabled || !history.redo} title="Refazer" aria-label="Refazer" className="icon-btn" onClick={redo}><Redo2 size={18} /></button>
       <button type="button" disabled={disabled || !history.undo} title="Limpar lousa" aria-label="Limpar lousa" className="icon-btn" onClick={clear}><Trash2 size={18} /></button>
     </div>
+    {paper && <div className="wb-palette" role="group" aria-label="Cores da lousa">{palette}</div>}
+    </div>
     {tool === 'text' && <div className="wb-text-controls">
       <label>Texto na lousa<textarea rows={2} maxLength={500} value={text} disabled={disabled} onChange={e => setText(e.target.value)} placeholder="Digite e clique na lousa para posicionar" /></label>
       <label>Tamanho<select value={size} disabled={disabled} onChange={e => setSize(Number(e.target.value))}>{[20, 28, 36, 48].map(n => <option key={n} value={n}>{n} px</option>)}</select></label>
     </div>}
-    <canvas ref={canvas} width={720} height={420} aria-label="Lousa para desenhar, inserir texto e formas" aria-disabled={disabled} onPointerDown={down} onPointerMove={extend} onPointerUp={up} onPointerCancel={cancel} onLostPointerCapture={cancel} />
-    <div className="wb-tools">
-      {colors.map(c => <button key={c.value} type="button" disabled={disabled} title={c.name} aria-label={`Giz ${c.name}`} aria-pressed={color === c.value} className={`chalk ${color === c.value ? 'on' : ''}`} style={{ background: c.value }} onClick={() => setColor(c.value)} />)}
-      <small className="wb-hint">{tool === 'text' ? 'Digite acima e clique para inserir.' : tool === 'pen' || tool === 'eraser' ? 'Desenhe com o mouse ou com o dedo.' : 'Arraste para desenhar a forma.'}</small>
+    <canvas ref={canvas} width={paper ? 1200 : 720} height={paper ? 720 : 420} aria-label="Lousa para desenhar, inserir texto e formas" aria-disabled={disabled} onPointerDown={down} onPointerMove={extend} onPointerUp={up} onPointerCancel={cancel} onLostPointerCapture={cancel} />
+    <div className={paper ? 'wb-status' : 'wb-tools'}>
+      {!paper && palette}
+      <small className="wb-hint">{hint}</small>
+      {paper && <span className="wb-paper-caption">Um espaço para organizar suas ideias.</span>}
     </div>
   </div>;
 });

@@ -106,18 +106,17 @@ Materiais do Notion ficam na conta e podem ser recuperados em outro navegador. C
 
 Referência sobre as páginas disponíveis para busca: [API de busca do Notion](https://developers.notion.com/reference/post-search).
 
-## 8. IA / AionLabs
+## 8. IA / Google Gemini
 
-Google e importação do Notion não precisam de chave de IA. Para usar **aion-labs/aion-2.0**, crie uma chave no [OpenRouter](https://openrouter.ai/settings/keys) e salve em **Vercel → Settings → Environment Variables → Production**:
+Login com Google e importação do Notion não precisam de chave de IA. Conversas, lousa, resumos, quizzes, flashcards e explicações usam Gemini com a mesma configuração.
 
-- `AI_API_KEY`: sua chave privada do OpenRouter (não cole no chat).
-- `AI_BASE_URL`: `https://openrouter.ai/api/v1`
-- `AI_MODEL`: `aion-labs/aion-2.0`
-- `AI_API_MODE`: `chat`
+Em **Vercel → Settings → Environment Variables → Production**, mantenha:
 
-Faça **Redeploy** depois de salvar. Não use prefixo `VITE_` e não coloque a chave no GitHub. Confira também o saldo e as permissões do modelo no OpenRouter. As credenciais do Lovable não são transferidas automaticamente para a Vercel.
+- `BOARD_AI_API_KEY`: sua chave privada do Google AI Studio.
+- `BOARD_AI_BASE_URL`: `https://generativelanguage.googleapis.com/v1beta`
+- `BOARD_AI_MODEL`: `gemini-3.5-flash-lite`
 
-O Aion 2.0 aceita **somente texto**: resumos e textos importados do Notion podem gerar quiz, flashcards, explicações e conversas Feynman. Ele não interpreta imagens, PDFs nem desenhos da lousa; o aplicativo informa essa limitação sem enviar um pedido incompatível. O modelo não aparece no catálogo autenticado do Lovable AI consultado nesta correção.
+Faça **Redeploy** depois de salvar. Não use prefixo `VITE_` e não coloque chaves no GitHub. As variáveis antigas `AI_*` e `LOVABLE_API_KEY` não são mais lidas pelo aplicativo. Confira a cota do modelo na sua conta do Google AI Studio.
 
 ## 9. Abrir no computador
 
@@ -132,4 +131,4 @@ Mantenha o terminal aberto e acesse o endereço exibido pelo Vite, normalmente `
 
 ## Conferência desta entrega
 
-TypeScript e compilação para Vercel executados. Não houve login real nas contas Google/Notion nem aplicação da migração no seu Supabase: dependem da configuração e autorização nos seus painéis. Não foram executados testes automatizados nesta alteração. O código está no ZIP e ainda precisa ser publicado no seu repositório/deployment.
+A atualização inclui a lousa com papel claro, ferramentas no topo, cartão do aluno virtual e histórico acessível. Todas as funções de IA usam o SDK nativo do Gemini com `BOARD_AI_*`. Foram executados 67 testes automatizados, TypeScript e build para Vercel. Também foram feitas chamadas reais com imagens, atividade estruturada e um PDF de teste. As integrações autenticadas Google/Notion e as migrações do banco não foram alteradas nem executadas nesta entrega.
