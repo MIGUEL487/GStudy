@@ -17,3 +17,14 @@ export function aiConfig(env: Record<string, string | undefined>) {
   if (!key) throw new AiSetupError('A IA não está configurada nesta hospedagem. Para usar Aion 2.0 na Vercel, salve a chave do OpenRouter em AI_API_KEY, somente no servidor, e faça Redeploy.');
   return { key, baseURL: 'https://ai.gateway.lovable.dev/v1', model: 'openai/gpt-6-astra', mode: 'responses', lovable: true };
 }
+
+// Used only by Feynman's whiteboard; other requests keep the existing provider.
+export function boardAiConfig(env: Record<string, string | undefined>) {
+  const key = env['BOARD_AI_API_KEY']?.trim();
+  const model = env['BOARD_AI_MODEL']?.trim();
+  const baseURL = env['BOARD_AI_BASE_URL']?.trim();
+  if (!key || !model || !baseURL) {
+    throw new AiSetupError('Para interpretar a lousa, configure BOARD_AI_API_KEY, BOARD_AI_BASE_URL e BOARD_AI_MODEL no servidor e publique novamente. A conversa por texto continua usando a IA principal.');
+  }
+  return aiConfig({ AI_API_KEY: key, AI_BASE_URL: baseURL, AI_MODEL: model, AI_API_MODE: 'chat' });
+}

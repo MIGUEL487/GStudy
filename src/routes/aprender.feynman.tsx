@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useServerFn } from '@tanstack/react-start';
 import ReactMarkdown from 'react-markdown';
-import { Eraser, Send, Trash2 } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { feynmanReply } from '@/lib/learn.functions';
 import { awardXp, idsFrom } from '@/lib/learn-client';
 import { LessonShell } from '@/components/lesson';
+import { Whiteboard, type Board } from '@/components/whiteboard';
 
 export const Route = createFileRoute('/aprender/feynman')({
   validateSearch: (s: Record<string, unknown>) => ({ m: typeof s['m'] === 'string' ? s['m'] : undefined }),
@@ -14,7 +15,6 @@ export const Route = createFileRoute('/aprender/feynman')({
 });
 
 type Msg = { role: 'user' | 'assistant'; text: string; board?: string };
-const colors = ['#f3efe2', '#f5d76e', '#7fd1ae', '#f28b82'];
 
 function FeynmanPage() {
   const { m } = Route.useSearch();
@@ -69,7 +69,7 @@ function FeynmanPage() {
         <div ref={end} />
       </div>
       <div className="feyn-side">
-        <Whiteboard ref={board} />
+        <Whiteboard ref={board} disabled={busy} />
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="feyn-compose">
           <textarea ref={input} className="form-input" rows={3} placeholder="Explique com suas palavras…" value={text} disabled={busy} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }} />
@@ -80,25 +80,3 @@ function FeynmanPage() {
     </div>
   </LessonShell>;
 }
-
-type Board = { snapshot: () => string | undefined; clear: () => void };
-const Whiteboard = forwardRef<Board>(function Whiteboard(_, ref) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const [color, setColor] = useState(colors[0]!); const [erase, setErase] = useState(false);
-  const drawing = useRef(false); const dirty = useRef(false);
-  const ctx = () => canvas.current?.getContext('2d') ?? null;
-  const paintBg = () => { const c = canvas.current; const g = ctx(); if (!c || !g) return; g.fillStyle = '#2f4a3a'; g.fillRect(0, 0, c.width, c.height); dirty.current = false; };
-  useEffect(paintBg, []);
-  useImperativeHandle(ref, () => ({ snapshot: () => (dirty.current ? canvas.current?.toDataURL('image/jpeg', 0.7) : undefined), clear: paintBg }));
-  const pos = (e: RPointerEvent<HTMLCanvasElement>) => { const r = e.currentTarget.getBoundingClientRect(); return [(e.clientX - r.left) * (e.currentTarget.width / r.width), (e.clientY - r.top) * (e.currentTarget.height / r.height)] as const; };
-  const down = (e: RPointerEvent<HTMLCanvasElement>) => { const g = ctx(); if (!g) return; e.currentTarget.setPointerCapture(e.pointerId); drawing.current = true; const [x, y] = pos(e); g.beginPath(); g.moveTo(x, y); };
-  const move = (e: RPointerEvent<HTMLCanvasElement>) => { const g = ctx(); if (!g || !drawing.current) return; const [x, y] = pos(e); g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = erase ? 26 : 4; g.strokeStyle = erase ? '#2f4a3a' : color; g.lineTo(x, y); g.stroke(); dirty.current = true; };
-  return <div className="whiteboard">
-    <canvas ref={canvas} width={720} height={420} onPointerDown={down} onPointerMove={move} onPointerUp={() => (drawing.current = false)} onPointerLeave={() => (drawing.current = false)} aria-label="Lousa para desenhar" />
-    <div className="wb-tools">
-      {colors.map(c => <button key={c} aria-label={`Giz ${c}`} className={`chalk ${!erase && color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => { setColor(c); setErase(false); }} />)}
-      <button aria-label="Apagador" className={`icon-btn ${erase ? 'on' : ''}`} onClick={() => setErase(!erase)}><Eraser size={16} /></button>
-      <button aria-label="Limpar lousa" className="icon-btn" onClick={paintBg}><Trash2 size={16} /></button>
-    </div>
-  </div>;
-});

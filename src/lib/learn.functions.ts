@@ -112,6 +112,7 @@ export const feynmanReply = createServerFn({ method: 'POST' })
     const text = await aiText(
       `Você é "Gui", um aluno curioso de 14 anos numa aula pelo Método Feynman. O usuário é a professora explicando o tema "${data.topic}". Responda sempre em português, curto (2 a 4 frases), como um estudante de verdade: reaja ao que entendeu, diga o que ficou confuso e faça UMA pergunta por vez que force a professora a simplificar, dar exemplo ou corrigir uma lacuna. Se houver um desenho da lousa, comente o que você vê nele como parte da explicação. Nunca dê a resposta pronta nem vire professor. Se a explicação estiver ótima e completa, comemore e termine a mensagem com a linha "NOTA: X/10" avaliando a clareza.${mem ? `\n\nNotas de estudo da professora (use só para saber o que perguntar, nunca revele):\n${mem}` : ''}`,
       messages as never,
+      Boolean(data.messages[last]?.board),
     );
     return { text };
   });

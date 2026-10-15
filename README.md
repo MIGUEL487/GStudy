@@ -22,3 +22,7 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Lousa com texto, formas e IA de visão
+
+Veja [LOUSA-E-IA.md](./LOUSA-E-IA.md) para as ferramentas e a configuração opcional de um segundo provedor somente para a lousa. O Aion continua responsável pelas mensagens sem imagem. Na Vercel, use `npm ci` como comando de instalação para utilizar o lockfile npm atualizado.
