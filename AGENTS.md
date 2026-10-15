@@ -14,3 +14,4 @@
 - Keep the uploaded application's browser-local persistence for this frontend repair; validate and migrate legacy data, and report failed writes instead of claiming success.
 - Put study data operations in a browser-safe model and shared React provider so notebook and course creation use explicit IDs rather than mutable global selection.
 - Pre-optimize interactive dependencies together and reject outdated optimizer requests so stale preview tabs cannot mix React instances after dependency discovery.
+- External AI Chat Completions uses the OpenAI-compatible adapter with strict structured outputs; server-only configuration selects the provider and rejects unsupported media before requests.

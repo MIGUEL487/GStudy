@@ -108,9 +108,16 @@ Referência sobre as páginas disponíveis para busca: [API de busca do Notion](
 
 ## 8. IA / AionLabs
 
-Google e importação do Notion não precisam de chave de IA. Para gerar atividades, mantenha no servidor `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` e `AI_API_MODE=chat` com os valores do provedor. Não use prefixo `VITE_` para a chave de IA.
+Google e importação do Notion não precisam de chave de IA. Para usar **aion-labs/aion-2.0**, crie uma chave no [OpenRouter](https://openrouter.ai/settings/keys) e salve em **Vercel → Settings → Environment Variables → Production**:
 
-O modelo precisa suportar a operação solicitada; desenhos e PDFs exigem suporte a essas entradas. A troca de login não corrige credenciais ou créditos recusados pela IA.
+- `AI_API_KEY`: sua chave privada do OpenRouter (não cole no chat).
+- `AI_BASE_URL`: `https://openrouter.ai/api/v1`
+- `AI_MODEL`: `aion-labs/aion-2.0`
+- `AI_API_MODE`: `chat`
+
+Faça **Redeploy** depois de salvar. Não use prefixo `VITE_` e não coloque a chave no GitHub. Confira também o saldo e as permissões do modelo no OpenRouter. As credenciais do Lovable não são transferidas automaticamente para a Vercel.
+
+O Aion 2.0 aceita **somente texto**: resumos e textos importados do Notion podem gerar quiz, flashcards, explicações e conversas Feynman. Ele não interpreta imagens, PDFs nem desenhos da lousa; o aplicativo informa essa limitação sem enviar um pedido incompatível. O modelo não aparece no catálogo autenticado do Lovable AI consultado nesta correção.
 
 ## 9. Abrir no computador
 

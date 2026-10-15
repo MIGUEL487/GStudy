@@ -1,30 +1,34 @@
 import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { streamText, Output, jsonSchema, NoObjectGeneratedError, type ModelMessage } from 'ai';
 import { aiConfig, AiSetupError } from './ai-config';
 
 const RUN = 'X-Lovable-AIG-Run-ID';
 
-function provider() {
+function provider(messages: ModelMessage[]) {
   const config = aiConfig(process.env);
+  if (config.model === 'aion-labs/aion-2.0' && messages.some(m => Array.isArray(m.content) && m.content.some(p => p.type === 'image' || p.type === 'file'))) {
+    throw new AiSetupError('O Aion 2.0 aceita apenas texto. Cole o conteúdo como resumo ou importe o texto do Notion; imagens, PDFs e desenhos da lousa não podem ser interpretados por esse modelo.');
+  }
   const key = config.key;
   let runId: string | undefined;
-  const client = createOpenAI({
-    baseURL: config.baseURL,
-    apiKey: key,
-    headers: config.lovable ? { 'Lovable-API-Key': key, 'X-Lovable-AIG-SDK': 'vercel-ai-sdk' } : {},
-    fetch: async (input, init) => {
+  const providerFetch: typeof fetch = async (input, init) => {
       const h = new Headers(init?.headers);
       if (config.lovable && runId && !h.has(RUN)) h.set(RUN, runId);
       const res = await fetch(input, { ...init, headers: h });
       runId ??= res.headers.get(RUN)?.trim() || undefined;
       if (!res.ok) {
-        const msg = res.status === 401 || res.status === 403 ? 'A chave de IA foi recusada pelo provedor. Confira a chave configurada no servidor da hospedagem.' : res.status === 402 ? 'Os créditos de IA acabaram. Adicione créditos para continuar.' : res.status === 429 ? 'Muitos pedidos agora. Espere um pouco e tente de novo.' : null;
+        const msg = res.status === 401 ? 'A chave de IA foi recusada. Confira AI_API_KEY na Vercel e faça Redeploy.' : res.status === 403 ? 'O provedor bloqueou o acesso à IA. Confira as permissões da conta antes de tentar novamente.' : res.status === 402 ? 'Os créditos de IA acabaram. Adicione créditos no provedor para continuar.' : res.status === 429 ? 'Muitos pedidos agora. Espere um pouco e tente de novo.' : res.status === 404 ? 'O modelo ou endereço da IA não está disponível. Confira AI_MODEL e AI_BASE_URL na hospedagem.' : null;
         if (msg) throw new AiSetupError(msg);
       }
       return res;
-    },
-  });
-  return { model: config.mode === 'chat' ? client.chat(config.model) : client.responses(config.model), ...(config.lovable ? { providerOptions: options } : {}) };
+    };
+  if (config.mode === 'chat') {
+    const client = createOpenAICompatible({ name: 'study', baseURL: config.baseURL, headers: { Authorization: `Bearer ${key}` }, supportsStructuredOutputs: true, fetch: providerFetch });
+    return { model: client.chatModel(config.model) };
+  }
+  const client = createOpenAI({ baseURL: config.baseURL, apiKey: key, headers: config.lovable ? { 'Lovable-API-Key': key, 'X-Lovable-AIG-SDK': 'vercel-ai-sdk' } : {}, fetch: providerFetch });
+  return { model: client.responses(config.model), ...(config.lovable ? { providerOptions: options } : {}) };
 }
 
 const options = { openai: { forceReasoning: true, reasoningEffort: 'low', reasoningSummary: 'auto', store: false, include: ['reasoning.encrypted_content'] } } as const;
@@ -39,7 +43,7 @@ function friendly(e: unknown): never {
 
 export async function aiText(instructions: string, messages: ModelMessage[]) {
   try {
-    const r = streamText({ ...provider(), instructions, messages });
+    const r = streamText({ ...provider(messages), system: instructions, messages, maxRetries: 0 });
     const text = (await r.text).trim();
     if (!text) throw new Error('empty');
     return text;
@@ -48,7 +52,7 @@ export async function aiText(instructions: string, messages: ModelMessage[]) {
 
 export async function aiObject<T>(instructions: string, messages: ModelMessage[], schema: Record<string, unknown>): Promise<T> {
   try {
-    const r = streamText({ ...provider(), instructions, messages, output: Output.object({ schema: jsonSchema<T>(schema as never) }) });
+    const r = streamText({ ...provider(messages), system: instructions, messages, maxRetries: 0, output: Output.object({ schema: jsonSchema<T>(schema as never) }) });
     return (await r.output) as T;
   } catch (e) {
     if (NoObjectGeneratedError.isInstance(e)) throw new Error('A IA respondeu num formato inesperado. Tente gerar de novo.');
