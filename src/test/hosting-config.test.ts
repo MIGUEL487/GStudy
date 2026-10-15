@@ -23,6 +23,12 @@ describe('Configuração na hospedagem', () => {
     expect(aiConfig({ LOVABLE_API_KEY: 'private-test-key' }).lovable).toBe(true);
     const config = aiConfig({ AI_API_KEY: 'other-private-test-key', AI_BASE_URL: 'https://provider.example/v1', AI_MODEL: 'vision-model' });
     expect(config.lovable).toBe(false); expect(config.mode).toBe('chat');
-    expect(() => aiConfig({ AI_API_KEY: 'private-test-key' })).toThrow('AI_BASE_URL');
+    expect(aiConfig({ AI_API_KEY: 'private-test-key' })).toMatchObject({ model: 'aion-labs/aion-2.0', baseURL: 'https://openrouter.ai/api/v1', mode: 'chat', lovable: false });
+  });
+  it('usa Aion 2.0 somente via Chat Completions', () => {
+    expect(() => aiConfig({ AI_API_KEY: 'private-test-key', AI_MODEL: 'aion-labs/aion-2.0', AI_API_MODE: 'responses' })).toThrow('AI_API_MODE=chat');
+  });
+  it('não duplica o endpoint do provedor', () => {
+    expect(() => aiConfig({ AI_API_KEY: 'private-test-key', AI_BASE_URL: 'https://openrouter.ai/api/v1/chat/completions' })).toThrow('base da API');
   });
 });
