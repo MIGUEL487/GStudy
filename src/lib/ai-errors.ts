@@ -1,6 +1,12 @@
 import { AiSetupError } from "./ai-config";
 
-type Context = { whiteboard: boolean; google: boolean; groq?: boolean };
+type Context = {
+  whiteboard: boolean;
+  google: boolean;
+  groq?: boolean;
+  grok?: boolean;
+  keyVariable?: string | undefined;
+};
 const record = (value: unknown): Record<string, unknown> | undefined =>
   value !== null && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
 
@@ -14,14 +20,30 @@ export function providerFailure(status: number, payload: unknown, context: Conte
   const message = typeof error?.["message"] === "string" ? error["message"] : "";
   const details = Array.isArray(error?.["details"]) ? error["details"] : [];
   const reasons = details.map((value) => record(value)?.["reason"]);
-  const key = context.groq ? "GROQ_API_KEY" : "BOARD_AI_API_KEY";
-  const model = context.groq
+  const key =
+    context.keyVariable ??
+    (context.grok ? "GROK_API_KEY" : context.groq ? "GROQ_API_KEY" : "BOARD_AI_API_KEY");
+  const model = context.grok
     ? context.whiteboard
-      ? "GROQ_VISION_MODEL"
-      : "GROQ_MODEL"
-    : "BOARD_AI_MODEL";
-  const url = context.groq ? "o acesso à API Groq" : "BOARD_AI_BASE_URL";
-  const provider = context.groq ? "O Groq" : context.google ? "O Gemini" : "O provedor de IA";
+      ? "GROK_VISION_MODEL"
+      : "GROK_MODEL"
+    : context.groq
+      ? context.whiteboard
+        ? "GROQ_VISION_MODEL"
+        : "GROQ_MODEL"
+      : "BOARD_AI_MODEL";
+  const url = context.grok
+    ? "o acesso à API xAI"
+    : context.groq
+      ? "o acesso à API Groq"
+      : "BOARD_AI_BASE_URL";
+  const provider = context.grok
+    ? "O Grok/xAI"
+    : context.groq
+      ? "O Groq"
+      : context.google
+        ? "O Gemini"
+        : "O provedor de IA";
   if (
     reasons.some((reason) =>
       ["API_KEY_INVALID", "API_KEY_EXPIRED", "API_KEY_NOT_FOUND"].includes(String(reason)),

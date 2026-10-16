@@ -18,7 +18,7 @@ async function pdfText(data: unknown) {
     data.length > 6_000_000
   )
     throw new AiSetupError(
-      "A alternativa Groq precisa de um PDF enviado como arquivo de até 4 MB. Envie o conteúdo como texto ou fotos das páginas.",
+      "A alternativa de IA precisa de um PDF enviado como arquivo de até 4 MB. Envie o conteúdo como texto ou fotos das páginas.",
     );
   const { extractText, getDocumentProxy } = await import("unpdf");
   let pdf: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
@@ -32,7 +32,7 @@ async function pdfText(data: unknown) {
     });
     if (pdf.numPages > 40)
       throw new AiSetupError(
-        "Para usar a alternativa Groq, divida o PDF em arquivos de até 40 páginas ou envie um resumo.",
+        "Para usar a alternativa de IA, divida o PDF em arquivos de até 40 páginas ou envie um resumo.",
       );
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const extracted = await Promise.race([
@@ -42,7 +42,7 @@ async function pdfText(data: unknown) {
           () =>
             reject(
               new AiSetupError(
-                "O PDF demorou demais para abrir na alternativa Groq. Envie um arquivo menor ou fotos das páginas.",
+                "O PDF demorou demais para abrir na alternativa de IA. Envie um arquivo menor ou fotos das páginas.",
               ),
             ),
           8000,
@@ -52,12 +52,12 @@ async function pdfText(data: unknown) {
     const { text } = extracted;
     if (!text.length || text.some((page) => !page.trim()))
       throw new AiSetupError(
-        "O Gemini não respondeu e este PDF tem páginas sem texto extraível. Envie fotos das páginas ou cole o texto para usar a alternativa Groq.",
+        "O Gemini não respondeu e este PDF tem páginas sem texto extraível. Envie fotos das páginas ou cole o texto para usar a alternativa de IA.",
       );
     const content = text.map((page, index) => `Página ${index + 1}:\n${page}`).join("\n\n");
     if (content.length > 90000)
       throw new AiSetupError(
-        "O texto do PDF é extenso para a alternativa Groq. Divida o arquivo ou envie um resumo menor.",
+        "O texto do PDF é extenso para a alternativa de IA. Divida o arquivo ou envie um resumo menor.",
       );
     return content;
   } catch (error) {
@@ -69,7 +69,7 @@ async function pdfText(data: unknown) {
     await pdf?.loadingTask.destroy().catch(() => {});
   }
 }
-export async function groqMessages(messages: ModelMessage[]) {
+export async function fallbackMessages(messages: ModelMessage[]) {
   let convertedPdf = false;
   const converted = await Promise.all(
     messages.map(async (message) => {
@@ -80,7 +80,7 @@ export async function groqMessages(messages: ModelMessage[]) {
           if (part.mediaType.startsWith("image/")) return part;
           if (part.mediaType !== "application/pdf")
             throw new AiSetupError(
-              "A alternativa Groq aceita texto e imagens. Envie este arquivo como texto ou foto.",
+              "A alternativa de IA aceita texto e imagens. Envie este arquivo como texto ou foto.",
             );
           convertedPdf = true;
           return {
@@ -94,3 +94,6 @@ export async function groqMessages(messages: ModelMessage[]) {
   );
   return { messages: converted, convertedPdf };
 }
+
+// Backward-compatible name for existing callers.
+export const groqMessages = fallbackMessages;

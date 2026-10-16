@@ -7,14 +7,27 @@ import {
   type ModelMessage,
   type ToolSet,
 } from "ai";
-import { aiConfig, AiSetupError, groqConfig } from "./ai-config";
+import {
+  aiConfig,
+  AiSetupError,
+  fallbackProvider,
+  grokConfig,
+  grokKeySource,
+  groqConfig,
+} from "./ai-config";
 import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
-import { groqMessages, hasImages } from "./ai-fallback-media.server";
+import { fallbackMessages, hasImages } from "./ai-fallback-media.server";
 
-type Provider = "gemini" | "groq";
+type Provider = "gemini" | "grok" | "groq";
 const groqTimeoutMs = 25000;
 async function provider(name: Provider, vision: boolean, research = false) {
-  const context = { whiteboard: vision, google: name === "gemini", groq: name === "groq" };
+  const context = {
+    whiteboard: vision,
+    google: name === "gemini",
+    groq: name === "groq",
+    grok: name === "grok",
+    keyVariable: name === "grok" ? grokKeySource(process.env) : undefined,
+  };
   const providerFetch: typeof fetch = async (input, init) => {
     const response = await fetch(input, init);
     if (!response.ok) {
@@ -46,6 +59,16 @@ async function provider(name: Provider, vision: boolean, research = false) {
     });
     return google(config.model);
   }
+  if (name === "grok") {
+    const config = grokConfig(process.env);
+    if (!config)
+      throw new AiSetupError(
+        "Configure GROK_API_KEY com sua chave completa do Grok/xAI na Vercel e publique novamente.",
+      );
+    const { createXai } = await import("@ai-sdk/xai");
+    const xai = createXai({ apiKey: config.key, baseURL: config.baseURL, fetch: providerFetch });
+    return xai.responses(vision ? config.visionModel : config.model);
+  }
   const config = groqConfig(process.env);
   if (!config)
     throw new AiSetupError(
@@ -60,6 +83,8 @@ function logFailure(error: unknown, name: Provider, vision: boolean) {
     whiteboard: vision,
     google: name === "gemini",
     groq: name === "groq",
+    grok: name === "grok",
+    keyVariable: name === "grok" ? grokKeySource(process.env) : undefined,
   });
   // SDK exceptions may contain keys, photos, notes or request bodies. Log only safe fields.
   console.error("[GStudy AI] Falha na geração:", {
@@ -104,6 +129,9 @@ async function generate(
             providerOptions: { groq: { structuredOutputs: false } },
           }
         : {}),
+      ...(name === "grok"
+        ? { abortSignal: AbortSignal.timeout(45000), providerOptions: { xai: { store: false } } }
+        : {}),
     });
   let result;
   try {
@@ -142,11 +170,14 @@ async function generate(
       "O provedor de IA não retornou uma resposta de texto. Tente novamente ou confira se o modelo escolhido gera texto.",
     );
   if (research) {
-    const sources = result.sources.flatMap((source) =>
-      source.sourceType === "url"
-        ? [{ title: source.title || "Fonte consultada", url: source.url }]
-        : [],
-    );
+    const sources =
+      name === "gemini"
+        ? result.sources.flatMap((source) =>
+            source.sourceType === "url"
+              ? [{ title: source.title || "Fonte consultada", url: source.url }]
+              : [],
+          )
+        : [];
     return { text, sources };
   }
   return text;
@@ -159,6 +190,7 @@ async function withFallback(
   research = false,
 ) {
   const vision = whiteboard || hasImages(messages);
+  let alternative: "grok" | "groq" | undefined;
   try {
     return {
       value: await generate(instructions, messages, "gemini", schema, research),
@@ -166,11 +198,12 @@ async function withFallback(
     };
   } catch (error) {
     if (!canFallback(error)) return finishFailure(error, "gemini", vision);
-    if (!process.env["GROQ_API_KEY"]?.trim()) return finishFailure(error, "gemini", vision);
+    alternative = fallbackProvider(process.env);
+    if (!alternative) return finishFailure(error, "gemini", vision);
     logFailure(error, "gemini", vision);
   }
   try {
-    const fallback = await groqMessages(messages);
+    const fallback = await fallbackMessages(messages);
     const extra = fallback.convertedPdf
       ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente ilustrações, diagramas ou imagens ausentes."
       : "";
@@ -181,16 +214,18 @@ async function withFallback(
           ? "\nVocê não tem busca web nesta resposta. Não afirme ter consultado páginas nem confirmado o edital atual."
           : ""),
       fallback.messages,
-      "groq",
+      alternative,
       schema,
       research,
     );
     return { value, convertedPdf: fallback.convertedPdf };
   } catch (error) {
-    const failure = logFailure(error, "groq", vision);
+    const failure = logFailure(error, alternative, vision);
     if (NoObjectGeneratedError.isInstance(error))
       throw new Error(
-        "O Gemini não respondeu e o Groq retornou um formato inesperado. Tente novamente.",
+        "O Gemini não respondeu e o " +
+          (alternative === "grok" ? "Grok" : "Groq") +
+          " retornou um formato inesperado. Tente novamente.",
       );
     throw new Error(`O Gemini não respondeu. ${failure.message}`);
   }

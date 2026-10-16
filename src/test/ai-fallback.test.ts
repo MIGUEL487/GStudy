@@ -47,6 +47,8 @@ const groq = (content = "Resposta Groq", finish_reason = "stop") =>
     { headers: { "Content-Type": "application/json" } },
   );
 beforeEach(() => {
+  vi.stubEnv("GROK_API_KEY", "");
+  vi.stubEnv("XAI_API_KEY", "");
   vi.stubEnv("BOARD_AI_API_KEY", "gemini-private-key");
   vi.stubEnv("BOARD_AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta");
   vi.stubEnv("BOARD_AI_MODEL", "gemini-test");

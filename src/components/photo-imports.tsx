@@ -138,7 +138,7 @@ function PhotoPicker({
         </details>
       )}
       <p className="study-photo-privacy">
-        Ao iniciar a leitura, a foto poderá ser enviada ao Gemini ou ao Groq, usado como
+        Ao iniciar a leitura, a foto poderá ser enviada ao Gemini ou ao Grok/Groq configurado como
         alternativa. O GStudy salva somente o texto ou as notas que você confirmar.
       </p>
     </div>

@@ -1,5 +1,7 @@
 # Groq como alternativa ao Gemini
 
+Para a integração atual com Grok/xAI, consulte [GROK-ALTERNATIVA.md](./GROK-ALTERNATIVA.md). Este documento descreve a compatibilidade anterior com Groq; ela só é escolhida quando não há chave Grok configurada.
+
 O Gemini continua como primeira opção. Quando há limite de uso/cota, indisponibilidade, erro de conexão, timeout, configuração inválida ou resposta que não pode ser lida como JSON, a mesma solicitação pode ser repetida uma única vez no Groq. A conversa, as fontes e as imagens são preservadas; a troca acontece dentro da chamada do servidor, sem iniciar outra sessão nem gastar uma segunda tentativa diária. Quando o Gemini funciona, o Groq não é chamado.
 
 ## Ativar na Vercel

@@ -4,7 +4,7 @@ A rota /preparar aparece na barra lateral e nas cinco opções da navegação m�
 
 Para concursos e olimpíadas, a pesquisa usa o Google Search do SDK Gemini. O relatório apresenta orientações e três perguntas para personalizar o estudo. Os links vêm dos metadados de grounding do provedor, com validação de URL e remoção de duplicatas, nunca de links inventados no texto. A pessoa deve conferir a edição e o programa do organizador. Para uma prova da escola, não há pesquisa sobre uma avaliação privada: a IA pergunta pelo conteúdo das aulas e pelo roteiro do professor.
 
-Gemini continua sendo a primeira opção, sem interromper uma geração saudável após 25 segundos. Groq só entra em falhas técnicas, com a configuração existente. Se o modelo Gemini não suporta grounding, uma resposta sem busca pode ser gerada no próprio Gemini. O Groq não recebe a ferramenta de busca. Sem fontes, a interface identifica a resposta como orientação geral e não como confirmação de um programa atual. Não são necessários novos segredos ou migrações SQL.
+Gemini continua sendo a primeira opção, sem interromper uma geração saudável após 25 segundos. Grok/xAI (ou Groq quando Grok não está configurado) só entra em falhas técnicas. Se o modelo Gemini não suporta grounding, uma resposta sem busca pode ser gerada no próprio Gemini. As alternativas Grok e Groq não recebem a ferramenta de busca neste fluxo. Sem fontes, a interface identifica a resposta como orientação geral e não como confirmação de um programa atual. Não são necessários novos segredos ou migrações SQL.
 
 No último passo, a meta de aproveitamento pode ser ajustada de 0 a 100% por uma volta completa na circunferência, mouse, toque, botões e teclado (setas, Home, End, PageUp e PageDown). Os extremos não saltam entre 0 e 100% ao atravessar o topo. Para criar o plano, a meta precisa ser maior que zero. Ela expressa a intenção de acertos, sem representar uma nota obtida ou garantia de aprovação.
 
@@ -14,7 +14,7 @@ Ano escolar é uma preferência do workspace, alterável em Configurações → 
 
 ## Grok e Groq
 
-Grok/xAI e Groq são serviços diferentes. GROQ_API_KEY exige uma chave completa gerada em https://console.groq.com/keys. Uma chave de outro serviço, inclusive com prefixo codex_ ou xai-, não é corrigida removendo o prefixo. A configuração agora identifica esses prefixos e explica a diferença, sem expor a chave nem interferir num Gemini saudável. Depois de atualizar a variável em Production na Vercel, é necessário publicar novamente.
+Grok/xAI e Groq são serviços diferentes. Use GROK_API_KEY com sua chave completa do Grok/xAI. XAI_API_KEY e uma chave grok_ ou xai- já preenchida em GROQ_API_KEY também são reconhecidas. Não remova o prefixo. Groq continua compatível quando Grok não está configurado. Consulte [GROK-ALTERNATIVA.md](./GROK-ALTERNATIVA.md).
 
 ## Verificação
 
