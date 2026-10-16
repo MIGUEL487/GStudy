@@ -1,41 +1,66 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { Check, Layers3, RotateCcw, RotateCw } from 'lucide-react';
 import { awardXp } from '@/lib/learn-client';
+import { learningSearch, type LearningSearch } from '@/lib/learning-model';
+import { useLessonContext } from '@/components/learning-provider';
 import { useGeneratedActivity } from '@/hooks/use-generated-activity';
-import { LessonShell, Thinking, Finish, ErrorBox } from '@/components/lesson';
+import { LessonShell, Thinking, Finish, ErrorBox, UnavailableLesson } from '@/components/lesson';
 
 export const Route = createFileRoute('/aprender/flashcards')({
-  validateSearch: (s: Record<string, unknown>) => ({ m: typeof s['m'] === 'string' ? s['m'] : undefined }),
+  validateSearch: learningSearch,
   head: () => ({ meta: [{ title: 'GStudy · Flashcards' }, { name: 'description', content: 'Cartas de memorização criadas do seu material.' }, { property: 'og:title', content: 'GStudy · Flashcards' }, { property: 'og:description', content: 'Memorize virando cartas.' }, { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary_large_image' }] }),
   component: CardsPage,
 });
+function CardsPage() { return <FlashcardsLesson search={Route.useSearch()} />; }
 
 type Card = { front: string; back: string };
-function CardsPage() {
-  const { m } = Route.useSearch();
-  const { result, error, reload: load } = useGeneratedActivity('flashcards', m);
-  const [queue, setQueue] = useState<Card[] | null>(null); const [total, setTotal] = useState(0); const [known, setKnown] = useState(0);
-  const [flip, setFlip] = useState(false); const [round, setRound] = useState(0);
+export function FlashcardsLesson({ search }: { search: LearningSearch }) {
+  const lesson = useLessonContext(search);
+  const enabled = lesson.ready && lesson.allowed && (!search.p || Boolean(lesson.context));
+  const { result, error, reload: load, remaining } = useGeneratedActivity('flashcards', search.m, lesson.context, enabled);
+  const [queue, setQueue] = useState<Card[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [known, setKnown] = useState(0);
+  const [flip, setFlip] = useState(false);
+  const [round, setRound] = useState(0);
+  const answering = useRef(false);
   useEffect(() => {
-    setKnown(0); setFlip(false); setRound(0);
+    setKnown(0); setFlip(false); setRound(0); answering.current = false;
     if (result?.mode === 'flashcards') { setQueue(result.cards.cards); setTotal(result.cards.cards.length); }
     else { setQueue(null); setTotal(0); }
   }, [result]);
-  if (error) return <LessonShell progress={0} title="Flashcards"><ErrorBox message={error} retry={load} /></LessonShell>;
-  if (!queue) return <LessonShell progress={0} title="Flashcards"><Thinking text="Embaralhando suas cartas…" /></LessonShell>;
+  useEffect(() => { answering.current = false; }, [queue]);
+  const shell = { title: 'Flashcards', backSearch: lesson.backSearch };
+  if (lesson.ready && !enabled) return <LessonShell progress={0} {...shell}><UnavailableLesson backSearch={lesson.backSearch} /></LessonShell>;
+  if (error) return <LessonShell progress={0} {...shell}><ErrorBox message={error} retry={load} /></LessonShell>;
+  if (!queue) return <LessonShell progress={0} {...shell}><Thinking text="Preparando perguntas curtas e respostas claras…" /></LessonShell>;
   const card = queue[0];
-  if (!card) return <LessonShell progress={1} title="Flashcards"><Finish xp={total * 2} title="Baralho dominado!" line={`Você memorizou ${total} cartas.`} again={load} /></LessonShell>;
-  const answer = (got: boolean) => { setFlip(false); setRound(r => r + 1);
-    setTimeout(() => setQueue(q => { if (!q) return q; const [c, ...rest] = q; const next = got ? rest : [...rest, c!]; if (got) setKnown(k => k + 1); if (!next.length) void awardXp(total * 2); return next; }), 180); };
-  return <LessonShell progress={known / Math.max(1, total)} title="Flashcards">
+  if (!card) return <LessonShell progress={1} {...shell}><Finish xp={total * 2} title="Conexões na memória!" line={`Você revisou e reconheceu as ${total} cartas deste baralho.`} again={load} next={lesson.next} backSearch={lesson.backSearch} /></LessonShell>;
+  const answer = (got: boolean) => {
+    if (answering.current) return;
+    answering.current = true;
+    const [current, ...rest] = queue;
+    const next = got ? rest : [...rest, current!];
+    if (!next.length && search.p && !lesson.complete('flashcards')) { answering.current = false; return; }
+    setFlip(false); setRound(r => r + 1); setQueue(next);
+    if (got) setKnown(n => n + 1);
+    if (!next.length) void awardXp(total * 2);
+  };
+  return <LessonShell progress={known / Math.max(1, total)} {...shell}>
     <div className="lesson-body">
-      <small className="lesson-kicker">{queue.length} CARTA(S) RESTANTE(S) · TOQUE PARA VIRAR</small>
-      <button key={round} className={`flashcard ${flip ? 'flipped' : ''}`} onClick={() => setFlip(!flip)} aria-label="Virar carta">
-        <span className="fc-face fc-front">{card.front}</span><span className="fc-face fc-back">{card.back}</span>
+      <div className="activity-intro"><Layers3 size={18} aria-hidden="true" /><span>Uma conexão de cada vez.</span><span className="activity-card-count">{known} de {total} reconhecidas</span></div>
+      <small className="lesson-kicker">{lesson.topic?.title ?? 'MEMORIZE COM CALMA'}</small>
+      <button className="activity-flashcard" data-face={flip ? 'answer' : 'question'} onClick={() => setFlip(f => !f)} aria-pressed={flip} aria-describedby="flashcard-hint">
+        <span className="flashcard-side"><RotateCw size={14} aria-hidden="true" />{flip ? 'Resposta' : 'Pergunta'}</span>
+        <span key={`${round}-${flip}`} className="flashcard-copy"><ReactMarkdown>{flip ? card.back : card.front}</ReactMarkdown></span>
       </button>
+      <p id="flashcard-hint" className="activity-card-hint">{flip ? 'Lembrou sem olhar? Escolha abaixo. As cartas difíceis voltam para o fim.' : 'Pense na resposta antes de tocar na carta. Use Enter ou espaço para virar.'}</p>
     </div>
     <div className="lesson-foot">
-      {flip ? <><button className="duo-btn ghost" onClick={() => answer(false)}>Ainda não 🔁</button><button className="duo-btn" onClick={() => answer(true)}>Eu sabia! ✅</button></> : <button className="duo-btn" onClick={() => setFlip(true)}>Ver resposta</button>}
+      {flip ? <><button className="duo-btn ghost" onClick={() => answer(false)}><RotateCcw size={16} aria-hidden="true" />Revisar depois</button><button className="duo-btn" onClick={() => answer(true)}><Check size={17} aria-hidden="true" />Eu lembrei</button></> : <button className="duo-btn" onClick={() => setFlip(true)}>Revelar resposta<RotateCw size={16} aria-hidden="true" /></button>}
     </div>
+    <p className="activity-card-hint">{remaining} {remaining === 1 ? 'novo baralho disponível' : 'novos baralhos disponíveis'} hoje neste navegador.</p>
   </LessonShell>;
 }

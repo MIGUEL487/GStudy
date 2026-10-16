@@ -11,6 +11,8 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import workspaceCss from "../styles/workspace-polish.css?url";
+import activitiesCss from "../styles/activities.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AccountWorkspace } from "@/components/account-workspace";
 import { StudyLayout } from "@/components/study-layout";
@@ -94,6 +96,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "stylesheet", href: workspaceCss },
+      { rel: "stylesheet", href: activitiesCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" },
     ],

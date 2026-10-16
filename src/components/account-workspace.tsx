@@ -3,10 +3,11 @@ import { useAuth } from './auth-gate';
 import { StudyProvider, useStudy } from './study-provider';
 import { useNotionImports, useNotionUpdates } from '@/lib/notion-client';
 import { mergeNotionPages } from '@/lib/notion-model';
+import { LearningProvider } from './learning-provider';
 
 export function AccountWorkspace({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  return <StudyProvider key={user.id} userId={user.id}><NotionHydrator />{children}</StudyProvider>;
+  return <StudyProvider key={user.id} userId={user.id}><LearningProvider><NotionHydrator />{children}</LearningProvider></StudyProvider>;
 }
 function NotionHydrator() {
   const { user } = useAuth(); const { data, ready, update } = useStudy();

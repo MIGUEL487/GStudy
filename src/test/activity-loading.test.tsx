@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock('@/lib/learn.functions', () => ({ generateActivity: mocks.generate }));
 vi.mock('@/lib/learn-client', () => ({ idsFrom: (m?: string) => m ? m.split(',') : [] }));
+vi.mock('@/hooks/use-daily-attempt', () => ({ useDailyAttempt: () => ({ begin: () => 'attempt', succeed: vi.fn(), fail: vi.fn(), remaining: 2 }) }));
 // Simulate a wrapper whose identity changes on every render.
 vi.mock('@tanstack/react-start', () => ({ useServerFn: (fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => fn(...args) }));
 import { useGeneratedActivity } from '@/hooks/use-generated-activity';

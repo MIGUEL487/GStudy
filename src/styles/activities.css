@@ -1,0 +1,90 @@
+/* Shared study activities use untransformed, readable text. */
+.activity-lesson { max-width:850px;min-height:calc(100dvh - 164px); }
+.activity-lesson .lesson-top { gap:16px;margin-bottom:28px; }
+.activity-lesson .lesson-close { width:38px;height:38px;border:1px solid var(--border);border-radius:50%;display:grid;place-items:center;flex:none;transition:background .2s,transform .2s; }
+.activity-lesson .lesson-close:hover { background:var(--secondary);transform:rotate(4deg); }
+.activity-progress { flex:1;min-width:0; }
+.activity-progress-label { display:flex;justify-content:space-between;gap:10px;margin-bottom:9px;font-size:11px;letter-spacing:.045em;color:var(--muted-foreground); }
+.activity-progress-label>span:first-child { font-weight:600;color:var(--foreground); }
+.activity-lesson .lesson-bar { height:6px; }
+.activity-lesson .lesson-bar>span { box-shadow:none;transition:width .65s var(--ease); }
+.activity-lesson .lesson-hearts { display:flex;align-items:center;gap:6px; }
+.activity-lesson .lesson-body { gap:20px; }
+.activity-lesson .lesson-q { font-size:clamp(27px,3vw,39px);line-height:1.25;text-wrap:pretty; }
+.activity-intro { display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted-foreground); }
+.activity-intro>svg { flex:none;color:var(--primary); }
+.activity-lesson .lesson-kicker { font-size:10px;letter-spacing:.13em; }
+.activity-lesson .lesson-foot { padding:18px 0 0;margin-top:26px;border-top:1px solid var(--border);border-radius:0;flex-wrap:wrap; }
+.activity-lesson .lesson-foot.good,.activity-lesson .lesson-foot.bad { padding:18px;border:1px solid var(--border);border-radius:16px; }
+.activity-lesson .duo-btn { text-transform:none;letter-spacing:0;font-weight:600;border-radius:12px;box-shadow:none;min-height:47px;transition:background .2s,transform .2s var(--ease),opacity .2s; }
+.activity-lesson .duo-btn:hover:not(:disabled) { transform:translateY(-2px); }
+.activity-lesson .duo-btn:active:not(:disabled) { transform:translateY(0); }
+.activity-lesson .duo-btn.ghost { border-width:1px;box-shadow:none; }
+.activity-lesson .lesson-thinking { gap:17px;padding:75px 20px; }
+.activity-lesson .lesson-thinking p { max-width:430px;margin:0;font-size:16px;line-height:1.6; }
+.activity-thinking-icon { display:grid;place-items:center;width:76px;height:76px;border:1px solid var(--border);border-radius:24px;color:var(--primary);background:transparent;animation:activity-float 4s ease-in-out infinite; }
+.activity-thinking-hint { max-width:360px;font-size:12px;line-height:1.5;color:var(--muted-foreground); }
+.dots,.bubble.typing { display:flex;align-items:center;justify-content:center;gap:7px;min-height:22px; }
+.dots i,.bubble.typing i { width:7px;height:7px;border-radius:50%;opacity:1;animation:activity-dot-wave 1.2s ease-in-out infinite; }
+.dots i:nth-child(2),.bubble.typing i:nth-child(2) { animation-delay:.16s; }
+.dots i:nth-child(3),.bubble.typing i:nth-child(3) { animation-delay:.32s; }
+@keyframes activity-dot-wave { 0%,65%,100% { transform:translateY(3px); } 32% { transform:translateY(-5px); } }
+@keyframes activity-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-5px); } }
+@keyframes activity-face-in { from { opacity:0;transform:translateY(9px); } to { opacity:1;transform:translateY(0); } }
+.activity-flashcard { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;position:relative;width:100%;min-height:330px;height:auto;padding:35px clamp(22px,5vw,48px);border:1px solid var(--border);border-radius:22px;background:var(--card);box-shadow:0 12px 36px -26px #523b2780;text-align:center;cursor:pointer;transition:background .3s,border-color .3s; }
+.activity-flashcard[data-face=answer] { background:var(--secondary); }
+.activity-flashcard:hover { border-color:var(--primary); }
+.activity-flashcard:focus-visible { outline:2px solid var(--primary);outline-offset:4px; }
+.activity-flashcard .flashcard-side { display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted-foreground);font-size:10px;letter-spacing:.13em;text-transform:uppercase; }
+.flashcard-copy { display:block;width:100%;min-width:0;font:500 clamp(24px,3vw,34px)/1.45 var(--font-serif);overflow-wrap:anywhere;white-space:pre-wrap;animation:activity-face-in .32s var(--ease) both; }
+.activity-flashcard[data-face=answer] .flashcard-copy { font:400 clamp(17px,2vw,20px)/1.7 var(--font-sans); }
+.flashcard-copy p { margin:0; }
+.flashcard-copy p+p { margin-top:.8em; }
+.flashcard-copy ul,.flashcard-copy ol { display:inline-block;text-align:left;padding-left:1.3em;margin:.6em 0; }
+.activity-card-hint { margin:0;color:var(--muted-foreground);font-size:11px;line-height:1.5;text-align:center; }
+.activity-card-count { margin-left:auto;font-size:11px;white-space:nowrap; }
+.activity-lesson .choices { gap:12px; }
+.activity-lesson .choice { align-items:flex-start;gap:14px;border-width:1px;border-radius:14px;padding:17px 18px;box-shadow:none;line-height:1.6;transition:background .25s,border-color .25s,transform .25s; }
+.activity-lesson .choice>kbd { margin-top:1px; }
+.activity-lesson .choice>span { flex:1;overflow-wrap:anywhere; }
+.activity-lesson .choice:hover:not(:disabled) { transform:translateX(3px); }
+.activity-lesson .choice.picked { box-shadow:inset 0 0 0 1px var(--primary); }
+.activity-lesson .choice.right,.activity-lesson .choice.wrong { animation:none; }
+.activity-lesson .choice:disabled { opacity:1;cursor:default; }
+.activity-lesson .choice .choice-status { flex:none;align-self:center; }
+.activity-lesson .foot-msg { gap:8px;min-width:170px; }
+.activity-lesson .foot-msg b { display:flex;gap:8px;align-items:center;font:600 21px var(--font-serif); }
+.activity-lesson .foot-msg>span { font-size:13px;line-height:1.65; }
+.activity-lesson .explain-card { padding:25px 27px;border:1px solid var(--border);border-radius:18px;background:var(--card);font-size:16px;line-height:1.85;overflow-wrap:anywhere; }
+.activity-lesson .explain-card>:first-child,.activity-lesson .explain-example>:first-child { margin-top:0; }
+.activity-lesson .explain-card>:last-child,.activity-lesson .explain-example>:last-child { margin-bottom:0; }
+.activity-lesson .explain-example { padding:20px 24px;border:1px solid var(--border);border-left:3px solid var(--success);border-radius:14px;background:transparent;line-height:1.75; }
+.activity-lesson .explain-example>b { display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;color:var(--success); }
+.activity-lesson .lesson-finish { gap:15px;padding:40px 10px;animation:activity-face-in .5s var(--ease) both; }
+.activity-lesson .lesson-finish>h1 { max-width:600px;font:500 clamp(29px,4vw,42px)/1.2 var(--font-serif); }
+.activity-lesson .lesson-finish>.page-subtitle { max-width:490px;line-height:1.7; }
+.activity-lesson .finish-burst { width:90px;height:90px;display:grid;place-items:center;margin-bottom:8px;border:1px solid var(--border);border-radius:30px;color:var(--primary);background:transparent; }
+.activity-lesson .finish-stats { gap:14px;margin:8px 0 12px; }
+.activity-lesson .finish-stats>div { min-width:130px;gap:7px;padding:18px 24px;border:1px solid var(--border);border-radius:16px;background:transparent; }
+.activity-lesson .finish-stats svg { color:var(--primary); }
+.activity-lesson .finish-stats strong { font-size:17px; }
+.activity-lesson .finish-stats small { font-size:10px;color:var(--muted-foreground); }
+.activity-finish-actions { display:flex;flex-wrap:wrap;justify-content:center;gap:12px; }
+.activity-finish-note { margin:4px 0 0;color:var(--muted-foreground);font-size:11px; }
+@media(max-width:700px) {
+  .activity-lesson { min-height:calc(100dvh - 165px); }
+  .activity-lesson .lesson-top { gap:11px;margin-bottom:24px; }
+  .activity-lesson .lesson-q { font-size:28px; }
+  .activity-lesson .lesson-foot { gap:10px; }
+  .activity-lesson .lesson-foot>.duo-btn { flex:1;min-width:125px;padding:0 14px; }
+  .activity-lesson .foot-msg { flex-basis:100%; }
+  .activity-flashcard { min-height:300px;padding:28px 21px; }
+  .activity-lesson .explain-card { padding:20px; }
+  .activity-lesson .explain-example { padding:18px; }
+  .activity-card-count { font-size:10px; }
+  .activity-lesson .choice { padding:14px; }
+  .activity-lesson .finish-stats>div { min-width:115px;padding:16px 19px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .activity-lesson *,.dots i,.bubble.typing i { animation:none!important;transition:none!important; }
+}

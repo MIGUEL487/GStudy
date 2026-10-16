@@ -1,10 +1,9 @@
 import { createServerFn } from '@tanstack/react-start';
 import { requireStudyAuth } from '@/lib/study-auth-middleware';
 import { z } from 'zod';
+import { arraySchema, boardImageSchema, cleanLearningText, learningContextSchema, learningLanguage, learningMemory, learningReference, materialIdsSchema, objectSchema as obj, outputText, stringSchema as s, studentPersonas, validatedLearningOutput } from './learning-ai';
 
 const str = (n: number) => z.string().max(n);
-const obj = (props: Record<string, unknown>) => ({ type: 'object', additionalProperties: false, required: Object.keys(props), properties: props });
-const s = { type: 'string' };
 
 function stripHtml(html: string) {
   return html.replace(/<(script|style|noscript|svg)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim().slice(0, 30000);
@@ -45,57 +44,55 @@ export const addMaterial = createServerFn({ method: 'POST' })
     }
     if (!parts.length) throw new Error('Adicione algum conteúdo.');
     const memory = await aiText(
-      'Você é a memória de estudos de um estudante brasileiro. Leia o material e escreva em português notas de estudo organizadas: conceitos-chave, definições, fórmulas, datas e exemplos. Use tópicos curtos em markdown. No máximo 600 palavras. Não invente nada que não esteja no material.',
+      `${learningLanguage}\nVocê é a memória de estudos de um estudante brasileiro. Leia o material e escreva notas de estudo organizadas: conceitos-chave, definições, fórmulas, datas e exemplos. Use tópicos curtos em Markdown. No máximo 600 palavras. Não invente nada que não esteja no material.`,
       [{ role: 'user', content: [{ type: 'text', text: `Material: "${data.title}"` }, ...parts] as never }],
     );
-    const { data: row, error } = await context.supabase.from('study_materials').insert({ user_id: context.userId, title: data.title, kind: data.kind, source, memory }).select().single();
+    const { data: row, error } = await context.supabase.from('study_materials').insert({ user_id: context.userId, title: data.title, kind: data.kind, source, memory: cleanLearningText(memory) }).select().single();
     if (error) throw new Error('Não foi possível salvar o material.');
     return row;
   });
 
-async function memoryOf(supabase: { from: (t: 'study_materials') => any }, ids: string[]) {
-  let q = supabase.from('study_materials').select('title, memory').order('created_at', { ascending: false }).limit(ids.length || 12);
-  if (ids.length) q = q.in('id', ids);
-  const { data, error } = await q;
-  if (error) throw new Error('Não foi possível ler seus materiais.');
-  if (!data?.length) throw new Error('Adicione um material de estudo primeiro.');
-  const memory = (data as { title: string; memory: string }[]).map(m => `## ${m.title}\n${m.memory}`).join('\n\n');
-  if (memory.length > 90000) throw new Error('Os materiais selecionados são muito extensos para uma atividade. Selecione menos páginas ou divida o conteúdo no Notion e importe novamente.');
-  return memory;
-}
-
-const genInput = z.object({ mode: z.enum(['quiz', 'flashcards', 'explain']), ids: z.array(z.string().uuid()).max(20) });
+const genInput = z.object({ mode: z.enum(['quiz', 'flashcards', 'explain']), ids: materialIdsSchema, context: learningContextSchema.optional() });
 
 export type Quiz = { questions: { question: string; options: string[]; answer: number; why: string }[] };
 export type Cards = { cards: { front: string; back: string }[] };
 export type Explain = { topics: { title: string; explanation: string; example: string }[] };
+
+const quizOutput = z.object({ questions: z.array(z.object({
+  question: outputText(1200, 5), options: z.array(outputText(600)).length(4).refine(options => new Set(options.map(option => option.toLocaleLowerCase('pt-BR'))).size === 4),
+  answer: z.number().int().min(0).max(3), why: outputText(1800),
+})).length(6) });
+const cardsOutput = z.object({ cards: z.array(z.object({ front: outputText(800, 2), back: outputText(1600, 2) })).length(10) });
+const explainOutput = z.object({ topics: z.array(z.object({ title: outputText(180), explanation: outputText(6000), example: outputText(3000) })).min(4).max(6) });
 
 export const generateActivity = createServerFn({ method: 'POST' })
   .middleware([requireStudyAuth])
   .inputValidator((i: unknown) => genInput.parse(i))
   .handler(async ({ data, context }) => {
     const { aiObject } = await import('./ai.server');
-    const mem = await memoryOf(context.supabase, data.ids);
-    const msg = [{ role: 'user' as const, content: `Minhas notas de estudo:\n\n${mem}` }];
+    const mem = await learningMemory(context.supabase, data.ids, !data.context);
+    const msg = [{ role: 'user' as const, content: learningReference(data.context, mem) }];
     if (data.mode === 'quiz') {
-      const r = await aiObject<Quiz>('Crie um quiz em português com exatamente 6 perguntas de múltipla escolha baseadas só nas notas. Cada uma com 4 opções curtas, o índice (0-3) da correta e uma explicação curta e encorajadora do porquê. Varie a dificuldade, da mais fácil para a mais difícil.', msg,
-        obj({ questions: { type: 'array', items: obj({ question: s, options: { type: 'array', items: s }, answer: { type: 'integer' }, why: s }) } }));
-      return { mode: 'quiz' as const, quiz: { questions: r.questions.filter(q => q.options.length >= 2).map(q => ({ ...q, options: q.options.slice(0, 4), answer: Math.min(Math.max(0, q.answer), Math.min(3, q.options.length - 1)) })).slice(0, 8) } };
+      const r = await aiObject<Quiz>(`${learningLanguage}\nCrie exatamente 6 perguntas de múltipla escolha sobre a etapa indicada. Cada uma deve ter exatamente 4 opções distintas e curtas, o índice (0 a 3) da única resposta correta e uma explicação curta e encorajadora. Verifique a resposta correta antes de entregar; nunca marque uma alternativa inconsistente. Varie a dificuldade da mais fácil à mais difícil e avalie compreensão, não pegadinhas.`, msg,
+        obj({ questions: arraySchema(obj({ question: s, options: arraySchema(s, 4), answer: { type: 'integer', minimum: 0, maximum: 3 }, why: s }), 6) }));
+      return { mode: 'quiz' as const, quiz: validatedLearningOutput(quizOutput, r) };
     }
     if (data.mode === 'flashcards') {
-      const r = await aiObject<Cards>('Crie 10 flashcards em português baseados só nas notas. Frente: pergunta ou termo curto. Verso: resposta clara em até 2 frases.', msg,
-        obj({ cards: { type: 'array', items: obj({ front: s, back: s }) } }));
-      return { mode: 'flashcards' as const, cards: { cards: r.cards.slice(0, 15) } };
+      const r = await aiObject<Cards>(`${learningLanguage}\nCrie exatamente 10 flashcards sobre a etapa indicada. Frente: uma pergunta específica ou um termo curto. Verso: resposta clara em até 2 frases. Cada carta deve ensinar uma ideia distinta. Use somente texto legível, sem Markdown, asteriscos, crases, marcadores, HTML, símbolos de dólar ou comandos de LaTeX. Use acentuação natural e revise cada frente e verso para não haver palavras truncadas, duplicadas ou erros ortográficos. Fórmulas devem ser legíveis em texto simples, como c² = a² + b².`, msg,
+        obj({ cards: arraySchema(obj({ front: s, back: s }), 10) }));
+      return { mode: 'flashcards' as const, cards: validatedLearningOutput(cardsOutput, r) };
     }
-    const r = await aiObject<Explain>('Explique em português os 4 a 6 conceitos mais importantes das notas, como um ótimo professor: linguagem simples, analogias do dia a dia. Para cada um: título, explicação (até 120 palavras, pode usar markdown) e um exemplo prático.', msg,
-      obj({ topics: { type: 'array', items: obj({ title: s, explanation: s, example: s }) } }));
-    return { mode: 'explain' as const, explain: { topics: r.topics.slice(0, 8) } };
+    const r = await aiObject<Explain>(`${learningLanguage}\nExplique os 4 a 6 conceitos mais importantes desta etapa, como um ótimo professor: linguagem simples, conexão entre ideias e analogias do dia a dia. Para cada um: título, explicação (até 120 palavras, pode usar Markdown simples) e um exemplo prático. Prepare a pessoa para explicar o raciocínio e resolver um pequeno problema.`, msg,
+      obj({ topics: arraySchema(obj({ title: s, explanation: s, example: s }), 4, 6) }));
+    return { mode: 'explain' as const, explain: validatedLearningOutput(explainOutput, r) };
   });
 
 const feynInput = z.object({
   topic: str(200),
-  ids: z.array(z.string().uuid()).max(20),
-  messages: z.array(z.object({ role: z.enum(['user', 'assistant']), text: str(8000), board: str(3_000_000).optional() })).min(1).max(40),
+  ids: materialIdsSchema,
+  context: learningContextSchema.optional(),
+  studentId: z.enum(['gui', 'lia', 'rafa', 'maya']).default('gui'),
+  messages: z.array(z.object({ role: z.enum(['user', 'assistant']), text: str(8000), board: boardImageSchema.optional() })).min(1).max(40),
 });
 
 export const feynmanReply = createServerFn({ method: 'POST' })
@@ -103,16 +100,17 @@ export const feynmanReply = createServerFn({ method: 'POST' })
   .inputValidator((i: unknown) => feynInput.parse(i))
   .handler(async ({ data, context }) => {
     const { aiText } = await import('./ai.server');
-    let mem = '';
-    try { mem = await memoryOf(context.supabase, data.ids); } catch (error) { if (!(error instanceof Error) || error.message !== 'Adicione um material de estudo primeiro.') throw error; }
+    const mem = await learningMemory(context.supabase, data.ids, !data.context);
+    const reference = learningReference(data.context ?? { subject: 'Estudo livre', topic: data.topic }, mem);
+    const student = studentPersonas[data.studentId];
     const last = data.messages.length - 1;
     const messages = data.messages.map((m, i) => m.role === 'assistant'
       ? { role: 'assistant' as const, content: m.text }
       : { role: 'user' as const, content: [{ type: 'text' as const, text: m.text || '(veja a lousa)' }, ...(m.board && i === last ? [{ type: 'image' as const, image: m.board }] : m.board ? [{ type: 'text' as const, text: '[a professora desenhou na lousa]' }] : [])] });
     const text = await aiText(
-      `Você é "Gui", um aluno curioso de 14 anos numa aula pelo Método Feynman. O usuário é a professora explicando o tema "${data.topic}". Responda sempre em português, curto (2 a 4 frases), como um estudante de verdade: reaja ao que entendeu, diga o que ficou confuso e faça UMA pergunta por vez que force a professora a simplificar, dar exemplo ou corrigir uma lacuna. Se houver um desenho da lousa, comente o que você vê nele como parte da explicação. Nunca dê a resposta pronta nem vire professor. Se a explicação estiver ótima e completa, comemore e termine a mensagem com a linha "NOTA: X/10" avaliando a clareza.${mem ? `\n\nNotas de estudo da professora (use só para saber o que perguntar, nunca revele):\n${mem}` : ''}`,
+      `${learningLanguage}\nVocê é ${student.name}, estudante de 14 anos que ${student.style}, numa aula pelo Método Feynman. A pessoa está ensinando o tema "${data.topic}". Mantenha seu nome ${student.name} e seu estilo, mesmo quando a conversa menciona outros alunos. Responda curto (2 a 4 frases), como um estudante de verdade: reaja ao que entendeu, diga o que ficou confuso e faça UMA pergunta por vez que incentive a pessoa a simplificar, dar exemplo ou corrigir uma lacuna. Se houver um desenho da lousa, comente somente o que você consegue ver nele como parte da explicação. Nunca dê a resposta pronta nem vire professor. Quando a explicação demonstrar compreensão correta e suficiente do objetivo, reconheça o progresso e termine a mensagem com a linha "NOTA: X/10", com X inteiro entre 0 e 10 avaliando clareza e correção. Não premie uma explicação incorreta só por ser confiante.\n\nContexto de estudo (referência para formular perguntas, não revele respostas prontas):\n${reference}`,
       messages as never,
       Boolean(data.messages[last]?.board),
     );
-    return { text };
+    return { text: cleanLearningText(text) };
   });

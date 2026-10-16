@@ -6,7 +6,7 @@ Repositório: MIGUEL487/notebook-quest-web, conectado ao site gstudy.vercel.app.
 
 A lousa ocupa a área principal da aula. As ferramentas ficam no topo: giz, apagador, texto, retângulo, elipse, linha, seta e desfazer/refazer. Para texto, digite no campo que aparece, escolha o tamanho e clique para posicionar. Para formas, arraste do início até o fim. O papel claro e as cores de tinta também são preservados na imagem enviada à IA.
 
-O cartão do Gui, seu aluno virtual, mostra a pergunta atual da IA e indica quando a resposta está sendo preparada. O campo para explicar fica abaixo da lousa. A conversa inteira, incluindo imagens enviadas, pode ser aberta em **Ver conversa**. Em telas menores, o cartão fica acima da área de desenho. O desenho permanece disponível para tentar novamente se houver erro; ele é limpo depois de um envio bem-sucedido, como na versão anterior.
+Gui, Lia, Rafa e Maya têm aparências e jeitos diferentes de perguntar. O cartão do aluno escolhido mostra a pergunta atual da IA e indica quando a resposta está sendo preparada. O campo para explicar fica **acima da lousa**, visível antes da área de desenho. O fundo acompanha o restante do aplicativo. A conversa inteira, incluindo imagens enviadas e o autor de cada pergunta, pode ser aberta em **Ver conversa**. Em telas menores, o cartão fica acima do campo de explicação. O desenho permanece disponível para tentar novamente se houver erro; ele é limpo depois de um envio bem-sucedido.
 
 ## Uma configuração de IA para tudo
 
@@ -34,4 +34,6 @@ Use Node 24 e npm: `npm ci`, `npm test`, `npx tsc --noEmit`, `NITRO_PRESET=verce
 
 ## Validação desta atualização
 
-67 testes automatizados passaram. A aula foi exercitada no navegador em 1512 px e 390 px de largura, sem erros de JavaScript nem rolagem horizontal: desenho, texto, envio, pergunta do aluno e histórico com imagem funcionaram com respostas de teste. Foram feitas chamadas reais pelo código da aplicação para ler uma imagem, gerar dois flashcards em JSON e resumir um PDF de teste com o Gemini nativo. Não foi necessário alterar configurações de cobrança.
+118 testes automatizados passaram, além da checagem TypeScript e do build para Vercel. A jornada foi exercitada no navegador em 1512 px e 390 px de largura com sessão e respostas simuladas, sem erros de JavaScript nem rolagem horizontal: criação por matéria/assunto, as seis atividades, temporizador, avaliação com desenho, retomada do progresso após recarregar, bloqueio da terceira tentativa e feedbacks locais. A caixa de texto do Feynman ficou visível no celular sem rolar até o fim da lousa.
+
+Nesta rodada, chamadas reais ao Gemini geraram uma trilha estruturada com três tópicos e dez flashcards com texto e acentuação íntegros. Imagens e PDF já haviam sido validados na atualização anterior. Nenhuma configuração de cobrança foi alterada. Consulte [TRILHAS-DE-ESTUDO.md](./TRILHAS-DE-ESTUDO.md) para as regras das atividades, fontes e armazenamento local.

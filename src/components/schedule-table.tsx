@@ -36,7 +36,7 @@ export function ScheduleTable() {
         {days.map(day => { const v = sch.cells[String(day)]?.[row] ?? ''; return <td key={day}>
           <select aria-label={`${names[day]}, ${row + 1}ª aula`} className={`form-input schedule-select ${v ? 'filled' : ''}`} value={data.subjects.some(s => s.id === v) ? v : ''} onChange={e => { if (e.target.value === NEW) setPending({ day, row }); else setCell(day, row, e.target.value); }}>
             <option value="">—</option>
-            {data.subjects.map(s => <option key={s.id} value={s.id}>{s.emoji ?? '📘'} {s.name}</option>)}
+            {data.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             <option value={NEW}>+ Adicionar matéria…</option>
           </select></td>; })}
         <td>{sch.rows > 1 && <Button variant="ghost" size="icon" aria-label={`Remover ${row + 1}ª aula`} onClick={() => removeRow(row)}><Trash2 /></Button>}</td>
