@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { preparationLibrarySchema, amazonProduct } from "./preparation-library-model";
 import { schoolYearSchema } from "./school-year";
 
 export const preparationKinds = {
@@ -53,6 +54,7 @@ export const preparationGuideSchema = z.object({
     )
     .min(3)
     .max(12),
+  library: preparationLibrarySchema.optional(),
   resources: z
     .array(
       z.object({
@@ -114,23 +116,15 @@ export function preparationResourceLink(
         url.pathname === "/watch" &&
         /^[\w-]{11}$/.test(url.searchParams.get("v") ?? "")) ||
         (host === "youtu.be" && /^\/[\w-]{11}$/.test(url.pathname)));
-    const book =
-      resource.kind === "book" &&
-      [
-        "books.google.com",
-        "books.google.com.br",
-        "openlibrary.org",
-        "www.worldcat.org",
-        "search.worldcat.org",
-      ].includes(host);
-    if (video || book) return { url: source.url, direct: true };
+    const book = resource.kind === "book" ? amazonProduct(source.url) : null;
+    if (video || book) return { url: book || source.url, direct: true };
   }
   const query = [resource.title, resource.creator].filter(Boolean).join(" ");
   return {
     url:
       resource.kind === "video"
         ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
-        : `https://www.google.com/search?tbm=bks&q=${encodeURIComponent(query)}`,
+        : `https://www.amazon.com.br/s?k=${encodeURIComponent(query)}`,
     direct: false,
   };
 }

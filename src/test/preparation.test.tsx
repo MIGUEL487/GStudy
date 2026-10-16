@@ -45,6 +45,23 @@ vi.mock("@tanstack/react-router", () => ({
     </a>
   ),
 }));
+vi.mock("@/lib/preparation-library.functions", () => ({
+  curatePreparationLibrary: async () => ({
+    version: 1,
+    checkedAt: "2026-10-16T12:00:00.000Z",
+    mode: "unavailable",
+    videos: [],
+    books: [
+      {
+        title: "O Homem que Calculava",
+        author: "Malba Tahan",
+        topicIndex: 2,
+        reason: "Pratique o raciocínio com desafios.",
+        access: "paid",
+      },
+    ],
+  }),
+}));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@/components/study-provider", () => ({
   useStudy: () => ({ data: mocks.data, ready: true, update: mocks.update }),

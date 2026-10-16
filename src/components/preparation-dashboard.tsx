@@ -25,11 +25,12 @@ import {
 } from "lucide-react";
 import { useLearning } from "./learning-provider";
 import { SubjectIcon } from "./subject-icon";
+import { PreparationLibraryPanel } from "./preparation-library";
+import { usePreparationLibrary } from "@/hooks/use-preparation-library";
 import { createPreparationPath } from "@/lib/preparation.functions";
 import {
   preparationMissionKey,
   preparationProgress,
-  preparationResourceLink,
   type PreparationGuide,
 } from "@/lib/preparation-model";
 import type { LearningPlan } from "@/lib/learning-model";
@@ -60,6 +61,7 @@ export function PreparationDashboard({ plan }: { plan: LearningPlan }) {
     guide?.missions.findIndex((_, index) => !plan.completed[preparationMissionKey(index)]) ?? -1;
   const next = nextIndex >= 0 ? guide?.missions[nextIndex] : undefined;
   const [tab, setTab] = useState<Tab>("route");
+  const libraryState = usePreparationLibrary(plan, tab === "library");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [draft, setDraft] = useState<PreparationGuide | null>(null);
@@ -377,28 +379,7 @@ export function PreparationDashboard({ plan }: { plan: LearningPlan }) {
                 </aside>
               </div>
             )}
-            {tab === "library" && (
-              <section className="prep-library">
-                <div className="prep-section-heading">
-                  <span className="prep-kicker">BOAS REFERÊNCIAS, MENOS RUÍDO</span>
-                  <h2>Sua pequena biblioteca.</h2>
-                  <p>
-                    A IA sugere o que procurar e como usar no seu estudo. Links de busca ajudam você
-                    a escolher a aula ou a edição; não significam que um vídeo foi verificado ou um
-                    livro é gratuito.
-                  </p>
-                </div>
-                <div className="prep-resource-grid">
-                  {guide.resources.map((resource, index) => (
-                    <ResourceCard key={index} resource={resource} plan={plan} />
-                  ))}
-                </div>
-                <p className="prep-library-note">
-                  <BookOpen size={16} /> Para livros, confira autor, edição e disponibilidade em
-                  bibliotecas ou lojas. Uma recomendação não dá acesso ao conteúdo do livro.
-                </p>
-              </section>
-            )}
+            {tab === "library" && <PreparationLibraryPanel plan={plan} {...libraryState} />}
             {tab === "map" && (
               <section className="prep-program">
                 <div className="prep-section-heading">
@@ -478,43 +459,5 @@ export function PreparationDashboard({ plan }: { plan: LearningPlan }) {
         </button>
       </footer>
     </div>
-  );
-}
-
-function ResourceCard({
-  resource,
-  plan,
-}: {
-  resource: PreparationGuide["resources"][number];
-  plan: LearningPlan;
-}) {
-  const link = preparationResourceLink(resource, plan.preparation!.research.sources),
-    video = resource.kind === "video";
-  return (
-    <article className={`prep-resource is-${resource.kind}`}>
-      <div className="prep-resource-top">
-        <span className="prep-resource-symbol">
-          {video ? <Play size={29} strokeWidth={1.3} /> : <BookOpen size={29} strokeWidth={1.3} />}
-        </span>
-        <span>
-          {video ? "YOUTUBE" : "ESTANTE DE REFERÊNCIAS"}
-          <small>{link.direct ? "Fonte encontrada na pesquisa" : "Sugestão para buscar"}</small>
-        </span>
-      </div>
-      <small className="prep-resource-topic">{plan.topics[resource.topicIndex]?.title}</small>
-      <h3>{resource.title}</h3>
-      {resource.creator && <p className="prep-resource-creator">{resource.creator}</p>}
-      <p>{resource.reason}</p>
-      <a href={link.url} target="_blank" rel="noopener noreferrer" className="duo-btn ghost">
-        {video
-          ? link.direct
-            ? "Abrir vídeo no YouTube"
-            : "Buscar aula no YouTube"
-          : link.direct
-            ? "Consultar referência"
-            : "Buscar livro"}
-        <ExternalLink size={14} />
-      </a>
-    </article>
   );
 }

@@ -13,10 +13,10 @@ A IA gera um programa de tópicos, estratégia, ritmo, de 3 a 12 sessões e de 2
 ## Painel próprio
 
 - **Meu roteiro:** próximo passo, tarefas, tempo estimado, resultado esperado no caderno e sessões concluídas. A pessoa marca o estudo que realmente realizou, sem geração de notas ou XP fictícios.
-- **Vídeos & livros:** uma pequena biblioteca com título/tema, canal ou autor sugerido, motivo da recomendação e ligação com o tópico. Um link direto só pode vir das fontes pesquisadas, com destino compatível ao recurso. Sem fonte correspondente, o site monta uma busca no YouTube ou Google Books, marcada como sugestão para buscar. Recomendar um livro não fornece acesso gratuito nem confirma a disponibilidade de uma edição.
+- **Vídeos & livros:** player oficial do YouTube com canal, avatar e trechos definidos por capítulos publicados; biblioteca gratuita com licença comercial verificada na própria obra; e livros comerciais na Amazon Brasil. Sem metadados suficientes, o site identifica as buscas e não inventa vídeos, horários, logos ou permissões. Veja [BIBLIOTECA-DE-ESTUDOS.md](./BIBLIOTECA-DE-ESTUDOS.md) para a configuração de `YOUTUBE_API_KEY` e as regras de direitos.
 - **Mapa da prova:** tópicos, objetivos, desafios de compreensão e contexto/fontes da pesquisa. Meta de acertos e conclusão de sessões não são previsão de nota nem garantia de aprovação.
 
-Os links de recursos não são URLs arbitrárias devolvidas pela IA. Fontes de vídeos diretos precisam apontar para um vídeo válido do YouTube; referências de livros diretas ficam restritas aos catálogos reconhecidos. Os demais casos usam consultas construídas pelo aplicativo. O conteúdo da referência não é apresentado como lido pelo aplicativo apenas por ter sido recomendado.
+Os links de recursos não são URLs arbitrárias devolvidas pela IA. Vídeos passam pelos metadados oficiais e o player respeita bloqueios de incorporação. PDFs exigem licença da própria obra e atribuição na fonte oficial; livros comerciais abrem a Amazon. O conteúdo da referência não é apresentado como lido pelo aplicativo apenas por ter sido recomendado.
 
 ## Dados e compatibilidade
 

@@ -30,3 +30,5 @@ A aula Feynman tem uma lousa ampla com texto, formas e um cartão do aluno virtu
 Todas as funções de IA tentam Gemini (`BOARD_AI_*`) primeiro e usam Groq (`GROQ_API_KEY`) e depois OpenRouter gratuito (`OPENROUTER_API_KEY`) nas falhas técnicas. Grok/xAI foi removido; suas variáveis antigas são ignoradas. Veja [Groq como alternativa](./GROQ-ALTERNATIVA.md) e [OpenRouter gratuito](./OPENROUTER-ALTERNATIVA.md). Veja [LOUSA-E-IA.md](./LOUSA-E-IA.md). Na Vercel, use `npm ci` como comando de instalação para utilizar o lockfile npm atualizado.
 
 Em **Aprender**, escolha uma matéria para suas trilhas de atividades. **Rumo à prova** tem um painel próprio com roteiro de sessões, indicações de vídeos e livros e mapa do programa, sem misturar seus planos com as trilhas. Planos antigos podem receber o novo roteiro mantendo seus dados. Veja [PREPARACAO.md](./PREPARACAO.md).
+
+A biblioteca de Rumo à prova usa player YouTube com trechos por capítulos, materiais oficiais com licença comercial confirmada e links para a Amazon. Para a busca completa com avatar e capítulos, configure `YOUTUBE_API_KEY` seguindo [BIBLIOTECA-DE-ESTUDOS.md](./BIBLIOTECA-DE-ESTUDOS.md).

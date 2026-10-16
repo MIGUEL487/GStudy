@@ -1,9 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { libraryFixture } from "./helpers/library-fixture";
 import { preparationGuide } from "./helpers/preparation-fixture";
 
-const mocks = vi.hoisted(() => ({ generate: vi.fn(), navigate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ generate: vi.fn(), navigate: vi.fn(), library: vi.fn() }));
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => mocks.navigate,
   useLocation: () => "/preparar",
@@ -27,6 +28,7 @@ vi.mock("@tanstack/react-router", () => ({
     </a>
   ),
 }));
+vi.mock("@/lib/preparation-library.functions", () => ({ curatePreparationLibrary: mocks.library }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@/components/auth-gate", () => ({ useAuth: () => ({ user: { id: "prep-student" } }) }));
 vi.mock("@/lib/preparation.functions", () => ({ createPreparationPath: mocks.generate }));
@@ -90,8 +92,18 @@ const open = (legacy = false) => {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  mocks.library.mockResolvedValue({
+    version: 1,
+    checkedAt: "2026-10-16T12:00:00.000Z",
+    mode: "unavailable",
+    videos: [],
+    books: [],
+  });
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("Rumo à prova com progresso próprio", () => {
   it("mostra roteiro, biblioteca e programa sem repetir as seis atividades", async () => {
@@ -100,18 +112,57 @@ describe("Rumo à prova com progresso próprio", () => {
     expect(screen.getAllByRole("checkbox")).toHaveLength(4);
     expect(screen.queryByText("Flashcards")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
-    expect(screen.getByRole("heading", { name: "Sua pequena biblioteca." })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Buscar aula no YouTube" })).toHaveAttribute(
-      "href",
-      expect.stringContaining("youtube.com/results?search_query="),
-    );
-    expect(screen.getByRole("link", { name: "Buscar livro" })).toHaveAttribute(
-      "href",
-      expect.stringContaining("tbm=bks"),
-    );
+    expect(screen.getByRole("heading", { name: "Sua sala de estudos." })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("link", { name: /Buscar Áreas de figuras planas no YouTube/ }),
+    ).toHaveAttribute("href", expect.stringContaining("youtube.com/results?search_query="));
+    expect(screen.getByRole("heading", { name: "Livros na Amazon." })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Mapa da prova" }));
     expect(screen.getByRole("heading", { name: "Áreas" })).toBeInTheDocument();
     expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "prep-tab-map");
+  });
+  it("pesquisa a biblioteca só quando ela é aberta e reutiliza o resultado salvo", async () => {
+    mocks.library.mockResolvedValue(libraryFixture);
+    const view = open();
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    expect(mocks.library).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    await screen.findByTitle(libraryFixture.videos[0]!.title);
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("tab", { name: "Meu roteiro" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+    view.unmount();
+    render(
+      <LearningProvider>
+        <Workspace />
+      </LearningProvider>,
+    );
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    await screen.findByTitle(libraryFixture.videos[0]!.title);
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+  });
+  it("reaproveita a curadoria pronta quando o armazenamento falha", async () => {
+    mocks.library.mockResolvedValue(libraryFixture);
+    open();
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+      throw new Error("Storage full");
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    const retry = await screen.findByRole("button", { name: "Tentar salvar indicações" });
+    write.mockRestore();
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(readLearning(localStorage.getItem(key)).plans[0]!.preparation?.guide?.library).toEqual(
+        libraryFixture,
+      ),
+    );
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+    expect(
+      readLearning(localStorage.getItem(key)).plans[0]!.completed["topic-0:explain"],
+    ).toBeDefined();
   });
   it("salva e restaura sessões sem contar como testes ou perder progresso antigo", async () => {
     const view = open();

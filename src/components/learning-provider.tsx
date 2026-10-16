@@ -3,10 +3,11 @@ import { useLocation } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { useAuth } from './auth-gate';
 import { signalAccountChange } from '@/lib/account-sync-model';
+import type { PreparationLibrary } from '@/lib/preparation-library-model';
 import { preparationMissionKey, type PreparationGuide } from '@/lib/preparation-model';
 import { activities, activityOrder, activityUnlocked, completeActivity, learningKey, readLearning, type ActivityMode, type LearningContext, type LearningPlan, type LearningSearch, type LearningWorkspace } from '@/lib/learning-model';
 
-type LearningValue = { plans: LearningPlan[]; ready: boolean; savePlan: (plan: LearningPlan) => boolean; removePlan: (id: string) => boolean; complete: (planId: string, topicId: string, mode: ActivityMode) => boolean; setPreparationMission: (planId: string, index: number, done: boolean) => boolean; savePreparationGuide: (planId: string, guide: PreparationGuide) => boolean };
+type LearningValue = { plans: LearningPlan[]; ready: boolean; savePlan: (plan: LearningPlan) => boolean; removePlan: (id: string) => boolean; complete: (planId: string, topicId: string, mode: ActivityMode) => boolean; setPreparationMission: (planId: string, index: number, done: boolean) => boolean; savePreparationGuide: (planId: string, guide: PreparationGuide) => boolean; savePreparationLibrary: (planId: string, library: PreparationLibrary) => boolean };
 const Context = createContext<LearningValue | null>(null);
 export function LearningProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -48,6 +49,11 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     if (plan.preparation.guide) return value;
     return { ...value, plans: value.plans.map(p => p.id === planId ? { ...p, preparation: { ...p.preparation!, guide } } : p) };
   }), [write]);
+  const savePreparationLibrary = useCallback((planId: string, library: PreparationLibrary) => write(value => {
+    const plan = value.plans.find(p => p.id === planId);
+    if (!plan?.preparation?.guide) throw new Error('Este roteiro não está mais disponível. Reabra seus objetivos.');
+    return { ...value, plans: value.plans.map(p => p.id === planId ? { ...p, preparation: { ...p.preparation!, guide: { ...p.preparation!.guide!, library } } } : p) };
+  }), [write]);
   const setPreparationMission = useCallback((planId: string, index: number, done: boolean) => write(value => {
     const plan = value.plans.find(p => p.id === planId);
     if (!plan?.preparation?.guide?.missions[index] || !Number.isInteger(index)) throw new Error('Esta sessão não está mais disponível. Reabra seu plano.');
@@ -57,7 +63,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     else delete completed[missionKey];
     return { ...value, plans: value.plans.map(p => p.id === planId ? { ...p, completed } : p) };
   }), [write]);
-  return <Context.Provider value={{ plans: workspace.plans, ready, savePlan, removePlan, complete, setPreparationMission, savePreparationGuide }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ plans: workspace.plans, ready, savePlan, removePlan, complete, setPreparationMission, savePreparationGuide, savePreparationLibrary }}>{children}</Context.Provider>;
 }
 export function useLearning() { const value = useContext(Context); if (!value) throw new Error('LearningProvider missing'); return value; }
 export function useLessonContext(search: LearningSearch) {
