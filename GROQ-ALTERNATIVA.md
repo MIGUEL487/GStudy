@@ -20,7 +20,7 @@ A base é fixa: `https://api.groq.com/openai/v1`. Não precisa criar `GROQ_BASE_
 
 ## Comportamento
 
-- Cada provedor tem prazo de 25 segundos, sem retries internos. Uma chamada pode levar cerca de 50 segundos se o primeiro provedor demorar e o segundo precisar concluir a geração.
+- O Gemini não é interrompido por um cronômetro local de 25 segundos. Enquanto ele estiver gerando sem erro, a solicitação continua nele. O Groq só é carregado depois de uma falha elegível do Gemini e tem prazo de 25 segundos, sem retries internos. O tempo total também depende da resposta dos provedores e do limite da hospedagem.
 - Não há troca permanente: a próxima solicitação tenta novamente o Gemini. O comportamento não depende de qual instância da Vercel atende a chamada.
 - Erros de conteúdo/parâmetros (HTTP 400/422, exceto chave Google inválida) e respostas bloqueadas por filtro não são encaminhados para outro provedor. Erros da sessão Supabase e falhas ao salvar também não disparam troca de IA.
 - Sem chave Groq, o comportamento do Gemini continua funcionando e seus erros são informados normalmente. Se os dois provedores falharem, o aplicativo mostra uma mensagem segura para nova tentativa, sem expor diagnósticos privados, fotos, chaves ou textos nos logs.

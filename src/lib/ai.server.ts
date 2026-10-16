@@ -1,13 +1,12 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createGroq } from "@ai-sdk/groq";
 import { generateText, Output, jsonSchema, NoObjectGeneratedError, type ModelMessage } from "ai";
 import { aiConfig, AiSetupError, groqConfig } from "./ai-config";
 import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
 import { groqMessages, hasImages } from "./ai-fallback-media.server";
 
 type Provider = "gemini" | "groq";
-const timeoutMs = 25000;
-function provider(name: Provider, vision: boolean) {
+const groqTimeoutMs = 25000;
+async function provider(name: Provider, vision: boolean) {
   const context = { whiteboard: vision, google: name === "gemini", groq: name === "groq" };
   const providerFetch: typeof fetch = async (input, init) => {
     const response = await fetch(input, init);
@@ -34,6 +33,7 @@ function provider(name: Provider, vision: boolean) {
     throw new AiSetupError(
       "O Gemini não respondeu e a alternativa Groq ainda não foi configurada. Adicione GROQ_API_KEY nas variáveis de Production e publique novamente.",
     );
+  const { createGroq } = await import("@ai-sdk/groq");
   const groq = createGroq({ apiKey: config.key, baseURL: config.baseURL, fetch: providerFetch });
   return groq(vision ? config.visionModel : config.model);
 }
@@ -63,7 +63,7 @@ async function generate(
   name: Provider,
   schema?: Record<string, unknown>,
 ) {
-  const model = provider(name, hasImages(messages));
+  const model = await provider(name, hasImages(messages));
   const result = await generateText({
     model,
     system:
@@ -72,10 +72,15 @@ async function generate(
         : instructions,
     messages,
     maxRetries: 0,
-    abortSignal: AbortSignal.timeout(timeoutMs),
+    // Do not interrupt a healthy Gemini generation just to switch providers.
     ...(schema ? { output: Output.object({ schema: jsonSchema(schema as never) }) } : {}),
     // Llama text/vision models support JSON mode, but not all support strict JSON Schema.
-    ...(name === "groq" ? { providerOptions: { groq: { structuredOutputs: false } } } : {}),
+    ...(name === "groq"
+      ? {
+          abortSignal: AbortSignal.timeout(groqTimeoutMs),
+          providerOptions: { groq: { structuredOutputs: false } },
+        }
+      : {}),
   });
   if (result.finishReason === "content-filter")
     throw Object.assign(new Error("Filtered"), { finishReason: "content-filter" });

@@ -58,6 +58,7 @@ beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -69,6 +70,47 @@ describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
     await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Gemini");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]![0])).toContain("generativelanguage.googleapis.com");
+  });
+  it("mantém uma geração saudável do Gemini além de 25 segundos sem interromper nem chamar Groq", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((milliseconds) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException("Timeout", "TimeoutError")), milliseconds);
+      return controller.signal;
+    });
+    fetchMock.mockImplementationOnce(
+      (_url, init) =>
+        new Promise((resolve, reject) => {
+          const timer = setTimeout(() => resolve(google("Gemini terminou a geração longa")), 30000);
+          init.signal?.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              reject(init.signal.reason);
+            },
+            { once: true },
+          );
+        }),
+    );
+    const response = aiText("Explique.", messages);
+    await vi.advanceTimersByTimeAsync(26000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(4000);
+    await expect(response).resolves.toBe("Gemini terminou a geração longa");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("volta a tentar Gemini na próxima solicitação após usar Groq por cota", async () => {
+    fetchMock
+      .mockResolvedValueOnce(failed(429))
+      .mockResolvedValueOnce(groq())
+      .mockResolvedValueOnce(google());
+    await expect(aiText("Primeira pergunta.", messages)).resolves.toBe("Resposta Groq");
+    await expect(aiText("Próxima pergunta.", messages)).resolves.toBe("Resposta Gemini");
+    expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+      "generativelanguage.googleapis.com",
+      "api.groq.com",
+      "generativelanguage.googleapis.com",
+    ]);
   });
   it.each([401, 402, 403, 404, 408, 429, 500, 503])(
     "usa Groq uma única vez após HTTP %i, com a chave e modelo corretos",
