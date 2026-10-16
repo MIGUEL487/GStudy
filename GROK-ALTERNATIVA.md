@@ -27,6 +27,8 @@ Texto, desenhos, fotos e respostas estruturadas usam o mesmo fluxo autenticado e
 
 O Grok tem prazo de 45 segundos e nenhuma repetição interna. O tempo total depende também da falha do Gemini e do limite da hospedagem. Filtros e erros de conteúdo/parâmetros não disparam troca. Erros e logs mostram apenas informações seguras, sem chaves, notas ou imagens.
 
+HTTP 400/422 não significa, sozinho, que o conteúdo é grande ou que o Grok não consegue realizar a tarefa. O servidor agora classifica os formatos de erro da xAI (incluindo error como texto) para distinguir restrição de chave/plano de programação, modelo indisponível, falta de visão, janela de contexto, formato de imagem, JSON Schema, parâmetros e créditos. As mensagens usam descrições fixas; os logs incluem somente uma categoria conhecida, sem copiar diagnósticos privados. Se o motivo não for reconhecido, a interface informa a incerteza. Não há resumo, corte do conteúdo nem nova tentativa com uma versão menor para contornar esse erro. A capacidade efetiva depende também das permissões da chave e do modelo, não do nome da variável que a contém.
+
 PDFs usam a extração de texto existente, com os mesmos limites de 40 páginas e 90 mil caracteres. Diagramas e digitalizações não são apresentados como interpretados. A interface avisa quando apenas o texto foi analisado. Na preparação para provas, esta alternativa não ativa busca web: sem grounding Gemini, a resposta continua identificada como orientação geral, sem fontes inventadas.
 
 ## Desenvolvimento e validação

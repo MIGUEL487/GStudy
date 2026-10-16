@@ -91,6 +91,7 @@ function logFailure(error: unknown, name: Provider, vision: boolean) {
     provider: name,
     vision,
     status: failure.status ?? null,
+    category: failure.category ?? null,
   });
   return failure;
 }

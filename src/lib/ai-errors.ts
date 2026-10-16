@@ -9,15 +9,46 @@ type Context = {
 };
 const record = (value: unknown): Record<string, unknown> | undefined =>
   value !== null && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+const categories = [
+  "key",
+  "plan",
+  "model",
+  "vision",
+  "context",
+  "image-input",
+  "schema",
+  "parameter",
+  "credits",
+  "request",
+] as const;
+type FailureCategory = (typeof categories)[number];
 
 // Read provider diagnostics only to classify them. Never return raw response text,
 // URLs, prompts, project identifiers, request bodies or credentials to the client.
 export function providerFailure(status: number, payload: unknown, context: Context): AiSetupError {
-  const failure = (message: string) =>
-    Object.assign(new AiSetupError(message), { statusCode: status });
+  const failure = (message: string, category?: FailureCategory) =>
+    Object.assign(new AiSetupError(message), {
+      statusCode: status,
+      ...(category ? { category } : {}),
+    });
   const root = record(Array.isArray(payload) ? payload[0] : payload);
   const error = record(root?.["error"]);
-  const message = typeof error?.["message"] === "string" ? error["message"] : "";
+  const message =
+    typeof error?.["message"] === "string"
+      ? error["message"]
+      : typeof root?.["error"] === "string"
+        ? root["error"]
+        : typeof root?.["message"] === "string"
+          ? root["message"]
+          : "";
+  const code =
+    typeof error?.["code"] === "string"
+      ? error["code"]
+      : typeof root?.["code"] === "string"
+        ? root["code"]
+        : "";
+  const param = typeof error?.["param"] === "string" ? error["param"] : "";
+  const diagnostic = [message, code, param].join(" ");
   const details = Array.isArray(error?.["details"]) ? error["details"] : [];
   const reasons = details.map((value) => record(value)?.["reason"]);
   const key =
@@ -48,10 +79,15 @@ export function providerFailure(status: number, payload: unknown, context: Conte
     reasons.some((reason) =>
       ["API_KEY_INVALID", "API_KEY_EXPIRED", "API_KEY_NOT_FOUND"].includes(String(reason)),
     ) ||
-    status === 401
+    status === 401 ||
+    (context.grok &&
+      /(?:invalid|incorrect|expired|revoked)[ _-]*(?:api[ _-]*)?key|api[ _-]*key[ _-]*(?:invalid|expired|revoked)/i.test(
+        diagnostic,
+      ))
   ) {
     return failure(
       `A chave de IA foi recusada (HTTP ${status}). Confira ${key} nas variáveis de Production da hospedagem e publique novamente.`,
+      "key",
     );
   }
   if (
@@ -77,6 +113,92 @@ export function providerFailure(status: number, payload: unknown, context: Conte
     return failure(
       `O modelo ou endereço da IA não está disponível (HTTP 404). Confira ${model} e ${url} na hospedagem.`,
     );
+  if (context.grok && (status === 400 || status === 422)) {
+    const prefix = "O Grok/xAI recusou a solicitação (HTTP " + status + "). ";
+    if (
+      /(?:coding|code[- ]only|programming).*(?:key|plan|only|restrict)|(?:key|plan).*(?:only.*(?:coding|code)|restricted.*(?:coding|code))/i.test(
+        diagnostic,
+      )
+    )
+      return failure(
+        prefix +
+          "A chave ou o plano está restrito a programação. Essa permissão não cobre todas as funções de estudo. Confira o acesso à API geral; se a conta não permitir texto, imagens e atividades estruturadas, use outro provedor, como Groq.",
+        "plan",
+      );
+    if (
+      /(?:credit|balance|spending|billing|payment).*(?:insufficient|exhaust|limit|exceed|required)|(?:insufficient|exhaust).*(?:credit|balance)/i.test(
+        diagnostic,
+      )
+    )
+      return failure(
+        prefix +
+          "O provedor informou restrição de créditos ou cobrança. Confira o saldo e o limite de gastos da conta xAI.",
+        "credits",
+      );
+    if (
+      /(?:does not support|not support|unsupported|not available).*(?:images|image input|vision|multimodal)|(?:images|image input|vision|multimodal).*(?:not supported|unsupported|not available)/i.test(
+        diagnostic,
+      )
+    )
+      return failure(
+        prefix +
+          "O modelo selecionado não aceita imagens nesta API. Configure GROK_VISION_MODEL com um modelo de visão autorizado para sua chave. Para usar lousa e fotos com esta conta, é necessário esse suporte ou outro provedor, como Groq.",
+        "vision",
+      );
+    if (
+      /(?:context|token).*(?:length|window|limit|exceed|too long)|(?:maximum|max)[ _-]*(?:context|input)[ _-]*(?:length|tokens)|context_length_exceeded/i.test(
+        diagnostic,
+      )
+    )
+      return failure(
+        prefix +
+          "O conteúdo ultrapassa a janela de contexto autorizada para este modelo. O conteúdo foi preservado. Para enviá-lo completo, escolha um modelo ou provedor com capacidade suficiente.",
+        "context",
+      );
+    if (/json[ _-]*schema|response_format|text\.format|structured[ _-]*output/i.test(diagnostic))
+      return failure(
+        prefix +
+          "O formato de resposta estruturada enviado pela integração foi rejeitado. Isso é uma incompatibilidade de formato ou configuração, não uma conclusão sobre o tamanho do conteúdo.",
+        "schema",
+      );
+    if (
+      /reasoning\.encrypted_content|\binclude\b|\bstore\b|unsupported[ _-]*parameter|unknown[ _-]*(?:field|parameter)|unrecognized[ _-]*(?:field|parameter)/i.test(
+        diagnostic,
+      )
+    )
+      return failure(
+        prefix +
+          "A API rejeitou um parâmetro da integração. O formato da chamada precisa ser corrigido; reduzir o conteúdo não resolve esse tipo de erro.",
+        "parameter",
+      );
+    if (
+      /(?:model).*(?:not found|not exist|not available|unknown|invalid|not enabled|not authorized|not allowed|not permitted)|(?:unknown|invalid|unsupported)[ _-]*model|model_not_found/i.test(
+        diagnostic,
+      )
+    )
+      return failure(
+        prefix +
+          "O modelo solicitado não está disponível ou autorizado para esta chave. Confira " +
+          model +
+          " e os modelos liberados no painel xAI.",
+        "model",
+      );
+    if (
+      /(?:image|image_url).*(?:invalid|malformed|format|too large|size|resolution)|(?:invalid|malformed).*(?:image|image_url)/i.test(
+        diagnostic,
+      )
+    )
+      return failure(
+        prefix +
+          "A API recusou o formato, a resolução ou o tamanho de uma imagem. A imagem foi preservada; confira os formatos e limites aceitos pelo modelo de visão.",
+        "image-input",
+      );
+    return failure(
+      prefix +
+        "O motivo específico não foi identificado. Confira o modelo e as permissões da chave. Esse código HTTP, sozinho, não demonstra que o Grok não consegue realizar a tarefa.",
+      "request",
+    );
+  }
   if (status === 400 || status === 422)
     return failure(
       `${provider} recusou ${context.whiteboard ? "a imagem" : "o conteúdo"} ou os parâmetros enviados (HTTP ${status}). Confira a configuração do modelo e tente um conteúdo menor.`,
@@ -93,7 +215,7 @@ export function providerFailure(status: number, payload: unknown, context: Conte
 export function safeAiFailure(
   error: unknown,
   context: Context,
-): { message: string; status: number | undefined } {
+): { message: string; status: number | undefined; category?: FailureCategory } {
   const seen = new Set<unknown>();
   let current = error;
   let status: number | undefined;
@@ -101,7 +223,10 @@ export function safeAiFailure(
     seen.add(current);
     const item = record(current);
     if (typeof item?.["statusCode"] === "number") status = item["statusCode"];
-    if (current instanceof AiSetupError) return { message: current.message, status };
+    if (current instanceof AiSetupError) {
+      const category = categories.find((value) => value === item?.["category"]);
+      return { message: current.message, status, ...(category ? { category } : {}) };
+    }
     if (["AbortError", "TimeoutError"].includes(String(item?.["name"])))
       return {
         message:

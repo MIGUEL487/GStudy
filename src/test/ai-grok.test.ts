@@ -167,6 +167,36 @@ describe("Gemini principal e Grok/xAI como alternativa", () => {
     expect(body.tools).toBeUndefined();
     expect(JSON.stringify(body.input)).toContain("não tem busca web");
   });
+  it("diagnostica incompatibilidade de JSON mantendo o conteúdo inteiro e sem repetir uma versão menor", async () => {
+    const text = "INICIO-" + "referencia completa; ".repeat(5000) + "-FIM";
+    const schema = {
+      type: "object",
+      additionalProperties: false,
+      required: ["answer"],
+      properties: { answer: { type: "string" } },
+    };
+    fetchMock.mockResolvedValueOnce(failed(429)).mockResolvedValueOnce(
+      json(
+        {
+          code: "invalid_argument",
+          error: "Unsupported json_schema parameter. grok_private diagnóstico privado",
+        },
+        400,
+      ),
+    );
+    await expect(aiObject("Responda.", [{ role: "user", content: text }], schema)).rejects.toThrow(
+      "resposta estruturada",
+    );
+    const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(body.input.find((item: { role: string }) => item.role === "user").content).toEqual([
+      { type: "input_text", text },
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const logs = JSON.stringify(vi.mocked(console.error).mock.calls);
+    expect(logs).toContain('"category":"schema"');
+    expect(logs).not.toContain("grok_private");
+    expect(logs).not.toContain("referencia completa");
+  });
 });
 describe("Configuração e compatibilidade do Grok", () => {
   it("prioriza GROK_API_KEY, aceita XAI_API_KEY e preserva todas as chaves completas", () => {
