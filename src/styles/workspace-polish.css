@@ -62,3 +62,5 @@
   .subject-card--colored>.subject-icon-frame { margin:20px 0 0 15px; }
 }
 @media(prefers-reduced-motion:reduce) { .settings-tab-content[data-state=active],.feedback-history article { animation:none; } }
+
+.recall-resume{display:flex;align-items:center;gap:13px;padding:14px 18px;margin-bottom:24px;border:1px solid var(--border);border-radius:13px;background:var(--card);color:var(--primary);transition:background .2s,transform .2s}.recall-resume:hover{background:var(--secondary);transform:translateY(-1px)}.recall-resume>span{flex:1;min-width:0}.recall-resume strong{display:block;font-size:12px}.recall-resume small{display:block;font-size:10px;color:var(--muted-foreground);overflow-wrap:anywhere}.recall-resume>svg{flex:none}

@@ -7,6 +7,7 @@ import { logo } from '@/lib/images';
 import { useStudy } from './study-provider';
 import { Button } from '@/components/ui/button';
 import { SubjectIcon } from './subject-icon';
+import { RecallResume } from './recall-resume';
 
 const navigation = [
   { to: '/', label: 'Início', mobileLabel: 'Início', icon: Home },
@@ -47,7 +48,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         <div className="topbar-left"><Link to="/" className="brand mobile-brand"><img src={logo.url} alt="" />GStudy</Link><BookOpen size={15} className="desktop-crumb" /><span>Meu espaço de estudo</span><ChevronRight size={12} className="desktop-crumb" /><span>{pageName}</span></div>
         <div className="topbar-right"><Leaf size={14} className="desktop-crumb" /><span>Seu ritmo. Sua jornada.</span><Button variant="ghost" size="icon" asChild title="Configurações"><Link to="/configuracoes" aria-label="Configurações"><Avatar /></Link></Button><Button variant="ghost" size="icon" title="Sair da conta" aria-label="Sair da conta" onClick={signOut}><LogOut /></Button></div>
       </header>
-      <main className="content"><div className="page-transition" ref={page}>{children}</div><footer className="page-footer"><span className="footer-motto">Sapere aude. <span className="font-sans text-[10px] not-italic">Ouse saber.</span></span><span>Feito para o seu próximo capítulo.</span></footer></main>
+      <main className="content"><RecallResume /><div className="page-transition" ref={page}>{children}</div><footer className="page-footer"><span className="footer-motto">Sapere aude. <span className="font-sans text-[10px] not-italic">Ouse saber.</span></span><span>Feito para o seu próximo capítulo.</span></footer></main>
     </div>
     <nav className="mobile-bottom-nav" aria-label="Navegação principal no celular">
       {navigation.map(({ to, label, mobileLabel, icon: Icon }) => <Link key={to} to={to} className={selected(to) ? 'active' : ''} aria-current={selected(to) ? 'page' : undefined} aria-label={label}><Icon size={21} strokeWidth={1.65} /><span>{mobileLabel}</span></Link>)}

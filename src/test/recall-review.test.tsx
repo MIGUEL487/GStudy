@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as renderUI, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -29,17 +29,21 @@ vi.mock('@/components/whiteboard', async () => {
 });
 import { RecallLesson, RECALL_STUDY_DURATION } from '@/routes/aprender.recall';
 import { ReviewLesson } from '@/routes/aprender.revisao';
+import { RecallSessionProvider } from '@/components/recall-session-provider';
+import { recallStorageKey } from '@/lib/recall-session';
+const render = (ui: ReactNode) => renderUI(<RecallSessionProvider userId="test-user">{ui}</RecallSessionProvider>);
 
 const material = { title: 'Os lados de um triângulo', content: 'Em um triângulo retângulo, o quadrado da hipotenusa corresponde à soma dos quadrados dos catetos.', keyPoints: ['Identifique a hipotenusa.', 'Compare as áreas dos quadrados.'] };
 const evaluation = { score: 8, feedback: 'Você relacionou corretamente os lados e as áreas.', strengths: ['Identificou a hipotenusa.'], gaps: ['Mostre como as áreas se relacionam.'], modelAnswer: 'Os quadrados construídos sobre os catetos somam a área do quadrado da hipotenusa.' };
 const search = { m: 'material-1', p: 'plan-1', t: 'topic-1' };
 beforeEach(() => {
+  localStorage.clear();
   vi.clearAllMocks(); mocks.remaining = 2; mocks.ready = true; mocks.allowed = true; mocks.hasContext = true;
   mocks.complete.mockReturnValue(true); mocks.begin.mockReturnValue('reservation-1'); mocks.award.mockResolvedValue(undefined); mocks.snapshot.mockReturnValue(undefined);
   mocks.generateRecall.mockResolvedValue(material); mocks.gradeRecall.mockResolvedValue(evaluation);
   mocks.generateReview.mockResolvedValue({ prompt: 'Por que c² = a² + b²?', hint: 'Compare as áreas dos quadrados construídos sobre os lados.' }); mocks.gradeReview.mockResolvedValue(evaluation);
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 const clickAndSettle = async (name: string) => { await act(async () => { fireEvent.click(screen.getByRole('button', { name })); }); };
 const enterRecallWriting = async () => {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-15T12:00:00Z'));
@@ -48,6 +52,71 @@ const enterRecallWriting = async () => {
 };
 
 describe('Active Recall com cinco minutos de leitura', () => {
+  it('continua a mesma leitura e o prazo ao visitar o caderno e voltar, sem gastar outra tentativa', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-16T12:00:00Z'));
+    const wrap = (child: ReactNode) => <RecallSessionProvider userId="test-user">{child}</RecallSessionProvider>;
+    const view = renderUI(wrap(<RecallLesson search={search} />)); await clickAndSettle('Começar os 5 minutos');
+    act(() => { vi.advanceTimersByTime(60000); });
+    view.rerender(wrap(<p>Consultando o caderno</p>));
+    act(() => { vi.advanceTimersByTime(60000); });
+    view.rerender(wrap(<RecallLesson search={search} />));
+    expect(screen.getByRole('timer')).toHaveTextContent('3:00');
+    expect(screen.getByText(material.content)).toBeInTheDocument();
+    expect(mocks.begin).toHaveBeenCalledTimes(1); expect(mocks.generateRecall).toHaveBeenCalledTimes(1);
+  });
+  it('restaura o resumo após recarregar e não reabre a leitura se o prazo já terminou', async () => {
+    await enterRecallWriting();
+    fireEvent.change(screen.getByLabelText('Seu resumo de memória'), { target: { value: 'Os quadrados dos catetos somam a área da hipotenusa.' } });
+    cleanup(); render(<RecallLesson search={search} />);
+    expect(screen.getByLabelText('Seu resumo de memória')).toHaveValue('Os quadrados dos catetos somam a área da hipotenusa.');
+    expect(screen.queryByText(material.content)).not.toBeInTheDocument();
+    expect(mocks.begin).toHaveBeenCalledTimes(1); expect(mocks.generateRecall).toHaveBeenCalledTimes(1);
+  });
+  it('guarda a preparação que termina enquanto a pessoa está em outra página', async () => {
+    let resolve!: (value: typeof material) => void;
+    mocks.generateRecall.mockReturnValue(new Promise(done => { resolve = done; }));
+    const wrap = (child: ReactNode) => <RecallSessionProvider userId="test-user">{child}</RecallSessionProvider>;
+    const view = renderUI(wrap(<RecallLesson search={search} />));
+    fireEvent.click(screen.getByRole('button', { name: 'Começar os 5 minutos' }));
+    view.rerender(wrap(<p>Consultando o caderno</p>));
+    await act(async () => resolve(material));
+    view.rerender(wrap(<RecallLesson search={search} />));
+    expect(screen.getByRole('timer')).toBeInTheDocument(); expect(screen.getByText(material.content)).toBeInTheDocument();
+    expect(mocks.begin).toHaveBeenCalledTimes(1); expect(mocks.generateRecall).toHaveBeenCalledTimes(1);
+  });
+  it('mantém a avaliação ao sair durante o envio e não concede XP novamente ao recarregar', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-16T12:00:00Z'));
+    let resolve!: (value: typeof evaluation) => void; mocks.gradeRecall.mockReturnValue(new Promise(done => { resolve = done; }));
+    const wrap = (child: ReactNode) => <RecallSessionProvider userId="test-user">{child}</RecallSessionProvider>;
+    const view = renderUI(wrap(<RecallLesson search={search} />)); await clickAndSettle('Começar os 5 minutos');
+    act(() => { vi.advanceTimersByTime(RECALL_STUDY_DURATION); });
+    fireEvent.change(screen.getByLabelText('Seu resumo de memória'), { target: { value: 'Entendi a relação entre as áreas dos quadrados.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Avaliar meu resumo' }));
+    view.rerender(wrap(<p>Caderno</p>)); await act(async () => resolve(evaluation));
+    view.rerender(wrap(<RecallLesson search={search} />)); expect(screen.getByLabelText('Nota 8 de 10')).toBeInTheDocument();
+    cleanup(); render(<RecallLesson search={search} />); expect(screen.getByLabelText('Nota 8 de 10')).toBeInTheDocument();
+    expect(mocks.gradeRecall).toHaveBeenCalledTimes(1); expect(mocks.award).toHaveBeenCalledTimes(1);
+  });
+  it('avisa se não puder salvar o rascunho e permite salvar novamente sem perder o texto', async () => {
+    await enterRecallWriting();
+    const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('quota', 'QuotaExceededError'); });
+    fireEvent.change(screen.getByLabelText('Seu resumo de memória'), { target: { value: 'Meu resumo ainda precisa ser salvo.' } });
+    expect(screen.getByLabelText('Seu resumo de memória')).toHaveValue('Meu resumo ainda precisa ser salvo.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível salvar a sessão');
+    write.mockRestore(); fireEvent.click(screen.getByRole('button', { name: 'Salvar sessão novamente' }));
+    cleanup(); render(<RecallLesson search={search} />); expect(screen.getByLabelText('Seu resumo de memória')).toHaveValue('Meu resumo ainda precisa ser salvo.');
+  });
+  it('preserva dados corrompidos e não inicia outra tentativa para sobrescrevê-los', () => {
+    localStorage.setItem(recallStorageKey('test-user'), '{corrupt'); render(<RecallLesson search={search} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('dados salvos foram preservados');
+    fireEvent.click(screen.getByRole('button', { name: 'Começar os 5 minutos' }));
+    expect(mocks.begin).not.toHaveBeenCalled(); expect(localStorage.getItem(recallStorageKey('test-user'))).toBe('{corrupt');
+  });
+  it('separa sessões de contas diferentes', async () => {
+    render(<RecallLesson search={search} />); await clickAndSettle('Começar os 5 minutos'); cleanup();
+    renderUI(<RecallSessionProvider userId="another-user"><RecallLesson search={search} /></RecallSessionProvider>);
+    expect(screen.getByRole('button', { name: 'Começar os 5 minutos' })).toBeInTheDocument(); expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+  });
   it('espera um início explícito e não consome tentativas ao abrir a página', () => {
     render(<RecallLesson search={search} />);
     expect(mocks.generateRecall).not.toHaveBeenCalled(); expect(mocks.begin).not.toHaveBeenCalled();
