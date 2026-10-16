@@ -78,6 +78,7 @@ export function FeynmanLesson({ materialSearch, lessonSearch }: { materialSearch
   };
   const send = async () => {
     if (sending.current) return;
+    if (board.current?.isLoading?.()) { setError("Aguarde a imagem terminar de carregar na lousa antes de enviar."); return; }
     const shot = board.current?.snapshot();
     if (!text.trim() && !shot) return;
     let token: string | undefined;
@@ -145,7 +146,7 @@ export function FeynmanLesson({ materialSearch, lessonSearch }: { materialSearch
             <textarea id="feyn-explanation" ref={input} rows={2} maxLength={8000} placeholder="Explique aqui, do seu jeito…" value={text} disabled={busy} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} />
             <button type="submit" disabled={busy} className="feyn-send" aria-label="Enviar explicação">{busy ? <LoaderCircle size={18} className="feyn-loading-icon" /> : <Send size={18} />}<span>{busy ? 'Enviando…' : 'Enviar'}</span></button>
           </div>
-          <div className="feyn-compose-footer"><span>Desenhos da lousa vão junto com sua explicação.</span><span>Enter envia · Shift + Enter quebra a linha</span></div>
+          <div className="feyn-compose-footer"><span>Imagens e desenhos da lousa vão junto com sua explicação.</span><span>Enter envia · Shift + Enter quebra a linha</span></div>
           {error && <p className="form-error" role="alert">{error}</p>}
         </form>
         <Whiteboard ref={board} disabled={busy} variant="paper" />

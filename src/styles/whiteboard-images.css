@@ -1,0 +1,103 @@
+.whiteboard canvas.is-selecting-image {
+  cursor: move;
+}
+.wb-image-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 10px 13px;
+  background: #253c2f;
+  color: #f3efe2;
+  border-bottom: 1px solid #7b947f66;
+}
+.wb-image-controls > span {
+  max-width: 180px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  margin-right: 4px;
+}
+.wb-image-controls button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  flex: none;
+  transition: background 0.2s;
+}
+.wb-image-controls button:hover {
+  background: #ffffff15;
+}
+.wb-image-controls button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.wb-image-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.wb-image-controls small {
+  font-size: 10px;
+  line-height: 1.7;
+  margin-left: auto;
+}
+.whiteboard--paper .wb-image-controls {
+  background: #efe4d1;
+  color: #59412b;
+  border-color: #dbc8aa;
+}
+.whiteboard--paper .wb-image-controls button:hover {
+  background: #fffaf0;
+}
+.wb-image-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #f3efe2;
+  background: #253c2f;
+}
+.whiteboard--paper .wb-image-notice {
+  background: #efe4d1;
+  color: #59412b;
+}
+.wb-image-notice.is-error {
+  color: #f9c9c5;
+}
+.whiteboard--paper .wb-image-notice.is-error {
+  color: #9f4038;
+}
+@media (max-width: 600px) {
+  .wb-image-controls > span {
+    flex: 1;
+    max-width: calc(100% - 170px);
+  }
+  .wb-image-controls small {
+    width: 100%;
+    margin: 0;
+  }
+  .wb-image-controls {
+    padding: 9px 10px;
+  }
+  .wb-image-notice {
+    font-size: 11px;
+  }
+  .wb-image-controls button {
+    width: 34px;
+    height: 36px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-image-controls button {
+    transition: none;
+  }
+}

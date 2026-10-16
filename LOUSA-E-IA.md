@@ -4,7 +4,11 @@ Repositório: MIGUEL487/notebook-quest-web, conectado ao site gstudy.vercel.app.
 
 ## Aula Feynman
 
-A lousa ocupa a área principal da aula. As ferramentas ficam no topo: giz, apagador, texto, retângulo, elipse, linha, seta e desfazer/refazer. Para texto, digite no campo que aparece, escolha o tamanho e clique para posicionar. Para formas, arraste do início até o fim. O papel claro e as cores de tinta também são preservados na imagem enviada à IA.
+A lousa ocupa a área principal da aula. As ferramentas ficam no topo: giz, apagador, texto, inserir imagem, mover imagem, retângulo, elipse, linha, seta e desfazer/refazer. Para texto, digite no campo que aparece, escolha o tamanho e clique para posicionar. Para formas, arraste do início até o fim. O papel claro e as cores de tinta também são preservados na imagem enviada à IA.
+
+Use **Inserir imagem** para colocar uma foto ou referência de arte na lousa (JPG, PNG ou WebP, até 15 MB; até seis imagens por vez). A foto entra centralizada e preserva sua proporção e a transparência de PNGs. Em **Mover imagem**, arraste para reposicionar ou puxe o círculo no canto inferior direito para redimensionar. Também há botões para aumentar, diminuir, centralizar e remover a imagem, inclusive no celular. Volte ao giz, texto ou formas para fazer anotações por cima. Inserções, movimentos, tamanhos, remoções e a limpeza da lousa podem ser desfeitos e refeitos.
+
+Escolher uma imagem apenas a prepara no navegador. Ao enviar a explicação, a foto e as anotações seguem juntas na imagem da lousa, sem as bordas de seleção. A revisão final também oferece essas ferramentas. O envio aguarda o carregamento da imagem; uma falha de leitura preserva o restante da lousa e uma falha da IA permite tentar novamente com a mesma imagem. Depois de um envio bem-sucedido no Feynman, o conteúdo continua em **Ver conversa**.
 
 Gui, Lia, Rafa e Maya têm aparências e jeitos diferentes de perguntar. O cartão do aluno escolhido mostra a pergunta atual da IA e indica quando a resposta está sendo preparada. O campo para explicar fica **acima da lousa**, visível antes da área de desenho. O fundo acompanha o restante do aplicativo. A conversa inteira, incluindo imagens enviadas e o autor de cada pergunta, pode ser aberta em **Ver conversa**. Em telas menores, o cartão fica acima do campo de explicação. O desenho permanece disponível para tentar novamente se houver erro; ele é limpo depois de um envio bem-sucedido.
 
@@ -37,6 +41,8 @@ Em 15/10/2026, a API informou que gemini-2.5-flash não estava mais disponível 
 Use Node 24 e npm: `npm ci`, `npm test`, `npx tsc --noEmit`, `NITRO_PRESET=vercel npm run build`. Para desenvolver: `NODE_USE_ENV_PROXY=1 npm run dev`. As integrações de autenticação e Notion continuam usando as configurações existentes.
 
 ## Validação desta atualização
+
+Ferramenta de imagem: 192 testes passaram, junto com TypeScript e o build Vercel. No navegador, foram verificados upload sem chamada de IA, transparência, movimento e redimensionamento pelo canto, desfazer/refazer, anotações, imagem incluída no envio, preservação após erro e histórico após sucesso. A validação em 390 px incluiu arrastar por toque, botões de tamanho e ausência de rolagem horizontal. Sessão e respostas da IA foram simuladas nessa verificação da interface.
 
 118 testes automatizados passaram, além da checagem TypeScript e do build para Vercel. A jornada foi exercitada no navegador em 1512 px e 390 px de largura com sessão e respostas simuladas, sem erros de JavaScript nem rolagem horizontal: criação por matéria/assunto, as seis atividades, temporizador, avaliação com desenho, retomada do progresso após recarregar, bloqueio da terceira tentativa e feedbacks locais. A caixa de texto do Feynman ficou visível no celular sem rolar até o fim da lousa.
 

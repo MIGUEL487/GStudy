@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   generateRecall: vi.fn(), gradeRecall: vi.fn(), generateReview: vi.fn(), gradeReview: vi.fn(),
-  begin: vi.fn(), succeed: vi.fn(), fail: vi.fn(), complete: vi.fn(), award: vi.fn(), snapshot: vi.fn(), clear: vi.fn(),
+  begin: vi.fn(), succeed: vi.fn(), fail: vi.fn(), complete: vi.fn(), award: vi.fn(), snapshot: vi.fn(), isLoading: vi.fn(), clear: vi.fn(),
   remaining: 2, ready: true, allowed: true, hasContext: true,
 }));
 vi.mock('@tanstack/react-start', () => ({ useServerFn: (fn: unknown) => fn }));
@@ -23,7 +23,7 @@ vi.mock('@/lib/learn-client', () => ({ idsFrom: (value?: string) => value ? valu
 vi.mock('@/components/whiteboard', async () => {
   const { forwardRef, useImperativeHandle } = await import('react');
   return { Whiteboard: forwardRef(function TestBoard({ disabled }: { disabled?: boolean }, ref) {
-    useImperativeHandle(ref, () => ({ snapshot: mocks.snapshot, clear: mocks.clear }));
+    useImperativeHandle(ref, () => ({ snapshot: mocks.snapshot, clear: mocks.clear, isLoading: mocks.isLoading }));
     return <div aria-label="Lousa de revisão" aria-disabled={disabled} />;
   }) };
 });
@@ -37,7 +37,7 @@ const material = { title: 'Os lados de um triângulo', content: 'Em um triângul
 const evaluation = { score: 8, feedback: 'Você relacionou corretamente os lados e as áreas.', strengths: ['Identificou a hipotenusa.'], gaps: ['Mostre como as áreas se relacionam.'], modelAnswer: 'Os quadrados construídos sobre os catetos somam a área do quadrado da hipotenusa.' };
 const search = { m: 'material-1', p: 'plan-1', t: 'topic-1' };
 beforeEach(() => {
-  localStorage.clear();
+  localStorage.clear(); mocks.isLoading.mockReturnValue(false);
   vi.clearAllMocks(); mocks.remaining = 2; mocks.ready = true; mocks.allowed = true; mocks.hasContext = true;
   mocks.complete.mockReturnValue(true); mocks.begin.mockReturnValue('reservation-1'); mocks.award.mockResolvedValue(undefined); mocks.snapshot.mockReturnValue(undefined);
   mocks.generateRecall.mockResolvedValue(material); mocks.gradeRecall.mockResolvedValue(evaluation);
@@ -209,4 +209,15 @@ describe('Desafio de síntese com texto e desenho', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Enviar minha revisão' })); expect(screen.getByLabelText('Sua explicação')).toBeDisabled(); expect(screen.getByRole('button', { name: 'Avaliando suas conexões…' })).toBeDisabled();
     expect(mocks.gradeReview).toHaveBeenCalledTimes(1); await act(async () => resolve(evaluation)); expect(mocks.award).toHaveBeenCalledTimes(1);
   });
+});
+
+it('aguarda a imagem da revisão carregar antes de pedir a avaliação', async () => {
+  render(<ReviewLesson search={search} />); await clickAndSettle('Abrir meu desafio');
+  mocks.isLoading.mockReturnValue(true);
+  await clickAndSettle('Enviar minha revisão');
+  expect(screen.getByRole('alert')).toHaveTextContent('Aguarde a imagem terminar de carregar');
+  expect(mocks.gradeReview).not.toHaveBeenCalled();
+  mocks.isLoading.mockReturnValue(false); mocks.snapshot.mockReturnValue('data:image/jpeg;base64,photo');
+  await clickAndSettle('Enviar minha revisão');
+  expect(mocks.gradeReview.mock.calls[0]![0].data.board).toBe('data:image/jpeg;base64,photo');
 });

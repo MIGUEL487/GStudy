@@ -66,6 +66,7 @@ export function ReviewLesson({ search }: { search: Search }) {
   const submit = async () => {
     const context = lesson.context;
     if (!lesson.ready || !lesson.allowed || !context || !challenge || busy.current || phase !== 'challenge') return;
+    if (board.current?.isLoading?.()) { setError("Aguarde a imagem terminar de carregar na lousa antes de enviar."); return; }
     const snapshot = board.current?.snapshot();
     if (!answer.trim() && !snapshot) { setError('Escreva uma explicação ou faça um desenho na lousa para enviar.'); return; }
     busy.current = true; setError(''); setPhase('grading');
