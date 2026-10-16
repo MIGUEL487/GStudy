@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Check, NotebookPen } from "lucide-react";
 import { useStudy } from "@/components/study-provider";
 import { useState } from "react";
+import { NotebookPhotoImport } from "@/components/photo-imports";
+import { appendTranscription } from "@/lib/photo-import-model";
 export const Route = createFileRoute("/cadernos/$notebookId")({
   head: () => ({
     meta: [
@@ -35,7 +37,7 @@ function NotebookPage() {
     );
   const unsaved = draft?.id === notebookId,
     text = unsaved ? draft.text : notebook.text;
-  const save = (value: string) => {
+  const save = (value: string, retainDraft = true) => {
     const ok = update((d) => ({
       ...d,
       subjects: d.subjects.map((s) =>
@@ -51,7 +53,9 @@ function NotebookPage() {
           : s,
       ),
     }));
-    setDraft(ok ? null : { id: notebookId, text: value });
+    if (ok) setDraft(null);
+    else if (retainDraft) setDraft({ id: notebookId, text: value });
+    return ok;
   };
   return (
     <>
@@ -75,6 +79,10 @@ function NotebookPage() {
           )}
         </span>
       </div>
+      <NotebookPhotoImport
+        key={notebookId}
+        onInsert={(transcription) => save(appendTranscription(text, transcription), false)}
+      />
       <textarea
         aria-label="Anotações do caderno"
         className="notebook-editor"
