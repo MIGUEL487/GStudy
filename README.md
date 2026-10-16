@@ -27,4 +27,4 @@ npm run dev
 
 A aula Feynman tem uma lousa ampla com texto, formas e um cartão do aluno virtual que mostra a pergunta atual. A conversa completa continua acessível em **Ver conversa**.
 
-Todas as funções de IA tentam Gemini (`BOARD_AI_*`) primeiro e podem usar Grok/xAI (`GROK_API_KEY`) como alternativa nas falhas técnicas. Uma chave `grok_` já preenchida em `GROQ_API_KEY` também é reconhecida. Veja [Grok como alternativa](./GROK-ALTERNATIVA.md). A integração anterior com [Groq](./GROQ-ALTERNATIVA.md) continua compatível quando Grok não está configurado. Veja [LOUSA-E-IA.md](./LOUSA-E-IA.md). Na Vercel, use `npm ci` como comando de instalação para utilizar o lockfile npm atualizado.
+Todas as funções de IA tentam Gemini (`BOARD_AI_*`) primeiro e usam Groq (`GROQ_API_KEY`) e depois OpenRouter gratuito (`OPENROUTER_API_KEY`) nas falhas técnicas. Grok/xAI foi removido; suas variáveis antigas são ignoradas. Veja [Groq como alternativa](./GROQ-ALTERNATIVA.md) e [OpenRouter gratuito](./OPENROUTER-ALTERNATIVA.md). Veja [LOUSA-E-IA.md](./LOUSA-E-IA.md). Na Vercel, use `npm ci` como comando de instalação para utilizar o lockfile npm atualizado.

@@ -7,26 +7,20 @@ import {
   type ModelMessage,
   type ToolSet,
 } from "ai";
-import {
-  aiConfig,
-  AiSetupError,
-  fallbackProvider,
-  grokConfig,
-  grokKeySource,
-  groqConfig,
-} from "./ai-config";
+import { aiConfig, AiSetupError, groqConfig, openRouterConfig } from "./ai-config";
 import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
 import { fallbackMessages, hasImages } from "./ai-fallback-media.server";
+import { hasPdf, validateOpenRouterFiles } from "./openrouter-media.server";
 
-type Provider = "gemini" | "grok" | "groq";
+type Provider = "gemini" | "groq" | "openrouter";
 const groqTimeoutMs = 25000;
-async function provider(name: Provider, vision: boolean, research = false) {
+async function provider(name: Provider, vision: boolean, research = false, document = false) {
   const context = {
     whiteboard: vision,
     google: name === "gemini",
     groq: name === "groq",
-    grok: name === "grok",
-    keyVariable: name === "grok" ? grokKeySource(process.env) : undefined,
+    openrouter: name === "openrouter",
+    document,
   };
   const providerFetch: typeof fetch = async (input, init) => {
     const response = await fetch(input, init);
@@ -59,15 +53,25 @@ async function provider(name: Provider, vision: boolean, research = false) {
     });
     return google(config.model);
   }
-  if (name === "grok") {
-    const config = grokConfig(process.env);
+  if (name === "openrouter") {
+    const config = openRouterConfig(process.env);
     if (!config)
-      throw new AiSetupError(
-        "Configure GROK_API_KEY com sua chave completa do Grok/xAI na Vercel e publique novamente.",
-      );
-    const { createXai } = await import("@ai-sdk/xai");
-    const xai = createXai({ apiKey: config.key, baseURL: config.baseURL, fetch: providerFetch });
-    return xai.responses(vision ? config.visionModel : config.model);
+      throw new AiSetupError("Configure OPENROUTER_API_KEY na Vercel para ativar a terceira IA.");
+    const { createOpenAICompatible } = await import("@ai-sdk/openai-compatible");
+    const openrouter = createOpenAICompatible({
+      name: "openrouter",
+      apiKey: config.key,
+      baseURL: config.baseURL,
+      fetch: providerFetch,
+      supportsStructuredOutputs: false,
+      // Fixed zero-price routing and an explicitly free parser prevent paid defaults.
+      transformRequestBody: (body) => ({
+        ...body,
+        provider: { max_price: { prompt: 0, completion: 0 } },
+        ...(document ? { plugins: [{ id: "file-parser", pdf: { engine: "cloudflare-ai" } }] } : {}),
+      }),
+    });
+    return openrouter.chatModel(vision ? config.visionModel : config.model);
   }
   const config = groqConfig(process.env);
   if (!config)
@@ -83,8 +87,7 @@ function logFailure(error: unknown, name: Provider, vision: boolean) {
     whiteboard: vision,
     google: name === "gemini",
     groq: name === "groq",
-    grok: name === "grok",
-    keyVariable: name === "grok" ? grokKeySource(process.env) : undefined,
+    openrouter: name === "openrouter",
   });
   // SDK exceptions may contain keys, photos, notes or request bodies. Log only safe fields.
   console.error("[GStudy AI] Falha na geração:", {
@@ -108,16 +111,18 @@ async function generate(
   schema?: Record<string, unknown>,
   research = false,
 ): Promise<unknown> {
-  const model = await provider(name, hasImages(messages), research);
+  if (name === "openrouter") await validateOpenRouterFiles(messages);
+  const model = await provider(name, hasImages(messages), research, hasPdf(messages));
   const request = () =>
     generateText({
       model,
       system:
-        name === "groq" && schema
+        name !== "gemini" && schema
           ? `${instructions}\n\nResponda somente com um objeto JSON válido que cumpra este esquema, sem cercas de código e sem texto fora do JSON:\n${JSON.stringify(schema)}`
           : instructions,
       messages,
       maxRetries: 0,
+      ...(name === "openrouter" ? { abortSignal: AbortSignal.timeout(45000) } : {}),
       ...(research && name === "gemini"
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
         : {}),
@@ -129,9 +134,6 @@ async function generate(
             abortSignal: AbortSignal.timeout(groqTimeoutMs),
             providerOptions: { groq: { structuredOutputs: false } },
           }
-        : {}),
-      ...(name === "grok"
-        ? { abortSignal: AbortSignal.timeout(45000), providerOptions: { xai: { store: false } } }
         : {}),
     });
   let result;
@@ -191,45 +193,55 @@ async function withFallback(
   research = false,
 ) {
   const vision = whiteboard || hasImages(messages);
-  let alternative: "grok" | "groq" | undefined;
-  try {
-    return {
-      value: await generate(instructions, messages, "gemini", schema, research),
-      convertedPdf: false,
-    };
-  } catch (error) {
-    if (!canFallback(error)) return finishFailure(error, "gemini", vision);
-    alternative = fallbackProvider(process.env);
-    if (!alternative) return finishFailure(error, "gemini", vision);
-    logFailure(error, "gemini", vision);
-  }
-  try {
-    const fallback = await fallbackMessages(messages);
-    const extra = fallback.convertedPdf
-      ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente ilustrações, diagramas ou imagens ausentes."
-      : "";
-    const value = await generate(
-      instructions +
-        extra +
-        (research
+  const providers: Provider[] = [
+    "gemini",
+    ...(process.env["GROQ_API_KEY"]?.trim() ? ["groq" as const] : []),
+    ...(process.env["OPENROUTER_API_KEY"]?.trim() ? ["openrouter" as const] : []),
+  ];
+  const labels = { gemini: "Gemini", groq: "Groq", openrouter: "OpenRouter" };
+  const failed: string[] = [];
+  for (const [index, name] of providers.entries()) {
+    try {
+      // Every alternative starts from the original messages, including the original PDF.
+      const prepared =
+        name === "groq" ? await fallbackMessages(messages) : { messages, convertedPdf: false };
+      const parsedPdf = name === "openrouter" && hasPdf(messages);
+      const extra =
+        prepared.convertedPdf || parsedPdf
+          ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente ilustrações, diagramas ou imagens ausentes."
+          : "";
+      const noSearch =
+        name !== "gemini" && research
           ? "\nVocê não tem busca web nesta resposta. Não afirme ter consultado páginas nem confirmado o edital atual."
-          : ""),
-      fallback.messages,
-      alternative,
-      schema,
-      research,
-    );
-    return { value, convertedPdf: fallback.convertedPdf };
-  } catch (error) {
-    const failure = logFailure(error, alternative, vision);
-    if (NoObjectGeneratedError.isInstance(error))
-      throw new Error(
-        "O Gemini não respondeu e o " +
-          (alternative === "grok" ? "Grok" : "Groq") +
-          " retornou um formato inesperado. Tente novamente.",
+          : "";
+      const value = await generate(
+        instructions + extra + noSearch,
+        prepared.messages,
+        name,
+        schema,
+        research,
       );
-    throw new Error(`O Gemini não respondeu. ${failure.message}`);
+      return { value, convertedPdf: prepared.convertedPdf || parsedPdf };
+    } catch (error) {
+      if (index < providers.length - 1 && canFallback(error)) {
+        logFailure(error, name, vision);
+        failed.push(labels[name]);
+        continue;
+      }
+      if (!failed.length) return finishFailure(error, name, vision);
+      const failure = logFailure(error, name, vision);
+      const prefix =
+        failed.length === 1
+          ? "O " + failed[0] + " não respondeu. "
+          : failed.join(" e ") + " não responderam. ";
+      if (NoObjectGeneratedError.isInstance(error))
+        throw new Error(
+          prefix + labels[name] + " retornou um formato inesperado. Tente novamente.",
+        );
+      throw new Error(prefix + failure.message);
+    }
   }
+  throw new Error("Nenhum provedor de IA está disponível.");
 }
 export async function aiText(instructions: string, messages: ModelMessage[], whiteboard = false) {
   const result = await withFallback(instructions, messages, whiteboard);

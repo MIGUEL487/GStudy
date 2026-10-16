@@ -9,6 +9,7 @@ const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAw
 const messages = [{ role: 'user' as const, content: [{ type: 'text' as const, text: 'Qual a cor?' }, { type: 'image' as const, image }] }];
 const success = (text = 'Vermelho', finish = 'STOP') => new Response(JSON.stringify({ candidates: [{ index: 0, content: { role: 'model', parts: [{ text }] }, finishReason: finish }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 2, totalTokenCount: 12 }, modelVersion: 'gemini-3.5-flash-lite' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 beforeEach(() => {
+  vi.stubEnv("OPENROUTER_API_KEY", "");
   vi.stubEnv("GROK_API_KEY", ""); vi.stubEnv("XAI_API_KEY", "");
   vi.stubEnv('GROQ_API_KEY', '');
   vi.stubEnv('BOARD_AI_API_KEY', 'secret-test-key');

@@ -41,38 +41,23 @@ export function aiConfig(env: Record<string, string | undefined>) {
 
 export const boardAiConfig = aiConfig;
 
-export function grokKeySource(env: Record<string, string | undefined>) {
-  if (env["GROK_API_KEY"]?.trim()) return "GROK_API_KEY";
-  if (env["XAI_API_KEY"]?.trim()) return "XAI_API_KEY";
-  // Compatibility with the field the user already filled in Vercel.
-  if (/^(?:grok_|xai-)/i.test(env["GROQ_API_KEY"]?.trim() ?? "")) return "GROQ_API_KEY";
-  return undefined;
-}
-export function fallbackProvider(
-  env: Record<string, string | undefined>,
-): "grok" | "groq" | undefined {
-  return grokKeySource(env) ? "grok" : env["GROQ_API_KEY"]?.trim() ? "groq" : undefined;
-}
-export function grokConfig(env: Record<string, string | undefined>) {
-  const source = grokKeySource(env);
-  if (!source) return null;
-  const key = env[source]!.trim();
-  if (/^gsk_/i.test(key))
-    throw new AiSetupError(
-      "GROK_API_KEY recebeu uma chave da Groq. Use sua chave completa do Grok/xAI, sem remover o prefixo.",
-    );
-  const model = env["GROK_MODEL"]?.trim() || "grok-4.20-non-reasoning";
-  const visionModel = env["GROK_VISION_MODEL"]?.trim() || model;
+// Only explicitly free models may be selected for this optional third provider.
+export function openRouterConfig(env: Record<string, string | undefined>) {
+  const key = env["OPENROUTER_API_KEY"]?.trim();
+  if (!key) return null;
+  const model = env["OPENROUTER_MODEL"]?.trim() || "nvidia/nemotron-3.5-super-vl:free";
+  const visionModel = env["OPENROUTER_VISION_MODEL"]?.trim() || model;
   for (const [name, value] of [
-    ["GROK_MODEL", model],
-    ["GROK_VISION_MODEL", visionModel],
+    ["OPENROUTER_MODEL", model],
+    ["OPENROUTER_VISION_MODEL", visionModel],
   ]) {
-    if (!value || value.length > 180 || /^https?:\/\//i.test(value) || /\s/.test(value))
+    if (!value || value.length > 180 || !/^[a-z0-9._-]+\/[a-z0-9._-]+:free$/i.test(value))
       throw new AiSetupError(
-        name + " deve conter o identificador de um modelo ativo na sua conta xAI, não uma URL.",
+        name +
+          " precisa ser um modelo gratuito do OpenRouter terminado em :free. Modelos pagos não são enviados por esta integração.",
       );
   }
-  return { key, model, visionModel, baseURL: "https://api.x.ai/v1", source };
+  return { key, model, visionModel, baseURL: "https://openrouter.ai/api/v1" };
 }
 
 // Groq is optional: an absent key must never break a successful Gemini request.
@@ -81,7 +66,7 @@ export function groqConfig(env: Record<string, string | undefined>) {
   if (!key) return null;
   if (/^(?:codex_|xai-|grok_)/i.test(key))
     throw new AiSetupError(
-      "GROQ_API_KEY recebeu uma chave do Grok/xAI ou de uma ferramenta de código. Grok e Groq são serviços diferentes. Crie a chave em console.groq.com/keys, substitua essa variável na Vercel e publique novamente. Preserve a chave completa.",
+      "GROQ_API_KEY recebeu uma chave do Grok/xAI ou de uma ferramenta de código. Grok e Groq são serviços diferentes. Substitua por uma chave completa criada em console.groq.com/keys, na Vercel em Production, e publique novamente. Remover o prefixo não converte a chave.",
     );
   const model = env["GROQ_MODEL"]?.trim() || "llama-3.3-70b-versatile";
   const visionModel =

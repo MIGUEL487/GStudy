@@ -28,13 +28,15 @@ Na Vercel, use `npm ci` como Install Command, configure as variáveis no ambient
 
 O aplicativo usa o SDK nativo do Gemini, inclusive para imagens, PDFs e respostas estruturadas. O endereço antigo terminado em /openai também é aceito e normalizado automaticamente. Se houver restrição de rede, permita generativelanguage.googleapis.com. Em Node 24 dentro deste ambiente cloud, NODE_USE_ENV_PROXY=1 habilita o proxy disponibilizado pela plataforma.
 
-## Grok/xAI como alternativa automática
+## Groq como alternativa automática
 
-Use `GROK_API_KEY` com a chave completa do Grok/xAI. O nome `XAI_API_KEY` e uma chave `grok_` ou `xai-` no campo antigo `GROQ_API_KEY` também são aceitos. Gemini permanece principal; Grok só entra após falha técnica. Consulte [GROK-ALTERNATIVA.md](./GROK-ALTERNATIVA.md) para modelos, visão, PDFs e configuração.
-
-## Compatibilidade com Groq
+Grok/xAI foi removido. As variáveis antigas GROK_* e XAI_API_KEY são ignoradas. Use uma chave criada na Groq no campo GROQ_API_KEY.
 
 Adicione `GROQ_API_KEY` para habilitar a troca automática nas falhas técnicas do Gemini. O Groq usa modelos separados para texto e visão, preservando fotos, desenhos, instruções e a conversa atual. Não é necessário iniciar outra tentativa nem mudar a configuração Gemini. Veja [GROQ-ALTERNATIVA.md](./GROQ-ALTERNATIVA.md) para os modelos, PDFs, limites e configuração na Vercel. Em redes restritas, libere também `api.groq.com`.
+
+## OpenRouter gratuito como terceira opção
+
+Adicione `OPENROUTER_API_KEY` para usar a terceira IA somente quando Gemini e Groq falharem. O modelo padrão é `nvidia/nemotron-3.5-super-vl:free`, com texto e visão. O aplicativo exige identificadores `:free`, limita o roteamento a preço zero e seleciona explicitamente o leitor gratuito de PDF `cloudflare-ai`. A conversão de PDFs não garante a interpretação de figuras. Veja [OPENROUTER-ALTERNATIVA.md](./OPENROUTER-ALTERNATIVA.md) para chave, limites e configuração.
 
 ## Modelo e diagnóstico
 

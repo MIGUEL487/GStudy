@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { canFallback, providerFailure, safeAiFailure } from "@/lib/ai-errors";
 
-const context = { whiteboard: false, google: false, grok: true, keyVariable: "GROQ_API_KEY" };
+const context = { whiteboard: false, google: false, groq: true, keyVariable: "GROQ_API_KEY" };
 const privateText = "grok_SECRET_NOT_FOR_LOGS anotações privadas do estudante";
-describe("Diagnóstico do HTTP 400 Grok sem reduzir o conteúdo", () => {
+describe("Diagnóstico do HTTP 400 de IA sem reduzir o conteúdo", () => {
   it.each([
     ["key", { error: { message: "Invalid API key " + privateText } }, "GROQ_API_KEY"],
     [
@@ -11,11 +11,11 @@ describe("Diagnóstico do HTTP 400 Grok sem reduzir o conteúdo", () => {
       { error: "This API key is restricted to coding models. " + privateText },
       "restrito a programação",
     ],
-    ["model", { code: "model_not_found", error: privateText }, "GROK_MODEL"],
+    ["model", { code: "model_not_found", error: privateText }, "GROQ_MODEL"],
     [
       "vision",
       { error: { message: "This model does not support images. " + privateText } },
-      "GROK_VISION_MODEL",
+      "GROQ_VISION_MODEL",
     ],
     [
       "context",
@@ -54,7 +54,7 @@ describe("Diagnóstico do HTTP 400 Grok sem reduzir o conteúdo", () => {
     expect(result.message).toContain(expected);
     expect(result.message).not.toContain(privateText);
     expect(result.message).not.toContain("tente um conteúdo menor");
-    expect(canFallback(error)).toBe(category === "key");
+    expect(canFallback(error)).toBe(!["request", "image-input"].includes(category));
   });
   it("aceita o formato de erro com message no topo sem confundir JSON com falta de visão", () => {
     const error = providerFailure(

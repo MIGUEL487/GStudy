@@ -1,6 +1,6 @@
 # Groq como alternativa ao Gemini
 
-Para a integração atual com Grok/xAI, consulte [GROK-ALTERNATIVA.md](./GROK-ALTERNATIVA.md). Este documento descreve a compatibilidade anterior com Groq; ela só é escolhida quando não há chave Grok configurada.
+Esta é a segunda opção do aplicativo. Se Gemini e Groq falharem, o [OpenRouter gratuito](./OPENROUTER-ALTERNATIVA.md) pode atuar como terceira opção, quando configurado. Grok/xAI foi removido; GROK_API_KEY, XAI_API_KEY e GROK_MODEL não são lidos. Se GROQ_API_KEY ainda contiver uma chave grok_, substitua-a por uma chave completa criada na Groq. Não remova o prefixo para tentar converter a chave.
 
 O Gemini continua como primeira opção. Quando há limite de uso/cota, indisponibilidade, erro de conexão, timeout, configuração inválida ou resposta que não pode ser lida como JSON, a mesma solicitação pode ser repetida uma única vez no Groq. A conversa, as fontes e as imagens são preservadas; a troca acontece dentro da chamada do servidor, sem iniciar outra sessão nem gastar uma segunda tentativa diária. Quando o Gemini funciona, o Groq não é chamado.
 
@@ -25,9 +25,9 @@ A base é fixa: `https://api.groq.com/openai/v1`. Não precisa criar `GROQ_BASE_
 - O Gemini não é interrompido por um cronômetro local de 25 segundos. Enquanto ele estiver gerando sem erro, a solicitação continua nele. O Groq só é carregado depois de uma falha elegível do Gemini e tem prazo de 25 segundos, sem retries internos. O tempo total também depende da resposta dos provedores e do limite da hospedagem.
 - Não há troca permanente: a próxima solicitação tenta novamente o Gemini. O comportamento não depende de qual instância da Vercel atende a chamada.
 - Erros de conteúdo/parâmetros (HTTP 400/422, exceto chave Google inválida) e respostas bloqueadas por filtro não são encaminhados para outro provedor. Erros da sessão Supabase e falhas ao salvar também não disparam troca de IA.
-- Sem chave Groq, o comportamento do Gemini continua funcionando e seus erros são informados normalmente. Se os dois provedores falharem, o aplicativo mostra uma mensagem segura para nova tentativa, sem expor diagnósticos privados, fotos, chaves ou textos nos logs.
+- Sem chave Groq, o comportamento do Gemini continua funcionando e seus erros são informados normalmente. Se todas as opções configuradas falharem, o aplicativo mostra uma mensagem segura para nova tentativa, sem expor diagnósticos privados, fotos, chaves ou textos nos logs.
 - As atividades continuam usando validação de conteúdo com Zod antes de salvar. No Groq, usa-se JSON mode, compatível com modelos de texto e visão que não oferecem JSON Schema estrito; o esquema é incluído nas instruções. JSON inválido não é entregue como uma atividade válida.
-- A troca inclui o conteúdo necessário da tarefa no envio ao Groq, conforme o uso autorizado da IA. A leitura de fotos informa os dois provedores antes do envio.
+- A troca inclui o conteúdo necessário da tarefa no envio ao Groq, conforme o uso autorizado da IA. A leitura de fotos informa os provedores configuráveis antes do envio.
 
 ## PDFs
 

@@ -47,6 +47,7 @@ const groq = (content = "Resposta Groq", finish_reason = "stop") =>
     { headers: { "Content-Type": "application/json" } },
   );
 beforeEach(() => {
+  vi.stubEnv("OPENROUTER_API_KEY", "");
   vi.stubEnv("GROK_API_KEY", "");
   vi.stubEnv("XAI_API_KEY", "");
   vi.stubEnv("BOARD_AI_API_KEY", "gemini-private-key");
@@ -67,6 +68,38 @@ afterEach(() => {
   fetchMock.mockReset();
 });
 describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
+  it("usa Groq mesmo se variáveis antigas de Grok continuarem cadastradas", async () => {
+    vi.stubEnv("GROK_API_KEY", "grok_old_unused");
+    vi.stubEnv("XAI_API_KEY", "xai-old-unused");
+    fetchMock.mockResolvedValueOnce(failed(429)).mockResolvedValueOnce(groq());
+    await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Groq");
+    const [url, init] = fetchMock.mock.calls[1]!;
+    expect(String(url)).toContain("api.groq.com");
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer groq-private-key");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("pede uma chave Groq quando o campo ainda contém grok_ e não envia essa chave a outro serviço", async () => {
+    vi.stubEnv("GROQ_API_KEY", "grok_old_private");
+    fetchMock.mockResolvedValueOnce(failed(429));
+    await expect(aiText("Explique.", messages)).rejects.toThrow("console.groq.com/keys");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("grok_old_private");
+  });
+  it("não reduz o conteúdo nem tenta xAI quando a Groq rejeita uma atividade", async () => {
+    const text = "INICIO-" + "referencia completa; ".repeat(5000) + "-FIM";
+    fetchMock
+      .mockResolvedValueOnce(failed(429))
+      .mockResolvedValueOnce(failed(400, "Unsupported response_format private diagnostic"));
+    await expect(aiText("Explique.", [{ role: "user", content: text }])).rejects.toThrow(
+      "resposta estruturada",
+    );
+    const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(body.messages.find((message: { role: string }) => message.role === "user").content).toBe(
+      text,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("api.groq.com");
+  });
   it("mantém o Gemini como primeira opção e não chama o Groq quando funciona", async () => {
     fetchMock.mockResolvedValueOnce(google());
     await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Gemini");

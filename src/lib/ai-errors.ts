@@ -4,7 +4,7 @@ type Context = {
   whiteboard: boolean;
   google: boolean;
   groq?: boolean;
-  grok?: boolean;
+  openrouter?: boolean;
   keyVariable?: string | undefined;
 };
 const record = (value: unknown): Record<string, unknown> | undefined =>
@@ -53,25 +53,26 @@ export function providerFailure(status: number, payload: unknown, context: Conte
   const reasons = details.map((value) => record(value)?.["reason"]);
   const key =
     context.keyVariable ??
-    (context.grok ? "GROK_API_KEY" : context.groq ? "GROQ_API_KEY" : "BOARD_AI_API_KEY");
-  const model = context.grok
+    (context.openrouter
+      ? "OPENROUTER_API_KEY"
+      : context.groq
+        ? "GROQ_API_KEY"
+        : "BOARD_AI_API_KEY");
+  const model = context.groq
     ? context.whiteboard
-      ? "GROK_VISION_MODEL"
-      : "GROK_MODEL"
-    : context.groq
+      ? "GROQ_VISION_MODEL"
+      : "GROQ_MODEL"
+    : context.openrouter
       ? context.whiteboard
-        ? "GROQ_VISION_MODEL"
-        : "GROQ_MODEL"
+        ? "OPENROUTER_VISION_MODEL"
+        : "OPENROUTER_MODEL"
       : "BOARD_AI_MODEL";
-  const url = context.grok
-    ? "o acesso à API xAI"
-    : context.groq
-      ? "o acesso à API Groq"
-      : "BOARD_AI_BASE_URL";
-  const provider = context.grok
-    ? "O Grok/xAI"
-    : context.groq
-      ? "O Groq"
+  const service = context.openrouter ? "OpenRouter" : "Groq";
+  const url =
+    context.groq || context.openrouter ? "o acesso à API " + service : "BOARD_AI_BASE_URL";
+  const provider =
+    context.groq || context.openrouter
+      ? "O " + service
       : context.google
         ? "O Gemini"
         : "O provedor de IA";
@@ -80,7 +81,7 @@ export function providerFailure(status: number, payload: unknown, context: Conte
       ["API_KEY_INVALID", "API_KEY_EXPIRED", "API_KEY_NOT_FOUND"].includes(String(reason)),
     ) ||
     status === 401 ||
-    (context.grok &&
+    ((context.groq || context.openrouter) &&
       /(?:invalid|incorrect|expired|revoked)[ _-]*(?:api[ _-]*)?key|api[ _-]*key[ _-]*(?:invalid|expired|revoked)/i.test(
         diagnostic,
       ))
@@ -113,8 +114,8 @@ export function providerFailure(status: number, payload: unknown, context: Conte
     return failure(
       `O modelo ou endereço da IA não está disponível (HTTP 404). Confira ${model} e ${url} na hospedagem.`,
     );
-  if (context.grok && (status === 400 || status === 422)) {
-    const prefix = "O Grok/xAI recusou a solicitação (HTTP " + status + "). ";
+  if ((context.groq || context.openrouter) && (status === 400 || status === 422)) {
+    const prefix = provider + " recusou a solicitação (HTTP " + status + "). ";
     if (
       /(?:coding|code[- ]only|programming).*(?:key|plan|only|restrict)|(?:key|plan).*(?:only.*(?:coding|code)|restricted.*(?:coding|code))/i.test(
         diagnostic,
@@ -122,7 +123,7 @@ export function providerFailure(status: number, payload: unknown, context: Conte
     )
       return failure(
         prefix +
-          "A chave ou o plano está restrito a programação. Essa permissão não cobre todas as funções de estudo. Confira o acesso à API geral; se a conta não permitir texto, imagens e atividades estruturadas, use outro provedor, como Groq.",
+          "A chave ou o plano está restrito a programação. Essa permissão não cobre todas as funções de estudo. Confira o acesso à API geral; se a conta não permitir texto, imagens e atividades estruturadas, use outro provedor compatível.",
         "plan",
       );
     if (
@@ -132,7 +133,9 @@ export function providerFailure(status: number, payload: unknown, context: Conte
     )
       return failure(
         prefix +
-          "O provedor informou restrição de créditos ou cobrança. Confira o saldo e o limite de gastos da conta xAI.",
+          "O provedor informou restrição de créditos ou cobrança. Confira o saldo e o limite de gastos da conta " +
+          service +
+          ".",
         "credits",
       );
     if (
@@ -142,7 +145,9 @@ export function providerFailure(status: number, payload: unknown, context: Conte
     )
       return failure(
         prefix +
-          "O modelo selecionado não aceita imagens nesta API. Configure GROK_VISION_MODEL com um modelo de visão autorizado para sua chave. Para usar lousa e fotos com esta conta, é necessário esse suporte ou outro provedor, como Groq.",
+          "O modelo selecionado não aceita imagens nesta API. Configure " +
+          (context.openrouter ? "OPENROUTER_VISION_MODEL" : "GROQ_VISION_MODEL") +
+          " com um modelo de visão autorizado para sua chave. Para usar lousa e fotos com esta conta, é necessário esse suporte ou outro provedor compatível.",
         "vision",
       );
     if (
@@ -180,7 +185,9 @@ export function providerFailure(status: number, payload: unknown, context: Conte
         prefix +
           "O modelo solicitado não está disponível ou autorizado para esta chave. Confira " +
           model +
-          " e os modelos liberados no painel xAI.",
+          " e os modelos liberados no painel " +
+          service +
+          ".",
         "model",
       );
     if (
@@ -195,7 +202,7 @@ export function providerFailure(status: number, payload: unknown, context: Conte
       );
     return failure(
       prefix +
-        "O motivo específico não foi identificado. Confira o modelo e as permissões da chave. Esse código HTTP, sozinho, não demonstra que o Grok não consegue realizar a tarefa.",
+        "O motivo específico não foi identificado. Confira o modelo e as permissões da chave. Esse código HTTP, sozinho, não demonstra que o modelo não consegue realizar a tarefa.",
       "request",
     );
   }
@@ -260,7 +267,18 @@ export function canFallback(error: unknown): boolean {
     if (typeof status === "number") {
       if (status === 400 || status === 422)
         return (
-          current instanceof AiSetupError && current.message.includes("chave de IA foi recusada")
+          current instanceof AiSetupError &&
+          (current.message.includes("chave de IA foi recusada") ||
+            [
+              "key",
+              "plan",
+              "model",
+              "vision",
+              "context",
+              "schema",
+              "parameter",
+              "credits",
+            ].includes(String(item?.["category"])))
         );
       if ([401, 402, 403, 404, 408, 409, 429].includes(status) || status >= 500) eligible = true;
       else if (status >= 400) return false;
