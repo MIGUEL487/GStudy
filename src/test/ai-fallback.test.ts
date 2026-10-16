@@ -1,0 +1,195 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { aiText, aiObject } from "@/lib/ai.server";
+import { canFallback, providerFailure } from "@/lib/ai-errors";
+import { AiSetupError, groqConfig } from "@/lib/ai-config";
+const fetchMock = vi.fn();
+const prompt = "Anotação privada do estudante que não deve aparecer nos logs.";
+const messages = [{ role: "user" as const, content: prompt }];
+const image =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=";
+const vision = [
+  {
+    role: "user" as const,
+    content: [
+      { type: "text" as const, text: "Leia esta foto." },
+      { type: "file" as const, data: image, mediaType: "image/png" },
+    ],
+  },
+];
+const failed = (
+  status: number,
+  message = "private-diagnostic gemini-private-key groq-private-key",
+) =>
+  new Response(JSON.stringify({ error: { message } }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+const google = (text = "Resposta Gemini") =>
+  new Response(
+    JSON.stringify({
+      candidates: [
+        { index: 0, content: { role: "model", parts: [{ text }] }, finishReason: "STOP" },
+      ],
+      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 2, totalTokenCount: 12 },
+    }),
+    { headers: { "Content-Type": "application/json" } },
+  );
+const groq = (content = "Resposta Groq", finish_reason = "stop") =>
+  new Response(
+    JSON.stringify({
+      id: "test",
+      object: "chat.completion",
+      created: 1,
+      model: "llama-3.3-70b-versatile",
+      choices: [{ index: 0, message: { role: "assistant", content }, finish_reason }],
+      usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 },
+    }),
+    { headers: { "Content-Type": "application/json" } },
+  );
+beforeEach(() => {
+  vi.stubEnv("BOARD_AI_API_KEY", "gemini-private-key");
+  vi.stubEnv("BOARD_AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta");
+  vi.stubEnv("BOARD_AI_MODEL", "gemini-test");
+  vi.stubEnv("GROQ_API_KEY", "groq-private-key");
+  vi.stubEnv("GROQ_MODEL", "llama-3.3-70b-versatile");
+  vi.stubEnv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct");
+  vi.stubGlobal("fetch", fetchMock);
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  fetchMock.mockReset();
+});
+describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
+  it("mantém o Gemini como primeira opção e não chama o Groq quando funciona", async () => {
+    fetchMock.mockResolvedValueOnce(google());
+    await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Gemini");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("generativelanguage.googleapis.com");
+  });
+  it.each([401, 402, 403, 404, 408, 429, 500, 503])(
+    "usa Groq uma única vez após HTTP %i, com a chave e modelo corretos",
+    async (status) => {
+      fetchMock.mockResolvedValueOnce(failed(status)).mockResolvedValueOnce(groq());
+      await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Groq");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [url, init] = fetchMock.mock.calls[1]!;
+      expect(String(url)).toBe("https://api.groq.com/openai/v1/chat/completions");
+      expect(new Headers(init.headers).get("Authorization")).toBe("Bearer groq-private-key");
+      expect(new Headers(init.headers).has("x-goog-api-key")).toBe(false);
+      const body = JSON.parse(init.body);
+      expect(body.model).toBe("llama-3.3-70b-versatile");
+      expect(body.messages).toContainEqual({ role: "user", content: prompt });
+      const logs = JSON.stringify(vi.mocked(console.error).mock.calls);
+      for (const secret of [prompt, "private-diagnostic", "gemini-private-key", "groq-private-key"])
+        expect(logs).not.toContain(secret);
+    },
+  );
+  it("também troca em falha de rede e resposta vazia", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed")).mockResolvedValueOnce(groq());
+    await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Groq");
+    fetchMock.mockResolvedValueOnce(google("")).mockResolvedValueOnce(groq());
+    await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Groq");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+  it("manda imagens para o modelo de visão, inclusive fotos que não vêm da lousa", async () => {
+    fetchMock.mockResolvedValueOnce(failed(429)).mockResolvedValueOnce(groq("A nota é 8,5."));
+    await expect(aiText("Leia a foto.", vision)).resolves.toBe("A nota é 8,5.");
+    const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(body.model).toBe("meta-llama/llama-4-scout-17b-16e-instruct");
+    expect(body.messages.at(-1).content).toContainEqual({
+      type: "image_url",
+      image_url: { url: image },
+    });
+  });
+  it("preserva JSON nas atividades e na leitura do boletim sem exigir JSON Schema estrito do modelo de visão", async () => {
+    const output = { score: 8.5, period: 1 };
+    fetchMock
+      .mockResolvedValueOnce(failed(503))
+      .mockResolvedValueOnce(groq(JSON.stringify(output)));
+    const schema = {
+      type: "object",
+      additionalProperties: false,
+      required: ["score", "period"],
+      properties: { score: { type: "number" }, period: { type: "integer" } },
+    };
+    await expect(aiObject("Leia o boletim.", vision, schema)).resolves.toEqual(output);
+    const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.messages[0].content).toContain(JSON.stringify(schema));
+  });
+  it("recupera JSON inválido do Gemini e não entrega JSON inválido do Groq", async () => {
+    const schema = {
+      type: "object",
+      required: ["answer"],
+      properties: { answer: { type: "string" } },
+    };
+    fetchMock
+      .mockResolvedValueOnce(google("não é JSON"))
+      .mockResolvedValueOnce(groq('{"answer":"Certo"}'));
+    await expect(aiObject("Responda.", messages, schema)).resolves.toEqual({ answer: "Certo" });
+    fetchMock.mockResolvedValueOnce(failed(429)).mockResolvedValueOnce(groq("não é JSON"));
+    await expect(aiObject("Responda.", messages, schema)).rejects.toThrow("formato inesperado");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+  it("não envia ao outro provedor quando o erro é do conteúdo ou houve filtro", async () => {
+    fetchMock.mockResolvedValueOnce(failed(400));
+    await expect(aiText("Explique.", messages)).rejects.toThrow("HTTP 400");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(canFallback({ name: "AI_NoObjectGeneratedError", finishReason: "content-filter" })).toBe(
+      false,
+    );
+    expect(canFallback(new Error("private data"))).toBe(false);
+  });
+  it("não interfere no Gemini sem chave Groq e não expõe diagnóstico bruto quando os dois falham", async () => {
+    vi.stubEnv("GROQ_API_KEY", "");
+    fetchMock.mockResolvedValueOnce(failed(429));
+    await expect(aiText("Explique.", messages)).rejects.toThrow("HTTP 429");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.stubEnv("GROQ_API_KEY", "groq-private-key");
+    fetchMock.mockResolvedValueOnce(failed(503)).mockResolvedValueOnce(failed(401));
+    await expect(aiText("Explique.", messages)).rejects.toThrow("GROQ_API_KEY");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("private");
+  });
+  it("permite usar Groq se a configuração Gemini estiver ausente", async () => {
+    vi.stubEnv("BOARD_AI_API_KEY", "");
+    fetchMock.mockResolvedValueOnce(groq());
+    await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Groq");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("api.groq.com");
+  });
+});
+describe("Configuração e classificação seguras", () => {
+  it("precisa apenas da chave Groq e mantém modelos de texto e visão separados", () => {
+    expect(groqConfig({})).toBeNull();
+    expect(groqConfig({ GROQ_API_KEY: "key" })).toMatchObject({
+      baseURL: "https://api.groq.com/openai/v1",
+      model: "llama-3.3-70b-versatile",
+      visionModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    });
+    expect(() => groqConfig({ GROQ_API_KEY: "key", GROQ_MODEL: "https://example.com" })).toThrow(
+      "GROQ_MODEL",
+    );
+  });
+  it("preserva a causa de cota ou timeout e diferencia chave Google inválida de conteúdo recusado", () => {
+    expect(canFallback(new Error("wrapper", { cause: { statusCode: 429 } }))).toBe(true);
+    expect(canFallback({ name: "TimeoutError" })).toBe(true);
+    expect(
+      canFallback(
+        providerFailure(
+          400,
+          { error: { details: [{ reason: "API_KEY_INVALID" }] } },
+          { whiteboard: false, google: true },
+        ),
+      ),
+    ).toBe(true);
+    expect(canFallback(providerFailure(400, null, { whiteboard: false, google: true }))).toBe(
+      false,
+    );
+    expect(canFallback(new AiSetupError("Configuração ausente."))).toBe(true);
+  });
+});

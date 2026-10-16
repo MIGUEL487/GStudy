@@ -6,7 +6,7 @@ Cada tópico tem seis etapas: explicações → flashcards → quiz → Active R
 
 ## Fontes e IA
 
-- Toda a IA usa a configuração Gemini `BOARD_AI_API_KEY`, `BOARD_AI_BASE_URL` e `BOARD_AI_MODEL` já existente. Nenhuma chave nova é necessária.
+- Toda a IA usa a configuração Gemini `BOARD_AI_API_KEY`, `BOARD_AI_BASE_URL` e `BOARD_AI_MODEL` já existente. Com `GROQ_API_KEY` configurada, falhas técnicas do Gemini usam automaticamente a alternativa Groq. A mesma tentativa e o contexto são preservados; não é cobrada uma segunda tentativa diária pela troca. Veja [GROQ-ALTERNATIVA.md](./GROQ-ALTERNATIVA.md).
 - Materiais precisam ser selecionados na criação da trilha. A IA recebe somente as referências escolhidas e o contexto da etapa. Cadernos selecionados são incluídos como uma cópia do conteúdo daquele momento.
 - Conectar o Notion permite importar páginas autorizadas. Depois da importação, seus textos aparecem como cadernos e fontes para personalização. O login sozinho não importa páginas privadas.
 - Links de cursos públicos podem ser importados como material. Para aulas em vídeo, páginas privadas e arquivos inacessíveis, envie suas anotações ou um PDF.

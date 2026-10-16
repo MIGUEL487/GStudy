@@ -106,7 +106,7 @@ Materiais do Notion ficam na conta e podem ser recuperados em outro navegador. C
 
 Referência sobre as páginas disponíveis para busca: [API de busca do Notion](https://developers.notion.com/reference/post-search).
 
-## 8. IA / Google Gemini
+## 8. IA / Google Gemini e alternativa Groq
 
 Login com Google e importação do Notion não precisam de chave de IA. Conversas, lousa, resumos, quizzes, flashcards e explicações usam Gemini com a mesma configuração.
 
@@ -117,6 +117,8 @@ Em **Vercel → Settings → Environment Variables → Production**, mantenha:
 - `BOARD_AI_MODEL`: `gemini-3.5-flash-lite`
 
 Faça **Redeploy** depois de salvar. Não use prefixo `VITE_` e não coloque chaves no GitHub. As variáveis antigas `AI_*` e `LOVABLE_API_KEY` não são mais lidas pelo aplicativo. Confira a cota do modelo na sua conta do Google AI Studio.
+
+Para usar Groq automaticamente quando o Gemini falhar ou atingir a cota, adicione também `GROQ_API_KEY` em Production e faça Redeploy. Os modelos padrão são `llama-3.3-70b-versatile` para texto e `meta-llama/llama-4-scout-17b-16e-instruct` para imagens; podem ser alterados por `GROQ_MODEL` e `GROQ_VISION_MODEL`. Não substitua nem apague a configuração Gemini. Veja [configuração completa do Groq](./GROQ-ALTERNATIVA.md).
 
 ## 9. Abrir no computador
 

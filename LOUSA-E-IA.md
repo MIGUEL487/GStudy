@@ -10,7 +10,7 @@ Gui, Lia, Rafa e Maya têm aparências e jeitos diferentes de perguntar. O cart�
 
 ## Uma configuração de IA para tudo
 
-Mantenha somente estas variáveis de IA no servidor/Vercel (sem prefixo VITE_):
+Para o Gemini principal, mantenha estas variáveis de IA no servidor/Vercel (sem prefixo VITE_):
 
 ```
 BOARD_AI_API_KEY=<chave do Google AI Studio>
@@ -23,6 +23,10 @@ Elas são usadas em todas as chamadas: conversas com e sem desenho, leitura de m
 Na Vercel, use `npm ci` como Install Command, configure as variáveis no ambiente de Production do projeto GStudy e faça Redeploy do commit atual. As configurações da hospedagem podem prevalecer sobre o arquivo .env. Não publique chaves no Git e não use prefixo VITE_ para credenciais de IA. A API recebe o conteúdo da aula ou do material necessário à tarefa. A disponibilidade e a cota gratuita dependem da conta; nenhuma configuração de cobrança é alterada pelo aplicativo.
 
 O aplicativo usa o SDK nativo do Gemini, inclusive para imagens, PDFs e respostas estruturadas. O endereço antigo terminado em /openai também é aceito e normalizado automaticamente. Se houver restrição de rede, permita generativelanguage.googleapis.com. Em Node 24 dentro deste ambiente cloud, NODE_USE_ENV_PROXY=1 habilita o proxy disponibilizado pela plataforma.
+
+## Groq como alternativa automática
+
+Adicione `GROQ_API_KEY` para habilitar a troca automática nas falhas técnicas do Gemini. O Groq usa modelos separados para texto e visão, preservando fotos, desenhos, instruções e a conversa atual. Não é necessário iniciar outra tentativa nem mudar a configuração Gemini. Veja [GROQ-ALTERNATIVA.md](./GROQ-ALTERNATIVA.md) para os modelos, PDFs, limites e configuração na Vercel. Em redes restritas, libere também `api.groq.com`.
 
 ## Modelo e diagnóstico
 

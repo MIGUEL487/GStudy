@@ -138,8 +138,8 @@ function PhotoPicker({
         </details>
       )}
       <p className="study-photo-privacy">
-        Ao iniciar a leitura, a foto será enviada ao Gemini. O GStudy salva somente o texto ou as
-        notas que você confirmar.
+        Ao iniciar a leitura, a foto poderá ser enviada ao Gemini ou ao Groq, usado como
+        alternativa. O GStudy salva somente o texto ou as notas que você confirmar.
       </p>
     </div>
   );
@@ -159,7 +159,7 @@ function PhotoWarnings({ items }: { items: string[] }) {
 function Reading({ pending }: { pending: "preparing" | "reading" | null }) {
   return pending ? (
     <p className="study-photo-reading" role="status">
-      {pending === "preparing" ? "Preparando sua foto…" : "O Gemini está lendo a imagem…"}
+      {pending === "preparing" ? "Preparando sua foto…" : "A IA está lendo a imagem…"}
       <span className="dots" aria-hidden="true">
         <i />
         <i />
@@ -363,7 +363,7 @@ function ReportPhotoDialog({
   return (
     <PhotoDialog
       title="Seu boletim, sem digitar tudo"
-      description="Leia a foto com o Gemini e confira as notas. Você escolhe quais matérias e períodos importar."
+      description="Leia a foto com a IA e confira as notas. Você escolhe quais matérias e períodos importar."
       close={close}
     >
       <PhotoPicker
