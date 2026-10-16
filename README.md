@@ -28,3 +28,5 @@ npm run dev
 A aula Feynman tem uma lousa ampla com texto, formas e um cartão do aluno virtual que mostra a pergunta atual. A conversa completa continua acessível em **Ver conversa**.
 
 Todas as funções de IA tentam Gemini (`BOARD_AI_*`) primeiro e usam Groq (`GROQ_API_KEY`) e depois OpenRouter gratuito (`OPENROUTER_API_KEY`) nas falhas técnicas. Grok/xAI foi removido; suas variáveis antigas são ignoradas. Veja [Groq como alternativa](./GROQ-ALTERNATIVA.md) e [OpenRouter gratuito](./OPENROUTER-ALTERNATIVA.md). Veja [LOUSA-E-IA.md](./LOUSA-E-IA.md). Na Vercel, use `npm ci` como comando de instalação para utilizar o lockfile npm atualizado.
+
+Em **Aprender**, escolha uma matéria para suas trilhas de atividades. **Rumo à prova** tem um painel próprio com roteiro de sessões, indicações de vídeos e livros e mapa do programa, sem misturar seus planos com as trilhas. Planos antigos podem receber o novo roteiro mantendo seus dados. Veja [PREPARACAO.md](./PREPARACAO.md).

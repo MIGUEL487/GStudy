@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, Navigate, useNavigate } from '@tanstack/react-router';
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useServerFn } from '@tanstack/react-start';
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Clock3, FileText, Flame, Gem, Layers, Lightbulb, LockKeyhole, Map, PenTool, Plus, RotateCcw, Sparkles, Target, Trash2, Trophy, Users } from 'lucide-react';
@@ -14,13 +14,14 @@ import { normalizeStudyName } from '@/lib/notion-model';
 import { useDailyAttempt } from '@/hooks/use-daily-attempt';
 import '@/styles/learning-path.css';
 
-export const Route = createFileRoute('/aprender/')({ validateSearch: learningSearch, head: () => ({ meta: [{ title: 'GStudy · Sua jornada de aprendizagem' }, { name: 'description', content: 'Uma trilha personalizada por matéria, com seis formas de aprender e uma revisão visual.' }] }), component: LearnHub });
+export const Route = createFileRoute('/aprender/')({ validateSearch: learningSearch, head: () => ({ meta: [{ title: 'GStudy · Aprender' }, { name: 'description', content: 'Uma trilha personalizada por matéria, com seis formas de aprender e uma revisão visual.' }] }), component: LearnHub });
 const icons = { explain: Lightbulb, flashcards: Layers, quiz: Target, recall: Clock3, feynman: Users, review: PenTool };
 const colorStyle = (name: string) => ({ '--subject-color': subjectColor(name) } as CSSProperties);
 
 export function LearnHub() {
   const { data, ready: studyReady } = useStudy();
-  const { plans, ready, savePlan, removePlan } = useLearning();
+  const { plans: allPlans, ready, savePlan, removePlan } = useLearning();
+  const plans = allPlans.filter(plan => !plan.preparation);
   const { items, reload, remove } = useMaterials();
   const stats = useStats(); const level = levelOf(stats.xp);
   const search = Route.useSearch(); const navigate = useNavigate();
@@ -51,8 +52,9 @@ export function LearnHub() {
     set(values.includes(id) ? values.filter(v => v !== id) : [...values, id]);
   };
   if (!studyReady || !ready) return <Thinking text="Abrindo sua jornada…" />;
+  if (allPlans.some(plan => plan.id === search.p && plan.preparation)) return <Navigate to="/preparar" search={{ p: search.p }} replace />;
   return <div className="learning-hub">
-    <div className="journey-eyebrow"><span className="eyebrow">TESTE SEU CONHECIMENTO</span><span><Sparkles size={13} /> Aprender é construir</span></div>
+    <div className="journey-eyebrow"><span className="eyebrow">APRENDER</span><span><Sparkles size={13} /> Aprender é construir</span></div>
     <div className="journey-heading"><div><h1>{plan ? 'Um conceito de cada vez.' : subject ? 'Qual será sua descoberta?' : 'O que vamos aprender hoje?'}</h1><p>{plan ? 'Entenda, pratique e explique. Cada passo abre uma nova conexão.' : subject ? 'Você escolhe o assunto. A IA organiza o caminho.' : 'Escolha uma das suas matérias para começar uma trilha com a sua cara.'}</p></div><div className="journey-stats"><span title="Dias seguidos"><Flame size={17} /> {stats.streak}</span><span title="Experiência total"><Gem size={17} /> {stats.xp} XP</span><span title={`${100-level.into} XP para o próximo nível`}><Trophy size={17} /> Nível {level.level}</span></div></div>
     {plan ? <>
       <div className="journey-actions"><Link to="/aprender" search={{}} className="back-link"><ArrowLeft size={14} /> Trocar matéria ou assunto</Link><button className="text-action" onClick={() => { if (confirm(`Excluir a trilha “${plan.topic}”? Seus cadernos e materiais serão mantidos.`) && removePlan(plan.id)) void navigate({ to: '/aprender', search: {} }); }}><Trash2 size={14} /> Excluir trilha</button></div>

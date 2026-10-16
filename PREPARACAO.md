@@ -1,27 +1,33 @@
-# Preparação para provas, concursos e olimpíadas
+# Rumo à prova
 
-A rota /preparar aparece na barra lateral e nas cinco opções da navegação móvel. O fluxo pergunta a etapa escolar, o tipo e nome do desafio, a edição/nível/cargo quando pertinente, a matéria cadastrada no início e o assunto de interesse.
+A área `/preparar` é um espaço próprio para provas da escola, concursos/vestibulares e olimpíadas. **Aprender** (`/aprender`) mantém as trilhas de seis atividades; os planos de Rumo à prova não aparecem na lista nem na contagem dessas trilhas. Links antigos `/aprender?p=<preparação>` encaminham para `/preparar?p=<plano>`.
 
-Para concursos e olimpíadas, a pesquisa usa o Google Search do SDK Gemini. O relatório apresenta orientações e três perguntas para personalizar o estudo. Os links vêm dos metadados de grounding do provedor, com validação de URL e remoção de duplicatas, nunca de links inventados no texto. A pessoa deve conferir a edição e o programa do organizador. Para uma prova da escola, não há pesquisa sobre uma avaliação privada: a IA pergunta pelo conteúdo das aulas e pelo roteiro do professor.
+## Do objetivo ao roteiro
 
-Gemini continua sendo a primeira opção, sem interromper uma geração saudável após 25 segundos. Groq só entra em falhas técnicas. Se o modelo Gemini não suporta grounding, uma resposta sem busca pode ser gerada no próprio Gemini. Groq não recebe a ferramenta de busca neste fluxo. Sem fontes, a interface identifica a resposta como orientação geral e não como confirmação de um programa atual. Não são necessários novos segredos ou migrações SQL.
+A conversa inicial usa etapa escolar, tipo de desafio, nome, edição/nível/cargo, matéria e foco. Para concursos e olimpíadas, Gemini pode pesquisar o programa oficial e referências públicas; para provas da escola, pede o roteiro do professor, sem pesquisar materiais privados. Sem fontes de busca, a orientação é identificada como geral e o programa precisa ser confirmado.
 
-No último passo, a meta de aproveitamento pode ser ajustada de 0 a 100% por uma volta completa na circunferência, mouse, toque, botões e teclado (setas, Home, End, PageUp e PageDown). Os extremos não saltam entre 0 e 100% ao atravessar o topo. Para criar o plano, a meta precisa ser maior que zero. Ela expressa a intenção de acertos, sem representar uma nota obtida ou garantia de aprovação.
+Depois das respostas, a pessoa escolhe sua meta de acertos no círculo, uma data opcional e o tempo disponível por dia (15 a 180 minutos). Pode fornecer roteiro, edital, cadernos — inclusive do Notion — e materiais selecionados. Somente esses materiais entram na memória da geração; anotações e respostas não viram consultas da pesquisa pública.
 
-A preparação aceita roteiro/edital em texto, cadernos, páginas importadas do Notion e materiais da conta. É possível adicionar PDF, link e resumo pelo importador existente. Cadernos e respostas pessoais não entram na chamada de pesquisa web. O gerador cria de três a seis tópicos com as seis atividades existentes e preserva seus limites diários. Uma síntese do contexto acompanha as atividades seguintes.
+A IA gera um programa de tópicos, estratégia, ritmo, de 3 a 12 sessões e de 2 a 8 recomendações de vídeos e livros. As sessões têm ações de assistir/anotar, ler/conectar, resolver/investigar e revisar erros, com duração estimada e um resultado concreto para registrar no caderno. Não são uma segunda cópia de flashcards, quizzes ou Feynman. A duração estimada da sessão respeita o tempo diário; não é uma duração atribuída ao vídeo. Todos os tópicos precisam ter sessões correspondentes.
 
-Ano escolar é uma preferência do workspace, alterável em Configurações → Perfil. Cada plano registra o ano utilizado na criação: alterar o perfil não reescreve preparações antigas. Planos, meta e fontes usam os documentos de conta existentes e a mesclagem por revisão, com cópia local para offline. Falhas ao salvar conservam o plano gerado para tentar salvar sem outra chamada de IA.
+## Painel próprio
 
-## Alternativa Groq
+- **Meu roteiro:** próximo passo, tarefas, tempo estimado, resultado esperado no caderno e sessões concluídas. A pessoa marca o estudo que realmente realizou, sem geração de notas ou XP fictícios.
+- **Vídeos & livros:** uma pequena biblioteca com título/tema, canal ou autor sugerido, motivo da recomendação e ligação com o tópico. Um link direto só pode vir das fontes pesquisadas, com destino compatível ao recurso. Sem fonte correspondente, o site monta uma busca no YouTube ou Google Books, marcada como sugestão para buscar. Recomendar um livro não fornece acesso gratuito nem confirma a disponibilidade de uma edição.
+- **Mapa da prova:** tópicos, objetivos, desafios de compreensão e contexto/fontes da pesquisa. Meta de acertos e conclusão de sessões não são previsão de nota nem garantia de aprovação.
 
-Use GROQ_API_KEY com uma chave completa criada na Groq. Grok/xAI foi removido, e as variáveis GROK_* e XAI_API_KEY são ignoradas. Se o campo ainda contiver uma chave grok_, substitua-a por uma chave da Groq, sem tentar convertê-la retirando o prefixo. Consulte [GROQ-ALTERNATIVA.md](./GROQ-ALTERNATIVA.md).
+Os links de recursos não são URLs arbitrárias devolvidas pela IA. Fontes de vídeos diretos precisam apontar para um vídeo válido do YouTube; referências de livros diretas ficam restritas aos catálogos reconhecidos. Os demais casos usam consultas construídas pelo aplicativo. O conteúdo da referência não é apresentado como lido pelo aplicativo apenas por ter sido recomendado.
 
-## Verificação
+## Dados e compatibilidade
 
-208 testes automatizados passaram, além de TypeScript e build para Vercel.
+Os planos continuam no documento de conta `learning`, com `preparation.guide` e `dailyMinutes` opcionais para aceitar contas antigas. Sessões usam chaves `preparation:mission:<índice>` no registro de conclusões, separadas das atividades das trilhas. A cópia por conta no navegador e a sincronização por revisão do Supabase continuam funcionando; não há nova migração SQL.
 
-O fluxo foi exercitado em Chromium em 1512 e 390 px, com sessão, documentos de conta e respostas de IA simulados: círculo completo e reverso, arrasto por toque, materiais, persistência após recarga, ano nas configurações, cinco destinos no celular e sincronização de duas preparações entre aparelhos, sem erros JavaScript ou rolagem horizontal. A chamada real de grounding do ambiente retornou HTTP 429 de cota do Gemini; não foi considerada uma pesquisa bem-sucedida. A disponibilidade real continua dependente das cotas e credenciais dos provedores.
+Planos antigos ficam visíveis em Rumo à prova e oferecem **Descobrir meu novo roteiro**. A atualização mantém o ID, tópicos, materiais, anotações e conclusões anteriores; salva apenas o novo guia sobre a versão mais recente do plano. Se outra aba ou aparelho já adicionou um guia, ele é preservado. Uma falha de armazenamento permite tentar salvar a geração pronta sem gastar outra chamada de IA.
 
-## Terceira alternativa gratuita
+## Provedores e validação
 
-Se Gemini e Groq falharem tecnicamente, `OPENROUTER_API_KEY` habilita o OpenRouter gratuito. Veja [OPENROUTER-ALTERNATIVA.md](./OPENROUTER-ALTERNATIVA.md). As alternativas não fazem pesquisa web neste fluxo: a Preparação deve pedir confirmação do edital e não inventar fontes.
+A ordem continua Gemini (`BOARD_AI_*`) → Groq (`GROQ_API_KEY`) → OpenRouter gratuito (`OPENROUTER_API_KEY`) nas falhas técnicas. As alternativas não fazem pesquisa web neste fluxo e não retornam fontes inventadas. Os testes das atividades de Aprender mantêm seus limites diários; marcar uma sessão do roteiro não inicia um teste nem consome uma tentativa de quiz.
+
+Testes automatizados cobrem geração, tempo diário, referências, preservação de planos antigos, progresso, mescla entre aparelhos e separação de listas/destinos. A validação no navegador usa conta e respostas simuladas, incluindo criação, atualização, retomada após recarregar, biblioteca e telas de computador/celular. Chamadas reais de IA e sincronização em contas reais dependem das credenciais da hospedagem.
+
+Nesta atualização, 257 testes passaram, junto com TypeScript e build Vercel. A jornada foi conferida em 1512 px e 390 px, sem erros de JavaScript nem rolagem horizontal, com autenticação, sincronização e IA simuladas.

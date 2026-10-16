@@ -3,9 +3,10 @@ import { useLocation } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { useAuth } from './auth-gate';
 import { signalAccountChange } from '@/lib/account-sync-model';
+import { preparationMissionKey, type PreparationGuide } from '@/lib/preparation-model';
 import { activities, activityOrder, activityUnlocked, completeActivity, learningKey, readLearning, type ActivityMode, type LearningContext, type LearningPlan, type LearningSearch, type LearningWorkspace } from '@/lib/learning-model';
 
-type LearningValue = { plans: LearningPlan[]; ready: boolean; savePlan: (plan: LearningPlan) => boolean; removePlan: (id: string) => boolean; complete: (planId: string, topicId: string, mode: ActivityMode) => boolean };
+type LearningValue = { plans: LearningPlan[]; ready: boolean; savePlan: (plan: LearningPlan) => boolean; removePlan: (id: string) => boolean; complete: (planId: string, topicId: string, mode: ActivityMode) => boolean; setPreparationMission: (planId: string, index: number, done: boolean) => boolean; savePreparationGuide: (planId: string, guide: PreparationGuide) => boolean };
 const Context = createContext<LearningValue | null>(null);
 export function LearningProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -32,7 +33,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Não foi possível salvar sua trilha neste navegador.'); return false; }
   }, [key]);
   const savePlan = useCallback((plan: LearningPlan) => write(value => {
-    if (value.plans.length >= 40 && !value.plans.some(p => p.id === plan.id)) throw new Error('Você já tem 40 trilhas. Exclua uma trilha antiga para criar outra.');
+    if (value.plans.length >= 40 && !value.plans.some(p => p.id === plan.id)) throw new Error('Você já tem 40 planos de estudo. Exclua um plano antigo para criar outro.');
     return { ...value, plans: [plan, ...value.plans.filter(p => p.id !== plan.id)] };
   }), [write]);
   const removePlan = useCallback((id: string) => write(value => ({ ...value, plans: value.plans.filter(p => p.id !== id) })), [write]);
@@ -41,7 +42,22 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     if (!plan || !activityUnlocked(plan, topicId, mode)) throw new Error('Conclua a etapa anterior antes de avançar nesta trilha.');
     return { ...value, plans: value.plans.map(p => p.id === planId ? completeActivity(p, topicId, mode) : p) };
   }), [write]);
-  return <Context.Provider value={{ plans: workspace.plans, ready, savePlan, removePlan, complete }}>{children}</Context.Provider>;
+  const savePreparationGuide = useCallback((planId: string, guide: PreparationGuide) => write(value => {
+    const plan = value.plans.find(p => p.id === planId);
+    if (!plan?.preparation) throw new Error('Este objetivo não está mais disponível. Reabra seus planos.');
+    if (plan.preparation.guide) return value;
+    return { ...value, plans: value.plans.map(p => p.id === planId ? { ...p, preparation: { ...p.preparation!, guide } } : p) };
+  }), [write]);
+  const setPreparationMission = useCallback((planId: string, index: number, done: boolean) => write(value => {
+    const plan = value.plans.find(p => p.id === planId);
+    if (!plan?.preparation?.guide?.missions[index] || !Number.isInteger(index)) throw new Error('Esta sessão não está mais disponível. Reabra seu plano.');
+    const completed = { ...plan.completed };
+    const missionKey = preparationMissionKey(index);
+    if (done) completed[missionKey] ??= new Date().toISOString();
+    else delete completed[missionKey];
+    return { ...value, plans: value.plans.map(p => p.id === planId ? { ...p, completed } : p) };
+  }), [write]);
+  return <Context.Provider value={{ plans: workspace.plans, ready, savePlan, removePlan, complete, setPreparationMission, savePreparationGuide }}>{children}</Context.Provider>;
 }
 export function useLearning() { const value = useContext(Context); if (!value) throw new Error('LearningProvider missing'); return value; }
 export function useLessonContext(search: LearningSearch) {

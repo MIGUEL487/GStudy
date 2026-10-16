@@ -20,14 +20,17 @@ import {
 import { useStudy } from "@/components/study-provider";
 import { useLearning } from "@/components/learning-provider";
 import { SubjectIcon } from "@/components/subject-icon";
+import { PreparationDashboard } from "@/components/preparation-dashboard";
 import { GoalDial } from "@/components/goal-dial";
 import { AddMaterial } from "@/components/learning-materials";
 import { Thinking } from "@/components/lesson";
 import { useMaterials } from "@/lib/learn-client";
-import { notebookNotes, planProgress, type LearningPlan } from "@/lib/learning-model";
+import { notebookNotes, type LearningPlan } from "@/lib/learning-model";
 import { createPreparationPath, researchPreparation } from "@/lib/preparation.functions";
 import {
   preparationKinds,
+  preparationSearch,
+  preparationProgress,
   type PreparationKind,
   type PreparationResearch,
 } from "@/lib/preparation-model";
@@ -35,21 +38,26 @@ import { schoolYearLabel, schoolYears } from "@/lib/school-year";
 import "@/styles/preparation.css";
 
 export const Route = createFileRoute("/preparar")({
+  validateSearch: preparationSearch,
   head: () => ({
     meta: [
-      { title: "GStudy · Preparação para provas e olimpíadas" },
+      { title: "GStudy · Rumo à prova" },
       {
         name: "description",
         content: "Defina seu objetivo e crie uma preparação para provas, concursos e olimpíadas.",
       },
     ],
   }),
-  component: PreparationPage,
+  component: PreparationRoute,
 });
 const stages = ["Seu desafio", "Sua matéria", "Conversa com a IA", "Sua meta"];
 const kindIcons = { prova: GraduationCap, concurso: Trophy, olimpiada: Medal };
 
-export function PreparationPage() {
+function PreparationRoute() {
+  return <PreparationPage search={Route.useSearch()} />;
+}
+
+export function PreparationPage({ search = {} }: { search?: { p?: string | undefined } } = {}) {
   const { data, ready: studyReady, update } = useStudy();
   const { plans, ready, savePlan } = useLearning();
   const { items, reload } = useMaterials();
@@ -68,6 +76,7 @@ export function PreparationPage() {
     [picked, setPicked] = useState<string[]>([]);
   const [research, setResearch] = useState<PreparationResearch | null>(null),
     [answers, setAnswers] = useState("");
+  const [dailyMinutes, setDailyMinutes] = useState(30);
   const [target, setTarget] = useState(80),
     [examDate, setExamDate] = useState("");
   const [busy, setBusy] = useState(false),
@@ -167,6 +176,7 @@ export function PreparationPage() {
           ...(examDate ? { examDate } : {}),
           answers: answers.trim(),
           research,
+          dailyMinutes,
         };
         const result = await createFn({ data: { ...details, preparation, notes, ids: picked } });
         next = {
@@ -195,17 +205,17 @@ export function PreparationPage() {
           topics: result.topics.map((topic) => ({ ...topic, id: crypto.randomUUID() })),
           completed: {},
           createdAt: new Date().toISOString(),
-          preparation,
+          preparation: { ...preparation, guide: result.guide },
         };
         setDraft(next);
       }
       if (!savePlan(next)) {
         setError(
-          "A trilha está pronta, mas não foi possível salvar. Tente salvar novamente; não é preciso gerar outra vez.",
+          "O plano está pronto, mas não foi possível salvar. Tente salvar novamente; não é preciso gerar outra vez.",
         );
         return;
       }
-      await navigate({ to: "/aprender", search: { p: next.id } });
+      await navigate({ to: "/preparar", search: { p: next.id } });
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Não foi possível criar a preparação agora.",
@@ -216,18 +226,26 @@ export function PreparationPage() {
     }
   };
   if (!ready || !studyReady) return <Thinking text="Abrindo sua preparação…" />;
+  const selected = saved.find((plan) => plan.id === search.p);
+  if (selected) return <PreparationDashboard key={selected.id} plan={selected} />;
   return (
     <div className="preparation-page">
       <header className="prep-heading">
         <div>
-          <span className="eyebrow">UM OBJETIVO, UM CAMINHO</span>
+          <span className="eyebrow">RUMO À PROVA</span>
           <h1>Seu próximo grande passo.</h1>
-          <p>Da prova de amanhã a um desafio que você sonha conquistar.</p>
+          <p>Um plano, boas referências e um próximo passo claro para a sua conquista.</p>
         </div>
         <span className="prep-compass" aria-hidden="true">
           <Compass size={36} strokeWidth={1.2} />
         </span>
       </header>
+      {search.p && (
+        <p className="form-error" role="alert">
+          Este plano não foi encontrado na sua conta. Confira a sincronização ou abra um dos seus
+          objetivos abaixo.
+        </p>
+      )}
       <ol className="prep-steps" aria-label="Etapas da preparação">
         {stages.map((title, index) => (
           <li
@@ -455,6 +473,28 @@ export function PreparationPage() {
                     }}
                   />
                 </label>
+                <label className="form-label">
+                  Quanto tempo você tem por dia?
+                  <select
+                    className="form-input"
+                    value={dailyMinutes}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setDailyMinutes(Number(event.target.value));
+                      setDraft(null);
+                    }}
+                  >
+                    {[15, 30, 45, 60, 90, 120, 180].map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes} minutos por dia
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="prep-caption">
+                  Seu roteiro combina aulas no YouTube, leituras, resolução e revisão. As sessões
+                  cabem nesse tempo; você escolhe quando realizá-las.
+                </p>
                 <details className="prep-materials">
                   <summary>
                     <FileText size={17} /> Personalizar com meu conteúdo
@@ -571,8 +611,8 @@ export function PreparationPage() {
                   : stage === 2
                     ? "Escolher minha meta"
                     : draft
-                      ? "Tentar salvar trilha"
-                      : "Criar minha preparação"}
+                      ? "Tentar salvar plano"
+                      : "Montar meu plano"}
               <ArrowRight size={16} />
             </button>
           </div>
@@ -606,10 +646,10 @@ export function PreparationPage() {
             </span>
           </div>
           <div className="prep-rhythm">
-            <span>ENTENDER → PRATICAR → EXPLICAR</span>
+            <span>DESCOBRIR → ESTUDAR → CONQUISTAR</span>
             <p>
-              As seis atividades da sua trilha, com os mesmos limites diários e o progresso salvo na
-              sua conta.
+              Uma curadoria de vídeos e livros, sessões que cabem no seu dia e um mapa do que
+              estudar. Seu roteiro fica salvo na sua conta.
             </p>
           </div>
         </aside>
@@ -622,11 +662,11 @@ export function PreparationPage() {
           </div>
           <div>
             {saved.map((plan) => {
-              const progress = planProgress(plan);
+              const progress = preparationProgress(plan);
               return (
                 <Link
                   key={plan.id}
-                  to="/aprender"
+                  to="/preparar"
                   search={{ p: plan.id }}
                   className="prep-saved-card"
                 >
@@ -639,7 +679,9 @@ export function PreparationPage() {
                     </small>
                     <h3>{plan.preparation!.exam}</h3>
                     <p>
-                      {progress.done} de {progress.total} etapas concluídas
+                      {progress.total
+                        ? `${progress.done} de ${progress.total} sessões concluídas`
+                        : "Abra para descobrir o novo roteiro"}
                     </p>
                   </div>
                   <ArrowRight size={18} />

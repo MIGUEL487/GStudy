@@ -1,6 +1,6 @@
 # Trilhas de estudo
 
-Em **Teste seu conhecimento**, escolha uma matéria já cadastrada no início e informe o assunto. O Gemini organiza de 3 a 6 tópicos em ordem de pré-requisitos. É possível começar pelo assunto ou selecionar cadernos, resumos, PDFs e páginas já importadas do Notion.
+Em **Aprender**, escolha uma matéria já cadastrada no início e informe o assunto. O Gemini organiza de 3 a 6 tópicos em ordem de pré-requisitos. É possível começar pelo assunto ou selecionar cadernos, resumos, PDFs e páginas já importadas do Notion.
 
 Cada tópico tem seis etapas: explicações → flashcards → quiz → Active Recall → Método Feynman → revisão de síntese. Concluir uma etapa abre a seguinte; concluir as seis abre o próximo tópico. A revisão aceita texto e desenho, com nota e sugestões. Em assuntos de Pitágoras e radianos há ilustrações conceituais após comparar a resposta de referência.
 

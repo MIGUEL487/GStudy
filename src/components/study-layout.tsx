@@ -14,8 +14,8 @@ import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from './study-sess
 const navigation = [
   { to: '/', label: 'Início', mobileLabel: 'Início', icon: Home },
   { to: '/calendario', label: 'Calendário', mobileLabel: 'Calendário', icon: CalendarDays },
-  { to: '/aprender', label: 'Teste seu conhecimento', mobileLabel: 'Testes', icon: GraduationCap },
-  { to: '/preparar', label: 'Preparação', mobileLabel: 'Preparação', icon: Compass },
+  { to: '/aprender', label: 'Aprender', mobileLabel: 'Aprender', icon: GraduationCap },
+  { to: '/preparar', label: 'Rumo à prova', mobileLabel: 'Sua prova', icon: Compass },
   { to: '/configuracoes', label: 'Configurações', mobileLabel: 'Ajustes', icon: SlidersHorizontal },
 ] as const;
 

@@ -76,7 +76,7 @@ describe('Navegação móvel', () => {
     const nav = within(screen.getByRole('navigation', { name: 'Navegação principal no celular' }));
     expect(nav.getByRole('link', { name: 'Início' })).toHaveAttribute('href', '/');
     expect(nav.getByRole('link', { name: 'Calendário' })).toHaveAttribute('href', '/calendario');
-    expect(nav.getByRole('link', { name: 'Teste seu conhecimento' })).toHaveAttribute('aria-current', 'page');
+    expect(nav.getByRole('link', { name: 'Aprender' })).toHaveAttribute('aria-current', 'page');
     expect(nav.getByRole('link', { name: 'Configurações' })).toHaveAttribute('href', '/configuracoes');
     expect(container.querySelector('.workspace--feynman')).not.toBeInTheDocument();
     expect(screen.queryByText('📘')).not.toBeInTheDocument();

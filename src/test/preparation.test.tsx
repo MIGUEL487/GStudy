@@ -64,6 +64,8 @@ import { PreparationPage } from "@/routes/preparar";
 import { GoalDial } from "@/components/goal-dial";
 import { dragGoal, goalAngle } from "@/lib/preparation-model";
 
+import { preparationGuide } from "./helpers/preparation-fixture";
+
 const research = {
   report:
     "### Antes de montar sua trilha\nQuais conceitos de geometria você conhece? Qual é sua dificuldade? Que nível fará?",
@@ -77,6 +79,7 @@ beforeEach(() => {
   mocks.save.mockReturnValue(true);
   mocks.update.mockReturnValue(true);
   mocks.create.mockResolvedValue({
+    guide: preparationGuide,
     overview: "Uma preparação focada em geometria.",
     brief: "Pratique geometria no nível 2, relacionando áreas e lados.",
     topics: ["Áreas", "Ângulos", "Problemas"].map((title) => ({
@@ -110,7 +113,7 @@ const openQuestions = async () => {
   await screen.findByText("Fontes consultadas");
 };
 describe("Preparação personalizada", () => {
-  it("usa ano, objetivo, matéria, respostas e meta para criar uma trilha normal com contexto próprio", async () => {
+  it("cria um plano próprio com roteiro, recursos e tempo diário na área Rumo à prova", async () => {
     await openQuestions();
     expect(mocks.research).toHaveBeenCalledWith({
       data: {
@@ -129,7 +132,7 @@ describe("Preparação personalizada", () => {
     fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowRight" });
     fireEvent.click(screen.getByText("Personalizar com meu conteúdo"));
     fireEvent.click(screen.getByLabelText(/Geometria.*Seu caderno/));
-    fireEvent.click(screen.getByRole("button", { name: "Criar minha preparação" }));
+    fireEvent.click(screen.getByRole("button", { name: "Montar meu plano" }));
     await waitFor(() => expect(mocks.save).toHaveBeenCalled());
     const plan = mocks.save.mock.calls[0]![0];
     expect(plan.preparation).toMatchObject({
@@ -140,18 +143,20 @@ describe("Preparação personalizada", () => {
     });
     expect(plan.notes).toContain("Áreas de figuras planas.");
     expect(plan.notes).toContain("81% de acertos");
+    expect(plan.preparation.guide).toEqual(preparationGuide);
+    expect(plan.preparation.dailyMinutes).toBe(30);
     expect(plan.completed).toEqual({});
     expect(plan.topics).toHaveLength(3);
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/aprender", search: { p: plan.id } });
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/preparar", search: { p: plan.id } });
   });
   it("reaproveita a geração se o armazenamento falhar, sem gastar outra chamada de IA", async () => {
     await openQuestions();
     fireEvent.click(screen.getByRole("button", { name: "Escolher minha meta" }));
     mocks.save.mockReturnValueOnce(false).mockReturnValueOnce(true);
-    fireEvent.click(screen.getByRole("button", { name: "Criar minha preparação" }));
+    fireEvent.click(screen.getByRole("button", { name: "Montar meu plano" }));
     await screen.findByRole("alert");
     expect(mocks.navigate).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Tentar salvar trilha" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tentar salvar plano" }));
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalled());
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.save.mock.calls[0]![0].id).toBe(mocks.save.mock.calls[1]![0].id);

@@ -33,6 +33,8 @@ import { parseAccountDocument, fingerprint, mergeAccountDocuments } from "@/lib/
 import { initialData } from "@/lib/study-model";
 import { readLearning, type LearningPlan } from "@/lib/learning-model";
 
+import { preparationGuide } from "./helpers/preparation-fixture";
+
 const details = {
   kind: "olimpiada",
   exam: "OBMEP",
@@ -54,6 +56,7 @@ const metadata = {
   research,
 };
 const path = {
+  guide: preparationGuide,
   overview: "Uma preparação focada no seu objetivo.",
   brief: "Geometria para o nível 2, com o regulamento ainda a confirmar.",
   topics: ["Áreas", "Ângulos", "Problemas"].map((title) => ({
@@ -148,6 +151,45 @@ describe("Pesquisa e geração de preparação", () => {
     await expect(
       call(createPreparationPath, { ...details, preparation: metadata, ids: [] }),
     ).rejects.toThrow("incompleta");
+  });
+  it("rejeita sessões fora do programa ou que excedem o tempo disponível", async () => {
+    for (const guide of [
+      {
+        ...preparationGuide,
+        missions: preparationGuide.missions.map((m, index) =>
+          index ? m : { ...m, topicIndex: 7 },
+        ),
+      },
+      {
+        ...preparationGuide,
+        missions: preparationGuide.missions.map((m) => ({ ...m, minutes: 60 })),
+      },
+      {
+        ...preparationGuide,
+        resources: preparationGuide.resources.filter((r) => r.kind === "video"),
+      },
+    ]) {
+      mocks.object.mockResolvedValue({ ...path, guide });
+      await expect(
+        call(createPreparationPath, {
+          ...details,
+          preparation: { ...metadata, dailyMinutes: 30 },
+          ids: [],
+        }),
+      ).rejects.toThrow();
+    }
+  });
+  it("recusa uma atualização que troca os tópicos antigos", async () => {
+    await expect(
+      call(createPreparationPath, {
+        ...details,
+        preparation: metadata,
+        ids: [],
+        existingTopics: path.topics.map((topic, index) =>
+          index ? topic : { ...topic, title: "Outro assunto" },
+        ),
+      }),
+    ).rejects.toThrow("preservado");
   });
 });
 describe("Ano e preparação entre aparelhos", () => {
