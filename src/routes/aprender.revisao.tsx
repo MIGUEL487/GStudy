@@ -84,7 +84,7 @@ export function ReviewLesson({ search }: { search: Search }) {
         <span className="activity-outline-icon"><PencilRuler size={35} strokeWidth={1.25} /></span><small className="lesson-kicker">O ÚLTIMO PASSO É FAZER CONEXÕES</small><h1 className="lesson-q">Mostre por que funciona.</h1>
         <p>Transforme o que aprendeu sobre <strong>{lesson.context.topic}</strong> em uma explicação, um desenho ou os dois juntos. O desafio será criado para esse assunto.</p>
         <div className="review-intro-note"><Lightbulb size={22} strokeWidth={1.4} /><p>Mais do que lembrar uma fórmula: explique de onde vem a ideia, conecte os conceitos e mostre um exemplo.</p></div>
-        <p className="activity-quota">Até 2 sessões por dia neste navegador. Disponíveis hoje: {quota.remaining}.</p>
+        <p className="activity-quota">Até 2 sessões por dia na sua conta. Disponíveis hoje: {quota.remaining}.</p>
         {error && <p role="alert" className="activity-error">{error}</p>}
         <button className="duo-btn" onClick={() => void start()} disabled={quota.remaining <= 0}>Abrir meu desafio <ArrowRight size={17} /></button>
       </section>}

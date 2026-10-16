@@ -106,7 +106,7 @@ export function RecallLesson({ search }: { search: Search }) {
         <small className="lesson-kicker">RECUPERAR É APRENDER</small><h1 className="lesson-q">O que ficou na sua memória?</h1>
         <p>Estude <strong>{lesson.context.topic}</strong> por cinco minutos. Depois, o material sai de cena e você escreve o que entendeu, com suas próprias palavras.</p>
         <ol className="recall-steps"><li><BookOpen size={20} /><span>Leia e conecte as ideias.</span></li><li><Clock3 size={20} /><span>Espere os cinco minutos de estudo.</span></li><li><EyeOff size={20} /><span>Escreva sem consultar e receba uma avaliação.</span></li></ol>
-        <p className="activity-quota">Até 2 sessões por dia neste navegador. Disponíveis hoje: {quota.remaining}.</p>
+        <p className="activity-quota">Até 2 sessões por dia na sua conta. Disponíveis hoje: {quota.remaining}.</p>
         {error && <p role="alert" className="activity-error">{error}</p>}
         <button className="duo-btn" onClick={() => void start()} disabled={quota.remaining <= 0}>Começar os 5 minutos <ArrowRight size={17} /></button>
       </section>}
@@ -123,6 +123,7 @@ export function RecallLesson({ search }: { search: Search }) {
         <form onSubmit={event => { event.preventDefault(); void submit(); }}>
           <label htmlFor="recall-summary">Seu resumo de memória</label><textarea ref={answerRef} id="recall-summary" className="form-input" value={answer} onChange={event => { const value = event.target.value; saved.update(session => ({ ...session, answer: value })); }} maxLength={8000} rows={9} placeholder="Eu entendi que…" disabled={phase === 'grading'} />
           <div className="activity-input-meta"><span>A IA considera as ideias, e não a quantidade de palavras.</span><span>{answer.length}/8000</span></div>
+          {!!saved.session.alternateAnswers?.length && <details className="recall-alternate-drafts"><summary>Rascunhos preservados de outro aparelho</summary><p>Houve uma edição simultânea. Compare com seu resumo antes de substituir.</p>{saved.session.alternateAnswers.map((draft, index) => <div key={index}><p>{draft}</p><button type="button" className="text-action" disabled={phase === 'grading'} onClick={() => saved.update(session => ({ ...session, answer: draft, alternateAnswers: [...new Set([...(session.alternateAnswers ?? []).filter(value => value !== draft), ...(session.answer ? [session.answer] : [])])].slice(-5) }))}>Usar este rascunho</button></div>)}</details>}
           {error && <p role="alert" className="activity-error">{error}</p>}
           <button type="submit" className="duo-btn" disabled={!answer.trim() || phase === 'grading'}><Send size={16} /> {phase === 'grading' ? 'Avaliando seu resumo…' : 'Avaliar meu resumo'}</button>
         </form>

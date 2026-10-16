@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useLocation } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { useAuth } from './auth-gate';
+import { signalAccountChange } from '@/lib/account-sync-model';
 import { activities, activityOrder, activityUnlocked, completeActivity, learningKey, readLearning, type ActivityMode, type LearningContext, type LearningPlan, type LearningSearch, type LearningWorkspace } from '@/lib/learning-model';
 
 type LearningValue = { plans: LearningPlan[]; ready: boolean; savePlan: (plan: LearningPlan) => boolean; removePlan: (id: string) => boolean; complete: (planId: string, topicId: string, mode: ActivityMode) => boolean };
@@ -27,7 +28,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
       if (!readable.current) throw new Error('Recupere o armazenamento das trilhas antes de salvar novas alterações.');
       // Read the latest version so progress from another tab is preserved.
       const next = readLearning(JSON.stringify(update(readLearning(localStorage.getItem(key)))));
-      localStorage.setItem(key, JSON.stringify(next)); current.current = next; setWorkspace(next); return true;
+      localStorage.setItem(key, JSON.stringify(next)); current.current = next; setWorkspace(next); signalAccountChange(); return true;
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Não foi possível salvar sua trilha neste navegador.'); return false; }
   }, [key]);
   const savePlan = useCallback((plan: LearningPlan) => write(value => {

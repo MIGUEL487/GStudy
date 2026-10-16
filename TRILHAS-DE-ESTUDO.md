@@ -14,9 +14,9 @@ Cada tópico tem seis etapas: explicações → flashcards → quiz → Active R
 
 ## Tentativas e armazenamento
 
-Há **duas tentativas de cada tipo de atividade por dia**, compartilhadas entre as trilhas da mesma conta neste navegador. O dia acompanha a data local do aparelho. A tentativa é reservada ao iniciar a geração e devolvida se ela falhar. Uma conversa inteira do Feynman conta como uma tentativa; pedir outra avaliação do mesmo resumo/desenho após uma falha não inicia outra sessão.
+Há **duas tentativas de cada tipo de atividade por dia**, compartilhadas entre as trilhas da mesma conta e sincronizadas entre aparelhos. O dia acompanha a data local do aparelho. A tentativa é reservada ao iniciar a geração e devolvida se ela falhar. Uma conversa inteira do Feynman conta como uma tentativa; pedir outra avaliação do mesmo resumo/desenho após uma falha não inicia outra sessão.
 
-Trilhas, progresso, contadores e feedbacks são persistidos por conta no armazenamento do navegador, conforme a arquitetura local do aplicativo. Eles não sincronizam entre dispositivos; apagar os dados do site também os apaga. O limite é de uso da interface, não uma proteção de consumo da API contra manipulação do cliente. Fontes importadas e XP continuam nas tabelas Supabase existentes. Esta atualização não exige migração SQL.
+Trilhas, progresso, contadores e sessões do Active Recall são sincronizados pelo Supabase e mantêm uma cópia por conta no navegador para uso offline. Avaliações e sugestões usam funções com permissões no banco. Ative a migração `0002_account_sync_reviews.sql`, conforme [Sincronização e avaliações](./SINCRONIZACAO-E-AVALIACOES.md). O limite é de uso da interface e compartilhado pela sincronização, não uma proteção de consumo da API contra manipulação do cliente ou geração simultânea offline. Fontes importadas e XP continuam nas tabelas Supabase existentes.
 
 A sessão do Active Recall também fica salva por conta e tópico: leitura, prazo, rascunho e avaliação. É possível visitar uma matéria/caderno e usar **Continuar Active Recall** para voltar, inclusive após recarregar, sem outra tentativa. O relógio mantém o prazo original enquanto a pessoa consulta o caderno; se os cinco minutos terminarem, ela volta diretamente ao resumo. Uma preparação ou avaliação em andamento pode terminar enquanto a pessoa está em outra página.
 

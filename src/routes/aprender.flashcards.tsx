@@ -61,6 +61,6 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
     <div className="lesson-foot">
       {flip ? <><button className="duo-btn ghost" onClick={() => answer(false)}><RotateCcw size={16} aria-hidden="true" />Revisar depois</button><button className="duo-btn" onClick={() => answer(true)}><Check size={17} aria-hidden="true" />Eu lembrei</button></> : <button className="duo-btn" onClick={() => setFlip(true)}>Revelar resposta<RotateCw size={16} aria-hidden="true" /></button>}
     </div>
-    <p className="activity-card-hint">{remaining} {remaining === 1 ? 'novo baralho disponível' : 'novos baralhos disponíveis'} hoje neste navegador.</p>
+    <p className="activity-card-hint">{remaining} {remaining === 1 ? 'novo baralho disponível' : 'novos baralhos disponíveis'} hoje na sua conta.</p>
   </LessonShell>;
 }

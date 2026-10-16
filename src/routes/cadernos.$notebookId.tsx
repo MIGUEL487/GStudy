@@ -1,6 +1,92 @@
-import { createFileRoute,Link } from '@tanstack/react-router';
-import { ArrowLeft,Check,NotebookPen } from 'lucide-react';
-import { useStudy } from '@/components/study-provider';
-import { useState,useEffect } from 'react';
-export const Route=createFileRoute('/cadernos/$notebookId')({head:()=>({meta:[{title:'GStudy · Meu caderno'},{name:'description',content:'Um espaço tranquilo para escrever e organizar suas anotações.'},{property:'og:title',content:'GStudy · Meu caderno'},{property:'og:description',content:'Suas ideias, uma página de cada vez.'},{property:'og:type',content:'website'},{name:'twitter:card',content:'summary_large_image'}]}),component:NotebookPage});
-function NotebookPage(){const {notebookId}=Route.useParams();const {data,ready,update}=useStudy();const subject=data.subjects.find(s=>s.notebooks.some(n=>n.id===notebookId));const notebook=subject?.notebooks.find(n=>n.id===notebookId);const [text,setText]=useState('');const [saved,setSaved]=useState(true);useEffect(()=>{if(notebook){setText(notebook.text);setSaved(true);}},[notebookId,ready]);if(!notebook||!subject)return <><h1>{ready?'Caderno não encontrado':'Carregando…'}</h1><Link to="/">Voltar ao início</Link></>;return <><Link to="/materias/$subjectId" params={{subjectId:subject.id}} className="back-link"><ArrowLeft size={14}/>{subject.name}</Link><div className="eyebrow">SUAS IDEIAS MERECEM ESPAÇO</div><div className="editor-header"><h1>{notebook.title}</h1><span className="save-status">{saved?<><Check size={14}/>Salvo neste navegador</>:'Não salvo'}</span></div><textarea aria-label="Anotações do caderno" className="notebook-editor" placeholder="Toda descoberta começa com uma ideia…" value={text} onChange={e=>{const value=e.target.value;setText(value);setSaved(update(d=>({...d,subjects:d.subjects.map(s=>s.id===subject.id?{...s,notebooks:s.notebooks.map(n=>n.id===notebookId?{...n,text:value,updatedAt:new Date().toISOString()}:n)}:s)})));}}/><div className="editor-bottom flex items-center gap-2"><NotebookPen size={13}/>{text.trim()?text.trim().split(/\s+/).length:0} palavras<span className="ml-auto">{text.length} caracteres</span></div></>;}
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft, Check, NotebookPen } from "lucide-react";
+import { useStudy } from "@/components/study-provider";
+import { useState } from "react";
+export const Route = createFileRoute("/cadernos/$notebookId")({
+  head: () => ({
+    meta: [
+      { title: "GStudy · Meu caderno" },
+      {
+        name: "description",
+        content: "Um espaço tranquilo para escrever e organizar suas anotações.",
+      },
+      { property: "og:title", content: "GStudy · Meu caderno" },
+      { property: "og:description", content: "Suas ideias, uma página de cada vez." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: NotebookPage,
+});
+function NotebookPage() {
+  const { notebookId } = Route.useParams();
+  const { data, ready, update } = useStudy();
+  const subject = data.subjects.find((s) => s.notebooks.some((n) => n.id === notebookId));
+  const notebook = subject?.notebooks.find((n) => n.id === notebookId);
+  // Persisted text comes directly from the account, including remote updates.
+  // Keep a separate draft only if writing to this device failed.
+  const [draft, setDraft] = useState<{ id: string; text: string } | null>(null);
+  if (!notebook || !subject)
+    return (
+      <>
+        <h1>{ready ? "Caderno não encontrado" : "Carregando…"}</h1>
+        <Link to="/">Voltar ao início</Link>
+      </>
+    );
+  const unsaved = draft?.id === notebookId,
+    text = unsaved ? draft.text : notebook.text;
+  const save = (value: string) => {
+    const ok = update((d) => ({
+      ...d,
+      subjects: d.subjects.map((s) =>
+        s.id === subject.id
+          ? {
+              ...s,
+              notebooks: s.notebooks.map((n) =>
+                n.id === notebookId
+                  ? { ...n, text: value, updatedAt: new Date().toISOString() }
+                  : n,
+              ),
+            }
+          : s,
+      ),
+    }));
+    setDraft(ok ? null : { id: notebookId, text: value });
+  };
+  return (
+    <>
+      <Link to="/materias/$subjectId" params={{ subjectId: subject.id }} className="back-link">
+        <ArrowLeft size={14} />
+        {subject.name}
+      </Link>
+      <div className="eyebrow">SUAS IDEIAS MERECEM ESPAÇO</div>
+      <div className="editor-header">
+        <h1>{notebook.title}</h1>
+        <span className="save-status">
+          {unsaved ? (
+            <button type="button" className="text-action" onClick={() => save(text)}>
+              Salvar novamente
+            </button>
+          ) : (
+            <>
+              <Check size={14} />
+              Salvo neste aparelho
+            </>
+          )}
+        </span>
+      </div>
+      <textarea
+        aria-label="Anotações do caderno"
+        className="notebook-editor"
+        placeholder="Toda descoberta começa com uma ideia…"
+        value={text}
+        onChange={(event) => save(event.target.value)}
+      />
+      <div className="editor-bottom flex items-center gap-2">
+        <NotebookPen size={13} />
+        {text.trim() ? text.trim().split(/\s+/).length : 0} palavras
+        <span className="ml-auto">{text.length} caracteres</span>
+      </div>
+    </>
+  );
+}

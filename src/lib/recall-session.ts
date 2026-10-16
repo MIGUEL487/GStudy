@@ -10,12 +10,14 @@ export const recallSessionSchema = z.object({
   search: z.object({ p: z.string().max(800).optional(), t: z.string().max(800).optional(), m: z.string().max(800).optional() }),
   topic: z.string().max(200), material: material.nullable(), deadline: z.number().finite().nonnegative().nullable(), answer: z.string().max(8000),
   result: grade.nullable(), progressSaved: z.boolean(), xpAwarded: z.boolean(), updatedAt: z.number().finite().nonnegative(),
+  alternateAnswers: z.array(z.string().max(8000)).max(5).optional(),
 }).refine(s => !['study', 'recall', 'grading', 'result'].includes(s.phase) || Boolean(s.material && s.deadline !== null))
   .refine(s => s.phase !== 'result' || Boolean(s.result));
 export type RecallSession = z.infer<typeof recallSessionSchema>;
 const schema = z.object({ version: z.literal(1), sessions: z.record(z.string(), recallSessionSchema) });
 export type RecallSessions = z.infer<typeof schema>;
 export const emptyRecallSession: RecallSession = { phase: 'intro', search: {}, topic: '', material: null, deadline: null, answer: '', result: null, progressSaved: false, xpAwarded: false, updatedAt: 0 };
+export function parseRecallSessions(value: unknown): RecallSessions { return schema.parse(value); }
 export function readRecallSessions(raw: string | null, now = Date.now()): RecallSessions {
   const data = raw ? schema.parse(JSON.parse(raw)) : { version: 1 as const, sessions: {} };
   // Network requests cannot survive a reload. Their saved material and draft can.

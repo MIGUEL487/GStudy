@@ -7,7 +7,7 @@ type Category = keyof typeof categories;
 export type FeedbackEntry = { id: string; category: Category; rating: number; message: string; createdAt: string };
 const storageKey = (userId: string) => `gstudy.feedback.v1:${userId}`;
 
-function readFeedback(userId: string): FeedbackEntry[] {
+export function readFeedback(userId: string): FeedbackEntry[] {
   const raw = localStorage.getItem(storageKey(userId));
   if (!raw) return [];
   const saved: unknown = JSON.parse(raw);
@@ -21,7 +21,7 @@ function readFeedback(userId: string): FeedbackEntry[] {
   return saved.entries as FeedbackEntry[];
 }
 
-function download(entries: FeedbackEntry[]) {
+export function download(entries: FeedbackEntry[]) {
   const url = URL.createObjectURL(new Blob([JSON.stringify({ app: 'GStudy', version: 1, entries }, null, 2)], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = 'gstudy-feedbacks.json'; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);

@@ -8,6 +8,8 @@ import { useStudy } from './study-provider';
 import { Button } from '@/components/ui/button';
 import { SubjectIcon } from './subject-icon';
 import { RecallResume } from './recall-resume';
+import { SyncStatus } from './account-sync-provider';
+import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from './study-session-controls';
 
 const navigation = [
   { to: '/', label: 'Início', mobileLabel: 'Início', icon: Home },
@@ -19,6 +21,7 @@ const navigation = [
 export function StudyLayout({ children }: { children: ReactNode }) {
   const { data } = useStudy(); const { signOut } = useAuth();
   const path = useLocation({ select: l => l.pathname }); const name = useDisplayName();
+  const focused=useTestFocus();
   const page = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!page.current?.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -27,8 +30,8 @@ export function StudyLayout({ children }: { children: ReactNode }) {
   }, [path]);
   const selected = (to: string) => to === '/aprender' ? path.startsWith('/aprender') : path === to;
   const pageName = navigation.find(item => selected(item.to))?.label ?? 'Minhas matérias';
-  return <div className="app-shell">
-    <aside className="sidebar">
+  return <div className={`app-shell ${focused?'is-test-focused':''}`}>
+    <aside className="sidebar" inert={focused} aria-hidden={focused||undefined}>
       <Link to="/" className="brand"><img src={logo.url} alt="" />GStudy</Link>
       <div className="side-caption">SEU ESPAÇO</div>
       <nav className="side-nav" aria-label="Navegação principal">
@@ -44,14 +47,15 @@ export function StudyLayout({ children }: { children: ReactNode }) {
       </div>
     </aside>
     <div className="workspace">
-      <header className="topbar">
+      <header className="topbar" inert={focused}>
         <div className="topbar-left"><Link to="/" className="brand mobile-brand"><img src={logo.url} alt="" />GStudy</Link><BookOpen size={15} className="desktop-crumb" /><span>Meu espaço de estudo</span><ChevronRight size={12} className="desktop-crumb" /><span>{pageName}</span></div>
-        <div className="topbar-right"><Leaf size={14} className="desktop-crumb" /><span>Seu ritmo. Sua jornada.</span><Button variant="ghost" size="icon" asChild title="Configurações"><Link to="/configuracoes" aria-label="Configurações"><Avatar /></Link></Button><Button variant="ghost" size="icon" title="Sair da conta" aria-label="Sair da conta" onClick={signOut}><LogOut /></Button></div>
+        <div className="topbar-right"><SyncStatus /><Leaf size={14} className="desktop-crumb" /><span>Seu ritmo. Sua jornada.</span><Button variant="ghost" size="icon" asChild title="Configurações"><Link to="/configuracoes" aria-label="Configurações"><Avatar /></Link></Button><Button variant="ghost" size="icon" title="Sair da conta" aria-label="Sair da conta" onClick={signOut}><LogOut /></Button></div>
       </header>
-      <main className="content"><RecallResume /><div className="page-transition" ref={page}>{children}</div><footer className="page-footer"><span className="footer-motto">Sapere aude. <span className="font-sans text-[10px] not-italic">Ouse saber.</span></span><span>Feito para o seu próximo capítulo.</span></footer></main>
+      <main className="content">{focused?<FocusSessionHeader/>:<RecallResume />}<div className="page-transition" ref={page}>{children}</div><footer className="page-footer"><span className="footer-motto">Sapere aude. <span className="font-sans text-[10px] not-italic">Ouse saber.</span></span><span>Feito para o seu próximo capítulo.</span></footer></main>
     </div>
-    <nav className="mobile-bottom-nav" aria-label="Navegação principal no celular">
+    <nav className="mobile-bottom-nav" aria-label="Navegação principal no celular" inert={focused} aria-hidden={focused||undefined}>
       {navigation.map(({ to, label, mobileLabel, icon: Icon }) => <Link key={to} to={to} className={selected(to) ? 'active' : ''} aria-current={selected(to) ? 'page' : undefined} aria-label={label}><Icon size={21} strokeWidth={1.65} /><span>{mobileLabel}</span></Link>)}
     </nav>
+    <RecallTimerPopup/>
   </div>;
 }

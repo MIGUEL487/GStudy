@@ -12,6 +12,8 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/components/auth-gate', () => ({ useAuth: () => ({ signOut: vi.fn() }) }));
 vi.mock('@/components/avatar', () => ({ Avatar: () => <span>AM</span>, useDisplayName: () => 'Ana Maria' }));
 vi.mock('@/components/recall-resume', () => ({ RecallResume: () => null }));
+vi.mock('@/components/study-session-controls',()=>({useTestFocus:()=>false,RecallTimerPopup:()=>null,FocusSessionHeader:()=>null}));
+vi.mock('@/components/account-sync-provider',()=>({SyncStatus:()=>null}));
 vi.mock('@/components/study-provider', () => ({ useStudy: () => ({ data: { subjects: [{ id: 'math', name: 'Matemática', emoji: '📘' }] } }) }));
 
 const entry = { id: 'feedback-1', category: 'suggestion', rating: 4, message: 'Gostaria de revisar frações.', createdAt: '2026-10-15T10:00:00.000Z' };

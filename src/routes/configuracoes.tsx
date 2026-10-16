@@ -9,11 +9,12 @@ import { Avatar, useDisplayName } from '@/components/avatar';
 import { Button } from '@/components/ui/button';
 import { defaultSchoolDays } from '@/lib/study-model';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FeedbackPanel } from '@/components/feedback-panel';
+import { ReviewsPanel } from '@/components/reviews-panel';
+import { useAccountSync } from '@/components/account-sync-provider';
 import { useLearning } from '@/components/learning-provider';
 
-type SettingsTab = 'profile' | 'preferences' | 'notion' | 'feedback' | 'data';
-export const Route = createFileRoute('/configuracoes')({ validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab | undefined } => ['profile', 'preferences', 'notion', 'feedback', 'data'].includes(String(search['tab'])) ? { tab: search['tab'] as SettingsTab } : {}, head: () => ({ meta: [{ title: 'GStudy · Configurações' }, { name: 'description', content: 'Personalize seu espaço de estudo e exporte seus dados.' }, { property: 'og:title', content: 'GStudy · Configurações' }, { property: 'og:description', content: 'Um espaço de estudo que tem a sua cara.' }, { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary_large_image' }] }), component: Settings });
+type SettingsTab = 'profile' | 'preferences' | 'notion' | 'reviews' | 'data';
+export const Route = createFileRoute('/configuracoes')({ validateSearch: (search: Record<string, unknown>): { tab?: SettingsTab | undefined } => search['tab']==='feedback'?{tab:'reviews'}:['profile', 'preferences', 'notion', 'reviews', 'data'].includes(String(search['tab'])) ? { tab: search['tab'] as SettingsTab } : {}, head: () => ({ meta: [{ title: 'GStudy · Configurações' }, { name: 'description', content: 'Personalize seu espaço de estudo e exporte seus dados.' }, { property: 'og:title', content: 'GStudy · Configurações' }, { property: 'og:description', content: 'Um espaço de estudo que tem a sua cara.' }, { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary_large_image' }] }), component: Settings });
 
 const weekNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -30,7 +31,7 @@ function resizeImage(file: File): Promise<string> {
 
 function Settings() {
   const { data, update } = useStudy(); const { user, signOut } = useAuth(); const display = useDisplayName();
-  const { plans } = useLearning(); const navigate = useNavigate(); const { tab } = Route.useSearch();
+  const sync=useAccountSync(); const { plans } = useLearning(); const navigate = useNavigate(); const { tab } = Route.useSearch();
   const [name, setName] = useState<string | null>(null); const file = useRef<HTMLInputElement>(null);
   const days = data.schoolDays ?? defaultSchoolDays;
   return <>
@@ -41,7 +42,7 @@ function Settings() {
         <TabsTrigger value="profile"><UserRound size={16} />Perfil</TabsTrigger>
         <TabsTrigger value="preferences"><CalendarDays size={16} />Preferências</TabsTrigger>
         <TabsTrigger value="notion"><NotionMark />Notion</TabsTrigger>
-        <TabsTrigger value="feedback"><MessageSquareHeart size={16} />Feedbacks</TabsTrigger>
+        <TabsTrigger value="reviews"><MessageSquareHeart size={16} />Avaliações</TabsTrigger>
         <TabsTrigger value="data"><Database size={16} />Meus dados</TabsTrigger>
       </TabsList>
       <TabsContent value="profile" className="settings-tab-content"><section className="settings-section"><h2>Seu perfil</h2>
@@ -53,13 +54,13 @@ function Settings() {
       <label className="form-label">Como podemos chamar você?<input className="form-input" value={name ?? data.name} maxLength={100} onChange={e => setName(e.target.value)} placeholder={display} /></label>
       <Button className="mt-3" onClick={() => { if (update(d => ({ ...d, name: (name ?? data.name).trim() }))) toast.success('Seu perfil foi atualizado.'); }}><Save />Salvar perfil</Button>
     </section>
-    <section className="settings-section"><h2>Conta</h2><p>Conectado como {user.email}</p><Button variant="outline" onClick={signOut}><LogOut />Sair da conta</Button></section></TabsContent>
+    <section className="settings-section"><h2>Sincronização entre aparelhos</h2><p role="status">{sync.message}</p><p>Entre com a mesma conta no celular e no computador. Alterações são enviadas automaticamente e verificadas ao voltar à página.</p><Button variant="outline" onClick={sync.retry}>Sincronizar agora</Button></section><section className="settings-section"><h2>Conta</h2><p>Conectado como {user.email}</p><Button variant="outline" onClick={signOut}><LogOut />Sair da conta</Button></section></TabsContent>
     <TabsContent value="preferences" className="settings-tab-content"><section className="settings-section"><h2>Dias de aula</h2><p>Esses dias aparecem liberados no calendário de presença.</p>
       <div className="day-chips">{weekNames.map((n, i) => <button key={n} className={`day-chip ${days.includes(i) ? 'on' : ''}`} aria-pressed={days.includes(i)} onClick={() => update(d => { const cur = d.schoolDays ?? defaultSchoolDays; return { ...d, schoolDays: cur.includes(i) ? cur.filter(x => x !== i) : [...cur, i].sort() }; })}>{n}</button>)}</div>
     </section></TabsContent>
     <TabsContent value="notion" className="settings-tab-content"><NotionPanel /></TabsContent>
-    <TabsContent value="feedback" className="settings-tab-content"><FeedbackPanel key={user.id} userId={user.id} /></TabsContent>
-    <TabsContent value="data" className="settings-tab-content"><section className="settings-section"><h2>Seus dados</h2><p>Seus cadernos, cursos e trilhas ficam salvos neste navegador. Exporte uma cópia para guardá-los com você.</p><Button variant="outline" onClick={() => { const url = URL.createObjectURL(new Blob([JSON.stringify({ ...data, learning: { version: 1, plans }, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'gstudy-meus-estudos.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }}><Download />Exportar meus estudos</Button></section></TabsContent>
+    <TabsContent value="reviews" className="settings-tab-content"><ReviewsPanel key={user.id} userId={user.id} /></TabsContent>
+    <TabsContent value="data" className="settings-tab-content"><section className="settings-section"><h2>Seus dados</h2><p>Seus estudos são sincronizados com sua conta. Uma cópia permanece neste aparelho para uso offline. Exporte uma cópia adicional quando quiser.</p><Button variant="outline" onClick={() => { const url = URL.createObjectURL(new Blob([JSON.stringify({ ...data, learning: { version: 1, plans }, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'gstudy-meus-estudos.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }}><Download />Exportar meus estudos</Button></section></TabsContent>
     </Tabs>
   </>;
 }

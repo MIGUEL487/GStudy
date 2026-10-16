@@ -5,10 +5,11 @@ import { useNotionImports, useNotionUpdates } from '@/lib/notion-client';
 import { mergeNotionPages } from '@/lib/notion-model';
 import { LearningProvider } from './learning-provider';
 import { RecallSessionProvider } from './recall-session-provider';
+import { AccountSyncProvider } from './account-sync-provider';
 
 export function AccountWorkspace({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  return <StudyProvider key={user.id} userId={user.id}><LearningProvider><RecallSessionProvider userId={user.id}><NotionHydrator />{children}</RecallSessionProvider></LearningProvider></StudyProvider>;
+  return <AccountSyncProvider key={user.id} userId={user.id}><StudyProvider userId={user.id}><LearningProvider><RecallSessionProvider userId={user.id}><NotionHydrator />{children}</RecallSessionProvider></LearningProvider></StudyProvider></AccountSyncProvider>;
 }
 function NotionHydrator() {
   const { user } = useAuth(); const { data, ready, update } = useStudy();
