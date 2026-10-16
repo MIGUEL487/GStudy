@@ -218,3 +218,6 @@ export function preferredChannels(subject: string, exam: string, focus: string) 
     ? ["Universo Narrado Militares", "Universo Narrado", "Pedro Asaad"]
     : ["Universo Narrado", "Pedro Asaad"];
 }
+
+export const youtubeMissingNotice =
+  "A busca de aulas ainda não está configurada neste site. O responsável precisa ativar a integração do YouTube na hospedagem.";

@@ -8,7 +8,10 @@ import {
 type Chapter = LibraryVideo["chapters"][number];
 export type VideoCandidate = LibraryVideo & { description: string };
 export class YouTubeUnavailable extends Error {
-  constructor(public code: "setup" | "quota" | "unavailable") {
+  constructor(
+    public code: "setup" | "disabled" | "restricted" | "quota" | "unavailable",
+    public status?: number,
+  ) {
     super("A busca de aulas não está disponível agora.");
   }
 }
@@ -72,35 +75,50 @@ async function api(
     const quota =
       Array.isArray(errors) &&
       errors.some((item) => /quota|rateLimit|dailyLimit/i.test(String(jsonObject(item)["reason"])));
+    const reasons = [
+      ...(Array.isArray(errors) ? errors.map((item) => jsonObject(item)["reason"]) : []),
+      ...(Array.isArray(error["details"])
+        ? error["details"].map((item) => jsonObject(item)["reason"])
+        : []),
+    ].map(String);
     throw new YouTubeUnavailable(
       quota || response.status === 429
         ? "quota"
-        : [400, 401, 403].includes(response.status)
-          ? "setup"
-          : "unavailable",
+        : reasons.some((reason) =>
+              /SERVICE_DISABLED|accessNotConfigured|apiNotActivated/i.test(reason),
+            )
+          ? "disabled"
+          : reasons.some((reason) =>
+                /API_KEY_(?:HTTP_REFERRER|SERVICE|IP_ADDRESS)_BLOCKED|ipRefererBlocked|refererNotAllowed/i.test(
+                  reason,
+                ),
+              )
+            ? "restricted"
+            : [400, 401, 403].includes(response.status)
+              ? "setup"
+              : "unavailable",
+      response.status,
     );
   }
   return payload;
 }
 export async function searchYouTube(queries: string[], key: string) {
   const found = await Promise.all(
-    queries
-      .slice(0, 3)
-      .map((query) =>
-        api(
-          "search",
-          {
-            part: "snippet",
-            type: "video",
-            videoEmbeddable: "true",
-            safeSearch: "moderate",
-            relevanceLanguage: "pt",
-            maxResults: "4",
-            q: query.slice(0, 400),
-          },
-          key,
-        ),
+    queries.slice(0, 3).map((query) =>
+      api(
+        "search",
+        {
+          part: "snippet",
+          type: "video",
+          videoEmbeddable: "true",
+          safeSearch: "moderate",
+          relevanceLanguage: "pt",
+          maxResults: "4",
+          q: query.slice(0, 400),
+        },
+        key,
       ),
+    ),
   );
   return [
     ...new Set(

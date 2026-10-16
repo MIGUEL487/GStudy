@@ -46,6 +46,7 @@ vi.mock("@tanstack/react-router", () => ({
   ),
 }));
 vi.mock("@/lib/preparation-library.functions", () => ({
+  getPreparationYouTubeStatus: async () => ({ youtubeConfigured: true }),
   curatePreparationLibrary: async () => ({
     version: 1,
     checkedAt: "2026-10-16T12:00:00.000Z",

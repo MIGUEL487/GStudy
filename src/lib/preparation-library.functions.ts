@@ -15,6 +15,7 @@ import {
   preferredChannels,
   preparationLibrarySchema,
   youtubeId,
+  youtubeMissingNotice,
   type LibraryBook,
   type LibraryVideo,
 } from "./preparation-library-model";
@@ -142,6 +143,10 @@ export function selectVideoClip(
     },
   };
 }
+export const getPreparationYouTubeStatus = createServerFn({ method: "GET" })
+  .middleware([requireStudyAuth])
+  .handler(() => ({ youtubeConfigured: Boolean(process.env["YOUTUBE_API_KEY"]?.trim()) }));
+
 export const curatePreparationLibrary = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
   .inputValidator((value: unknown) => input.parse(value))
@@ -206,18 +211,27 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         mode = "youtube-api";
       } else if (searchResult.status === "rejected") throw searchResult.reason;
     } catch (cause) {
+      const code = cause instanceof YouTubeUnavailable ? cause.code : "unavailable";
       videoNotice =
-        cause instanceof YouTubeUnavailable && cause.code === "quota"
-          ? "A busca de aulas atingiu a cota disponível. As aulas já salvas continuam acessíveis."
-          : "A busca de aulas está indisponível agora. Tente atualizar a biblioteca em instantes.";
+        code === "quota"
+          ? "A busca de aulas atingiu a cota disponível do YouTube. Aguarde a renovação da cota; as aulas já salvas continuam acessíveis."
+          : code === "disabled"
+            ? "A API do YouTube não está habilitada no projeto Google desta chave. O responsável precisa ativar YouTube Data API v3 no mesmo projeto da chave."
+            : code === "restricted"
+              ? "As restrições da chave bloquearam a chamada do servidor. O responsável precisa permitir YouTube Data API v3 e conferir as restrições de aplicativo da chave."
+              : code === "setup"
+                ? "O YouTube recusou a configuração da integração. O responsável precisa conferir YOUTUBE_API_KEY em Production e publicar novamente."
+                : "Não foi possível conectar à busca de aulas do YouTube agora. Tente atualizar as indicações em instantes.";
+      console.error("[GStudy YouTube] Falha na busca:", {
+        category: code,
+        status: cause instanceof YouTubeUnavailable ? (cause.status ?? null) : null,
+      });
     }
     if (!candidates.length) {
       candidates = await youtubeFromSources(sources.map((source) => source.url));
       if (candidates.length) mode = "sources";
     }
-    if (!key && mode !== "sources")
-      videoNotice =
-        "Ainda não foi possível confirmar uma aula para incorporar. As sugestões de busca foram mantidas.";
+    if (!key && mode !== "sources") videoNotice = youtubeMissingNotice;
     const indexFor = (candidate: VideoCandidate) => {
       const content = normalize([candidate.title, candidate.description].join(" "));
       const ranked = data.topics
@@ -320,6 +334,10 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         },
       ];
     });
+    if (!videos.length && !videoNotice)
+      videoNotice = candidates.length
+        ? "A seleção não encontrou uma aula adequada entre os resultados. Tente atualizar as indicações ou confira as sugestões de busca."
+        : "A busca do YouTube não encontrou aulas para estes termos. Tente atualizar as indicações ou ajustar o foco do plano.";
     const bookTitles = new Set<string>();
     const uniqueBooks = chosen.books.filter((item) => {
       if (item.topicIndex >= data.topics.length || bookTitles.has(normalize(item.title)))

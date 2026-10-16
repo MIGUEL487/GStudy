@@ -45,3 +45,9 @@ A curadoria recebe apenas tópicos e contexto público do desafio; nomes de prov
 Testes com HTTP simulado verificam API e credenciais separadas, player, capítulos, bloqueios de iframe, licença da obra, recusa de NC e rodapés genéricos, Amazon, fontes privadas, cache e salvamento. A reprodução real e as cotas dependem da configuração do serviço externo na hospedagem.
 
 Validação desta atualização: 284 testes passaram, além da checagem TypeScript e do build Vercel. A interface foi exercitada em 1512 px e 390 px com autenticação, metadados, player e respostas de IA simulados: trecho por capítulo, aula completa, logo/nome do canal, PDF autorizado, Amazon, persistência e ausência de pesquisa repetida ao recarregar. Não houve erros de JavaScript nem rolagem horizontal.
+
+## Recuperação após configurar a chave
+
+Um resultado sem vídeos pode ter sido salvo antes de `YOUTUBE_API_KEY` existir no deployment. Ao reabrir uma biblioteca indisponível, o aplicativo verifica apenas a presença da configuração, sem expor a chave. Se a integração agora estiver configurada, refaz a curadoria uma vez; sem chave, informa a configuração ausente sem gastar outra pesquisa de IA. Bibliotecas com vídeos confirmados continuam usando o resultado salvo. O botão Atualizar indicações permanece disponível.
+
+Erros novos distinguem API não habilitada no projeto Google, restrições da chave, configuração recusada, cota, conexão e busca sem resultados. Os logs registram só categoria e status HTTP, sem URL da chamada, chave ou mensagem bruta do Google.

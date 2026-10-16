@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useLearning } from "@/components/learning-provider";
-import { curatePreparationLibrary } from "@/lib/preparation-library.functions";
+import {
+  curatePreparationLibrary,
+  getPreparationYouTubeStatus,
+} from "@/lib/preparation-library.functions";
 import type { LearningPlan } from "@/lib/learning-model";
-import type { PreparationLibrary } from "@/lib/preparation-library-model";
+import { youtubeMissingNotice, type PreparationLibrary } from "@/lib/preparation-library-model";
 
 export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
   const curate = useServerFn(curatePreparationLibrary);
+  const checkStatus = useServerFn(getPreparationYouTubeStatus);
+  const [configurationMissing, setConfigurationMissing] = useState(false);
   const { savePreparationLibrary } = useLearning();
   const [draft, setDraft] = useState<PreparationLibrary | null>(null);
   const [busy, setBusy] = useState(false),
@@ -20,6 +25,7 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
     requested.current = true;
     setBusy(true);
     setError("");
+    setConfigurationMissing(false);
     try {
       const library =
         draft ??
@@ -58,7 +64,32 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
     }
   };
   useEffect(() => {
-    if (active && guide && !guide.library && !requested.current) void refresh();
+    if (!active || !guide || requested.current) return;
+    if (!guide.library) {
+      void refresh();
+      return;
+    }
+    if (guide.library.videos.length || guide.library.mode !== "unavailable") return;
+    requested.current = true;
+    // A negative result may predate the deployment's YouTube configuration.
+    // Check presence first so missing configuration does not spend another AI search.
+    setBusy(true);
+    void (async () => {
+      try {
+        const status = await checkStatus();
+        if (status.youtubeConfigured) await refresh();
+        else setConfigurationMissing(true);
+      } catch {
+        setError(
+          "Não foi possível verificar a busca de aulas agora. Tente atualizar as indicações.",
+        );
+      } finally {
+        setBusy(false);
+      }
+    })();
   }, [active, guide]);
-  return { library: draft ?? guide?.library, busy, error, refresh, unsaved: Boolean(draft) };
+  const saved = draft ?? guide?.library;
+  const library =
+    configurationMissing && saved ? { ...saved, videoNotice: youtubeMissingNotice } : saved;
+  return { library, busy, error, refresh, unsaved: Boolean(draft) };
 }

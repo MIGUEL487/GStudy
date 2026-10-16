@@ -1,10 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PreparationLibrary } from "@/lib/preparation-library-model";
 import { libraryFixture } from "./helpers/library-fixture";
 import { preparationGuide } from "./helpers/preparation-fixture";
 
-const mocks = vi.hoisted(() => ({ generate: vi.fn(), navigate: vi.fn(), library: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  generate: vi.fn(),
+  navigate: vi.fn(),
+  library: vi.fn(),
+  status: vi.fn(),
+}));
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => mocks.navigate,
   useLocation: () => "/preparar",
@@ -28,7 +34,10 @@ vi.mock("@tanstack/react-router", () => ({
     </a>
   ),
 }));
-vi.mock("@/lib/preparation-library.functions", () => ({ curatePreparationLibrary: mocks.library }));
+vi.mock("@/lib/preparation-library.functions", () => ({
+  curatePreparationLibrary: mocks.library,
+  getPreparationYouTubeStatus: mocks.status,
+}));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@/components/auth-gate", () => ({ useAuth: () => ({ user: { id: "prep-student" } }) }));
 vi.mock("@/lib/preparation.functions", () => ({ createPreparationPath: mocks.generate }));
@@ -81,8 +90,14 @@ function Workspace() {
   const { plans, ready } = useLearning();
   return ready && plans[0] ? <PreparationDashboard plan={plans[0]} /> : null;
 }
-const open = (legacy = false) => {
-  localStorage.setItem(key, JSON.stringify({ version: 1, plans: [plan(legacy)] }));
+const open = (legacy = false, library?: PreparationLibrary) => {
+  const current = plan(legacy);
+  if (library && current.preparation?.guide)
+    current.preparation = {
+      ...current.preparation,
+      guide: { ...current.preparation.guide, library },
+    };
+  localStorage.setItem(key, JSON.stringify({ version: 1, plans: [current] }));
   return render(
     <LearningProvider>
       <Workspace />
@@ -92,6 +107,7 @@ const open = (legacy = false) => {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  mocks.status.mockResolvedValue({ youtubeConfigured: true });
   mocks.library.mockResolvedValue({
     version: 1,
     checkedAt: "2026-10-16T12:00:00.000Z",
@@ -142,6 +158,36 @@ describe("Rumo à prova com progresso próprio", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
     await screen.findByTitle(libraryFixture.videos[0]!.title);
     expect(mocks.library).toHaveBeenCalledTimes(1);
+  });
+  it("recupera um resultado vazio salvo antes de configurar a chave do YouTube", async () => {
+    mocks.library.mockResolvedValue(libraryFixture);
+    open(false, {
+      ...libraryFixture,
+      mode: "unavailable",
+      videos: [],
+      videoNotice:
+        "Ainda não foi possível confirmar uma aula para incorporar. As sugestões de busca foram mantidas.",
+    });
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    await screen.findByTitle(libraryFixture.videos[0]!.title);
+    expect(mocks.status).toHaveBeenCalledTimes(1);
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+    expect(
+      readLearning(localStorage.getItem(key)).plans[0]!.completed["topic-0:explain"],
+    ).toBeDefined();
+  });
+  it("não gasta nova pesquisa de IA quando a chave ainda está ausente", async () => {
+    mocks.status.mockResolvedValue({ youtubeConfigured: false });
+    open(false, { ...libraryFixture, mode: "unavailable", videos: [] });
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    await screen.findByText(/A busca de aulas ainda não está configurada/);
+    expect(mocks.status).toHaveBeenCalledTimes(1);
+    expect(mocks.library).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "Meu roteiro" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    expect(mocks.status).toHaveBeenCalledTimes(1);
   });
   it("reaproveita a curadoria pronta quando o armazenamento falha", async () => {
     mocks.library.mockResolvedValue(libraryFixture);

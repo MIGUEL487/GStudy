@@ -21,6 +21,7 @@ vi.mock("@tanstack/react-start", () => ({
 }));
 import {
   curatePreparationLibrary,
+  getPreparationYouTubeStatus,
   resolveLibrarySources,
   selectVideoClip,
 } from "@/lib/preparation-library.functions";
@@ -59,6 +60,7 @@ const call = (input: unknown = data) =>
   });
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("YOUTUBE_API_KEY", "youtube-private-key");
   vi.stubGlobal("fetch", mocks.fetch);
   mocks.research.mockResolvedValue({
@@ -149,6 +151,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("Curadoria oficial de aulas e livros", () => {
@@ -179,6 +182,48 @@ describe("Curadoria oficial de aulas e livros", () => {
       pdf: { license: "CC BY", url: "https://biblioteca.exemplo.edu.br/livro.pdf" },
     });
     expect(result.books[1].amazonUrl).toBe("https://www.amazon.com.br/dp/8501011665");
+  });
+  it("informa a presença da configuração sem devolver a chave nem chamar a API", async () => {
+    const check = getPreparationYouTubeStatus as unknown as (input: unknown) => Promise<unknown>;
+    expect(await check({ data: undefined })).toEqual({ youtubeConfigured: true });
+    vi.stubEnv("YOUTUBE_API_KEY", "");
+    expect(await check({ data: undefined })).toEqual({ youtubeConfigured: false });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it("identifica variável ausente no deployment em vez de sugerir só tentar depois", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "");
+    mocks.research.mockResolvedValue({ text: "Sem fontes.", sources: [] });
+    const result = await call();
+    expect(result.videoNotice).toContain("ainda não está configurada");
+    expect(result.mode).toBe("unavailable");
+    expect(result.videos).toEqual([]);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it.each([
+    ["SERVICE_DISABLED", "não está habilitada"],
+    ["API_KEY_HTTP_REFERRER_BLOCKED", "restrições da chave"],
+    ["quotaExceeded", "cota disponível"],
+    ["keyInvalid", "recusou a configuração"],
+  ])("distingue %s sem mostrar a mensagem privada do provedor", async (reason, expected) => {
+    mocks.research.mockResolvedValue({ text: "Sem fontes.", sources: [] });
+    mocks.fetch.mockImplementation(async () =>
+      json(
+        {
+          error: {
+            message: "youtube-private-key segredo do provedor",
+            errors: [{ reason }],
+            details: [{ reason }],
+          },
+        },
+        403,
+      ),
+    );
+    const result = await call();
+    expect(result.videoNotice.toLowerCase()).toContain(expected);
+    expect(JSON.stringify(result)).not.toContain("youtube-private-key");
+    const logs = JSON.stringify(vi.mocked(console.error).mock.calls);
+    expect(logs).not.toContain("youtube-private-key");
+    expect(logs).not.toContain("segredo do provedor");
   });
   it("não pesquisa nomes de provas privadas, cadernos ou respostas pessoais", async () => {
     await call({ ...data, kind: "prova", exam: "Prova particular da professora Maria" });
