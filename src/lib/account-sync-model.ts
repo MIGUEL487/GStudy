@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { schoolYearSchema } from "./school-year";
 import { loadData, storageKey, initialData } from "./study-model";
 import { learningKey, readLearning } from "./learning-model";
 import { parseRecallSessions, recallStorageKey } from "./recall-session";
@@ -20,6 +21,7 @@ const named = z.object({ id: z.string().min(1).max(300), title: z.string() });
 const workspace = z.object({
   version: z.literal(1),
   name: z.string(),
+  schoolYear: schoolYearSchema.optional(),
   avatar: z.string().optional(),
   subjects: z.array(
     z.object({

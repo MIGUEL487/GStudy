@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { Home, SlidersHorizontal, ChevronRight, Leaf, BookOpen, CalendarDays, LogOut, GraduationCap } from 'lucide-react';
+import { Home, SlidersHorizontal, ChevronRight, Leaf, BookOpen, CalendarDays, LogOut, GraduationCap, Compass } from 'lucide-react';
 import { useAuth } from './auth-gate';
 import { Avatar, useDisplayName } from './avatar';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -15,6 +15,7 @@ const navigation = [
   { to: '/', label: 'Início', mobileLabel: 'Início', icon: Home },
   { to: '/calendario', label: 'Calendário', mobileLabel: 'Calendário', icon: CalendarDays },
   { to: '/aprender', label: 'Teste seu conhecimento', mobileLabel: 'Testes', icon: GraduationCap },
+  { to: '/preparar', label: 'Preparação', mobileLabel: 'Preparação', icon: Compass },
   { to: '/configuracoes', label: 'Configurações', mobileLabel: 'Ajustes', icon: SlidersHorizontal },
 ] as const;
 

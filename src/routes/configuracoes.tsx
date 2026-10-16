@@ -7,6 +7,7 @@ import { useStudy } from '@/components/study-provider';
 import { useAuth, NotionMark } from '@/components/auth-gate';
 import { Avatar, useDisplayName } from '@/components/avatar';
 import { Button } from '@/components/ui/button';
+import { schoolYears } from '@/lib/school-year';
 import { defaultSchoolDays } from '@/lib/study-model';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReviewsPanel } from '@/components/reviews-panel';
@@ -54,6 +55,7 @@ function Settings() {
       <label className="form-label">Como podemos chamar você?<input className="form-input" value={name ?? data.name} maxLength={100} onChange={e => setName(e.target.value)} placeholder={display} /></label>
       <Button className="mt-3" onClick={() => { if (update(d => ({ ...d, name: (name ?? data.name).trim() }))) toast.success('Seu perfil foi atualizado.'); }}><Save />Salvar perfil</Button>
     </section>
+    <section className="settings-section"><h2>Seu momento de estudo</h2><label className="form-label">Ano escolar<select aria-label="Ano escolar" className="form-input" value={data.schoolYear ?? ''} onChange={e => { const year = e.target.value; if (update(d => ({ ...d, schoolYear: year || undefined }))) toast.success('Etapa de estudo atualizada.'); }}><option value="">Escolha seu ano ou etapa</option>{schoolYears.map(year => <option key={year.value} value={year.value}>{year.label}</option>)}</select></label><p>Você pode mudar seu ano aqui a qualquer momento. As próximas preparações usarão essa etapa; as trilhas já criadas serão preservadas.</p></section>
     <section className="settings-section"><h2>Sincronização entre aparelhos</h2><p role="status">{sync.message}</p><p>Entre com a mesma conta no celular e no computador. Alterações são enviadas automaticamente e verificadas ao voltar à página.</p><Button variant="outline" onClick={sync.retry}>Sincronizar agora</Button></section><section className="settings-section"><h2>Conta</h2><p>Conectado como {user.email}</p><Button variant="outline" onClick={signOut}><LogOut />Sair da conta</Button></section></TabsContent>
     <TabsContent value="preferences" className="settings-tab-content"><section className="settings-section"><h2>Dias de aula</h2><p>Esses dias aparecem liberados no calendário de presença.</p>
       <div className="day-chips">{weekNames.map((n, i) => <button key={n} className={`day-chip ${days.includes(i) ? 'on' : ''}`} aria-pressed={days.includes(i)} onClick={() => update(d => { const cur = d.schoolDays ?? defaultSchoolDays; return { ...d, schoolDays: cur.includes(i) ? cur.filter(x => x !== i) : [...cur, i].sort() }; })}>{n}</button>)}</div>

@@ -45,6 +45,10 @@ export const boardAiConfig = aiConfig;
 export function groqConfig(env: Record<string, string | undefined>) {
   const key = env["GROQ_API_KEY"]?.trim();
   if (!key) return null;
+  if (/^(?:codex_|xai-)/i.test(key))
+    throw new AiSetupError(
+      "GROQ_API_KEY recebeu uma chave do Grok/xAI ou de uma ferramenta de código. Grok e Groq são serviços diferentes. Crie a chave em console.groq.com/keys, substitua essa variável na Vercel e publique novamente. Preserve a chave completa.",
+    );
   const model = env["GROQ_MODEL"]?.trim() || "llama-3.3-70b-versatile";
   const visionModel =
     env["GROQ_VISION_MODEL"]?.trim() || "meta-llama/llama-4-scout-17b-16e-instruct";

@@ -1,12 +1,19 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText, Output, jsonSchema, NoObjectGeneratedError, type ModelMessage } from "ai";
+import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
+import {
+  generateText,
+  Output,
+  jsonSchema,
+  NoObjectGeneratedError,
+  type ModelMessage,
+  type ToolSet,
+} from "ai";
 import { aiConfig, AiSetupError, groqConfig } from "./ai-config";
 import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
 import { groqMessages, hasImages } from "./ai-fallback-media.server";
 
 type Provider = "gemini" | "groq";
 const groqTimeoutMs = 25000;
-async function provider(name: Provider, vision: boolean) {
+async function provider(name: Provider, vision: boolean, research = false) {
   const context = { whiteboard: vision, google: name === "gemini", groq: name === "groq" };
   const providerFetch: typeof fetch = async (input, init) => {
     const response = await fetch(input, init);
@@ -15,7 +22,18 @@ async function provider(name: Provider, vision: boolean) {
         .clone()
         .json()
         .catch(() => null);
-      throw providerFailure(response.status, payload, context);
+      const failure = providerFailure(response.status, payload, context);
+      const message = (payload as { error?: { message?: unknown } } | null)?.error?.message;
+      if (
+        research &&
+        response.status === 400 &&
+        typeof message === "string" &&
+        /(?:google.?search|grounding|search tool).*(?:not supported|unsupported|not enabled|unavailable)|(?:not supported|unsupported).*(?:google.?search|grounding|search tool)/i.test(
+          message,
+        )
+      )
+        Object.assign(failure, { searchUnavailable: true });
+      throw failure;
     }
     return response;
   };
@@ -62,26 +80,50 @@ async function generate(
   messages: ModelMessage[],
   name: Provider,
   schema?: Record<string, unknown>,
-) {
-  const model = await provider(name, hasImages(messages));
-  const result = await generateText({
-    model,
-    system:
-      name === "groq" && schema
-        ? `${instructions}\n\nResponda somente com um objeto JSON válido que cumpra este esquema, sem cercas de código e sem texto fora do JSON:\n${JSON.stringify(schema)}`
-        : instructions,
-    messages,
-    maxRetries: 0,
-    // Do not interrupt a healthy Gemini generation just to switch providers.
-    ...(schema ? { output: Output.object({ schema: jsonSchema(schema as never) }) } : {}),
-    // Llama text/vision models support JSON mode, but not all support strict JSON Schema.
-    ...(name === "groq"
-      ? {
-          abortSignal: AbortSignal.timeout(groqTimeoutMs),
-          providerOptions: { groq: { structuredOutputs: false } },
-        }
-      : {}),
-  });
+  research = false,
+): Promise<unknown> {
+  const model = await provider(name, hasImages(messages), research);
+  const request = () =>
+    generateText({
+      model,
+      system:
+        name === "groq" && schema
+          ? `${instructions}\n\nResponda somente com um objeto JSON válido que cumpra este esquema, sem cercas de código e sem texto fora do JSON:\n${JSON.stringify(schema)}`
+          : instructions,
+      messages,
+      maxRetries: 0,
+      ...(research && name === "gemini"
+        ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
+        : {}),
+      // Do not interrupt a healthy Gemini generation just to switch providers.
+      ...(schema ? { output: Output.object({ schema: jsonSchema(schema as never) }) } : {}),
+      // Llama text/vision models support JSON mode, but not all support strict JSON Schema.
+      ...(name === "groq"
+        ? {
+            abortSignal: AbortSignal.timeout(groqTimeoutMs),
+            providerOptions: { groq: { structuredOutputs: false } },
+          }
+        : {}),
+    });
+  let result;
+  try {
+    result = await request();
+  } catch (error) {
+    if (
+      research &&
+      name === "gemini" &&
+      (error as { searchUnavailable?: boolean })?.searchUnavailable
+    ) {
+      const text = await generate(
+        instructions +
+          "\nA pesquisa web está indisponível. Não afirme ter consultado fontes nem confirmado o edital atual.",
+        messages,
+        name,
+      );
+      return { text: text as string, sources: [] };
+    }
+    throw error;
+  }
   if (result.finishReason === "content-filter")
     throw Object.assign(new Error("Filtered"), { finishReason: "content-filter" });
   if (result.finishReason === "length")
@@ -99,6 +141,14 @@ async function generate(
     throw new AiSetupError(
       "O provedor de IA não retornou uma resposta de texto. Tente novamente ou confira se o modelo escolhido gera texto.",
     );
+  if (research) {
+    const sources = result.sources.flatMap((source) =>
+      source.sourceType === "url"
+        ? [{ title: source.title || "Fonte consultada", url: source.url }]
+        : [],
+    );
+    return { text, sources };
+  }
   return text;
 }
 async function withFallback(
@@ -106,10 +156,14 @@ async function withFallback(
   messages: ModelMessage[],
   whiteboard: boolean,
   schema?: Record<string, unknown>,
+  research = false,
 ) {
   const vision = whiteboard || hasImages(messages);
   try {
-    return { value: await generate(instructions, messages, "gemini", schema), convertedPdf: false };
+    return {
+      value: await generate(instructions, messages, "gemini", schema, research),
+      convertedPdf: false,
+    };
   } catch (error) {
     if (!canFallback(error)) return finishFailure(error, "gemini", vision);
     if (!process.env["GROQ_API_KEY"]?.trim()) return finishFailure(error, "gemini", vision);
@@ -120,7 +174,17 @@ async function withFallback(
     const extra = fallback.convertedPdf
       ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente ilustrações, diagramas ou imagens ausentes."
       : "";
-    const value = await generate(instructions + extra, fallback.messages, "groq", schema);
+    const value = await generate(
+      instructions +
+        extra +
+        (research
+          ? "\nVocê não tem busca web nesta resposta. Não afirme ter consultado páginas nem confirmado o edital atual."
+          : ""),
+      fallback.messages,
+      "groq",
+      schema,
+      research,
+    );
     return { value, convertedPdf: fallback.convertedPdf };
   } catch (error) {
     const failure = logFailure(error, "groq", vision);
@@ -141,4 +205,12 @@ export async function aiObject<T>(
   schema: Record<string, unknown>,
 ): Promise<T> {
   return (await withFallback(instructions, messages, false, schema)).value as T;
+}
+
+// Source URLs come from provider grounding metadata, never from prose.
+export async function aiResearch(instructions: string, messages: ModelMessage[]) {
+  return (await withFallback(instructions, messages, false, undefined, true)).value as {
+    text: string;
+    sources: { title: string; url: string }[];
+  };
 }

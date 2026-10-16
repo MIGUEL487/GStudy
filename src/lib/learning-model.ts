@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { preparationMetadataSchema } from './preparation-model';
 import type { Subject } from './study-model';
 
 export const activityOrder = ['explain', 'flashcards', 'quiz', 'recall', 'feynman', 'review'] as const;
@@ -20,6 +21,7 @@ const topicSchema = z.object({ id: z.string().min(1).max(100), title: z.string()
 const planSchema = z.object({
   id: z.string().min(1).max(100), subjectId: z.string().min(1).max(100), subject: z.string().min(1).max(120), topic: z.string().min(1).max(200), overview: z.string().max(3000),
   materialIds: z.array(z.string().uuid()).max(20), notes: z.string().max(40000), topics: z.array(topicSchema).min(1).max(8).refine(topics => new Set(topics.map(topic => topic.id)).size === topics.length),
+  preparation: preparationMetadataSchema.optional(),
   completed: z.record(z.string(), z.string().datetime()), createdAt: z.string().datetime(),
 });
 const workspaceSchema = z.object({ version: z.literal(1), plans: z.array(planSchema).max(40).refine(plans => new Set(plans.map(plan => plan.id)).size === plans.length) });

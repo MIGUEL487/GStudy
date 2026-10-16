@@ -1,9 +1,10 @@
+import { schoolYearSchema } from './school-year';
 export type Notebook = { id: string; title: string; text: string; updatedAt: string };
 export type Course = { id: string; title: string; url: string };
 export type Subject = { id: string; name: string; emoji?: string | undefined; notebooks: Notebook[]; courses: Course[] };
 export type Grade = { score: string; absences: string; behavior: string; warnings: string };
 export type Performance = { max: string; min: string; limit: string; goal: string; perWeek?: string; grades: Grade[]; sessions: { date: string; minutes: number }[] };
-export type StudyData = { version: 1; name: string; avatar?: string | undefined; schoolDays?: number[]; attendance?: Record<string,'present'|'absent'>; schedule?: Schedule; subjects: Subject[]; performance: Record<string, Performance>; notionImports?: Record<string, { title: string; text: string; subject?: string }> };
+export type StudyData = { version: 1; name: string; schoolYear?: string | undefined; avatar?: string | undefined; schoolDays?: number[]; attendance?: Record<string,'present'|'absent'>; schedule?: Schedule; subjects: Subject[]; performance: Record<string, Performance>; notionImports?: Record<string, { title: string; text: string; subject?: string }> };
 export const storageKey = 'gstudy.workspace.v1';
 export const uid = () => crypto.randomUUID();
 export function initialData(): StudyData { return { version: 1, name: '', subjects: ['Matemática', 'Rotina', 'Física'].map((name,i) => ({id: `subject-${i}`,name, notebooks: [], courses: []})), performance: {} }; }
@@ -14,7 +15,7 @@ export function addCourse(data: StudyData, subjectId: string, title: string, lin
 export function emptyPerformance(): Performance { return {max:'',min:'',limit:'',goal:'',grades:Array.from({length:4},()=>({score:'',absences:'',behavior:'',warnings:''})),sessions:[]}; }
 export function loadData(storage: Pick<Storage,'getItem'>): StudyData {
  const saved = storage.getItem(storageKey);
- if (saved) { const parsed = JSON.parse(saved); if (parsed.version !== 1 || !Array.isArray(parsed.subjects) || parsed.subjects.some((s:Subject)=>!s.id || typeof s.name !== 'string' || !Array.isArray(s.notebooks) || !Array.isArray(s.courses))) throw new Error('Os dados salvos não puderam ser carregados.'); return {...parsed,performance:parsed.performance || {},schoolDays:Array.isArray(parsed.schoolDays)?parsed.schoolDays.filter((n:unknown)=>Number.isInteger(n)&&(n as number)>=0&&(n as number)<=6):defaultSchoolDays,attendance:parsed.attendance&&typeof parsed.attendance==='object'?parsed.attendance:{}}; }
+ if (saved) { const parsed = JSON.parse(saved); if (parsed.version !== 1 || !Array.isArray(parsed.subjects) || parsed.subjects.some((s:Subject)=>!s.id || typeof s.name !== 'string' || !Array.isArray(s.notebooks) || !Array.isArray(s.courses))) throw new Error('Os dados salvos não puderam ser carregados.'); return {...parsed,schoolYear:schoolYearSchema.safeParse(parsed.schoolYear).success?parsed.schoolYear:undefined,performance:parsed.performance || {},schoolDays:Array.isArray(parsed.schoolDays)?parsed.schoolDays.filter((n:unknown)=>Number.isInteger(n)&&(n as number)>=0&&(n as number)<=6):defaultSchoolDays,attendance:parsed.attendance&&typeof parsed.attendance==='object'?parsed.attendance:{}}; }
  const legacy = storage.getItem('materias'); if (!legacy) return initialData();
  const names: unknown = JSON.parse(legacy); if (!Array.isArray(names)) throw new Error('As matérias antigas não puderam ser carregadas.');
  const notebooks = JSON.parse(storage.getItem('cadernos') || '{}'); const courses = JSON.parse(storage.getItem('cursos') || '{}'); const notes = JSON.parse(storage.getItem('notas') || '{}');

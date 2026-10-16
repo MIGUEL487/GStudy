@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { aiText, aiObject } from "@/lib/ai.server";
+import { aiText, aiObject, aiResearch } from "@/lib/ai.server";
 import { canFallback, providerFailure } from "@/lib/ai-errors";
 import { AiSetupError, groqConfig } from "@/lib/ai-config";
 const fetchMock = vi.fn();
@@ -70,6 +70,47 @@ describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
     await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Gemini");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]![0])).toContain("generativelanguage.googleapis.com");
+  });
+  it("pesquisa com a ferramenta Google e devolve apenas fontes do grounding", async () => {
+    const response = await google("Programa de geometria da OBMEP").json();
+    response.candidates[0].groundingMetadata = {
+      groundingChunks: [{ web: { uri: "https://www.obmep.org.br/", title: "OBMEP" } }],
+    };
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(response), { headers: { "Content-Type": "application/json" } }),
+    );
+    const result = await aiResearch("Consulte o organizador.", messages);
+    expect(result.text).toBe("Programa de geometria da OBMEP");
+    expect(result.sources).toEqual([{ title: "OBMEP", url: "https://www.obmep.org.br/" }]);
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body).tools).toEqual([{ googleSearch: {} }]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("mantém Gemini sem pesquisa quando o modelo não oferece grounding", async () => {
+    fetchMock
+      .mockResolvedValueOnce(failed(400, "Google Search grounding is not supported for this model"))
+      .mockResolvedValueOnce(google("Orientação geral, sem edital confirmado."));
+    await expect(aiResearch("Consulte.", messages)).resolves.toEqual({
+      text: "Orientação geral, sem edital confirmado.",
+      sources: [],
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body).tools).toBeUndefined();
+    expect(
+      fetchMock.mock.calls.every(([url]) =>
+        String(url).includes("generativelanguage.googleapis.com"),
+      ),
+    ).toBe(true);
+  });
+  it("não atribui pesquisa web ao Groq quando Gemini falha por cota", async () => {
+    fetchMock
+      .mockResolvedValueOnce(failed(429))
+      .mockResolvedValueOnce(groq("Orientação geral, confirme o edital."));
+    await expect(aiResearch("Consulte.", messages)).resolves.toEqual({
+      text: "Orientação geral, confirme o edital.",
+      sources: [],
+    });
+    const body = JSON.parse(fetchMock.mock.calls[1]![1].body);
+    expect(body.tools).toBeUndefined();
+    expect(body.messages[0].content).toContain("não tem busca web");
   });
   it("mantém uma geração saudável do Gemini além de 25 segundos sem interromper nem chamar Groq", async () => {
     vi.useFakeTimers();
@@ -206,6 +247,14 @@ describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
   });
 });
 describe("Configuração e classificação seguras", () => {
+  it("identifica uma chave de outro serviço sem removê-la nem interferir no Gemini saudável", async () => {
+    expect(() => groqConfig({ GROQ_API_KEY: "codex_private" })).toThrow("Grok e Groq");
+    expect(() => groqConfig({ GROQ_API_KEY: "xai-private" })).toThrow("console.groq.com/keys");
+    vi.stubEnv("GROQ_API_KEY", "codex_private");
+    fetchMock.mockResolvedValueOnce(google());
+    await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Gemini");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
   it("precisa apenas da chave Groq e mantém modelos de texto e visão separados", () => {
     expect(groqConfig({})).toBeNull();
     expect(groqConfig({ GROQ_API_KEY: "key" })).toMatchObject({
