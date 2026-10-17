@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Camera, Check, FileImage, ImagePlus, ScanLine, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -6,7 +6,14 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { useStudy } from "./study-provider";
 import { transcribeNotebookPhoto, readReportPhoto } from "@/lib/photo-import.functions";
-import { applyReportDrafts, reportDrafts, type ReportDraft } from "@/lib/photo-import-model";
+import {
+  applyReportDrafts,
+  reportDrafts,
+  newReportSubject,
+  type ReportDraft,
+} from "@/lib/photo-import-model";
+import { AttendancePeriodsSettings } from "./attendance-periods-settings";
+import { absenceTotal } from "@/lib/attendance-model";
 import { prepareStudyPhoto, type StudyPhoto } from "@/lib/study-photo";
 import "@/styles/photo-imports.css";
 
@@ -316,23 +323,41 @@ function ReportPhotoDialog({
     read = useServerFn(readReportPhoto),
     state = usePhotoReader((image) => read({ data: { image } }));
   const [drafts, setDrafts] = useState<ReportDraft[]>([]),
-    [includeAbsences, setIncludeAbsences] = useState(false),
+    [includeAbsences, setIncludeAbsences] = useState(true),
+    [confirmDates, setConfirmDates] = useState(false),
     [overwrite, setOverwrite] = useState(false);
   const applied = useRef(false);
   useEffect(() => {
     if (state.result) setDrafts(reportDrafts(state.result, data.subjects));
   }, [state.result]);
+  const preview = useMemo(() => {
+    try {
+      return { result: applyReportDrafts(data, drafts, { includeAbsences, overwrite }), error: "" };
+    } catch (cause) {
+      return {
+        result: undefined,
+        error: cause instanceof Error ? cause.message : "Confira os registros.",
+      };
+    }
+  }, [data, drafts, includeAbsences, overwrite]);
+  useEffect(() => {
+    setConfirmDates(false);
+  }, [data, drafts, includeAbsences, overwrite]);
   const edit = (index: number, patch: Partial<ReportDraft>) =>
     setDrafts((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   const save = () => {
     if (applied.current) return;
     state.setError("");
     try {
-      const options = { includeAbsences, overwrite };
+      const confirmedDates =
+        confirmDates && preview.result?.inference?.status === "ambiguous"
+          ? preview.result.inference.dates
+          : undefined;
+      const options = { includeAbsences, overwrite, ...(confirmedDates ? { confirmedDates } : {}) };
       const check = applyReportDrafts(data, drafts, options);
       if (!check.changed) {
         state.setError(
-          "Nenhum campo precisa ser alterado. Para trocar valores existentes, marque “Substituir valores já preenchidos”.",
+          "Nenhum campo precisa ser alterado. Para trocar notas existentes, marque “Substituir notas já preenchidas”.",
         );
         return;
       }
@@ -364,7 +389,7 @@ function ReportPhotoDialog({
   return (
     <PhotoDialog
       title="Seu boletim, sem digitar tudo"
-      description="Leia a foto com a IA e confira as notas. Você escolhe quais matérias e períodos importar."
+      description="A IA lê todas as matérias do boletim. Confira os totais e o cruzamento com seu horário antes de salvar."
       close={close}
     >
       <PhotoPicker
@@ -394,8 +419,9 @@ function ReportPhotoDialog({
           ) : (
             <>
               <p className="study-photo-help">
-                Matérias com o mesmo nome são associadas automaticamente. Confira os períodos;
-                nenhum valor será salvo antes da sua confirmação.
+                Matérias com o mesmo nome são associadas automaticamente; as novas serão criadas ao
+                salvar. Confira os nomes e os períodos; nenhum valor será salvo antes da sua
+                confirmação.
               </p>
               <div className="report-import-options">
                 <label>
@@ -404,7 +430,7 @@ function ReportPhotoDialog({
                     checked={overwrite}
                     onChange={(e) => setOverwrite(e.target.checked)}
                   />
-                  Substituir valores já preenchidos
+                  Substituir notas já preenchidas
                 </label>
                 <label>
                   <input
@@ -416,11 +442,50 @@ function ReportPhotoDialog({
                 </label>
                 {includeAbsences && (
                   <p>
-                    As faltas do calendário já entram no total. Confira se estão repetidas no
-                    boletim para evitar contar duas vezes.
+                    As faltas do boletim atualizam o mesmo total da tabela e do calendário; não são
+                    somadas outra vez. Confira o ano, os bimestres e seu horário atual. Presenças já
+                    registradas serão preservadas.
                   </p>
                 )}
               </div>
+              {includeAbsences && <AttendancePeriodsSettings />}
+              {includeAbsences && preview.result?.inference && (
+                <div className="study-photo-help" role="status">
+                  <p>{preview.result.inference.message}</p>
+                  {!!preview.result.inference.dates.length && (
+                    <>
+                      <p>
+                        Dias sugeridos:{" "}
+                        {preview.result.inference.dates
+                          .map((date) => date.split("-").reverse().join("/"))
+                          .join(", ")}
+                        . Marcar um dia inteiro afeta todas as aulas desse dia, inclusive de
+                        matérias fora da foto.
+                      </p>
+                      {preview.result.inference.status === "ambiguous" ? (
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={confirmDates}
+                            onChange={(event) => setConfirmDates(event.target.checked)}
+                          />
+                          Confirmo que faltei nos dias sugeridos
+                        </label>
+                      ) : (
+                        <p>
+                          Esses dias serão marcados ao salvar. Se houver feriados, faltas parciais
+                          ou mudanças de horário, ajuste os dados antes de confirmar.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+              {preview.error && !state.error && drafts.some((row) => row.selected) && (
+                <p role="alert" className="study-photo-error">
+                  {preview.error}
+                </p>
+              )}
               <div className="report-import-rows">
                 {drafts.map((row, index) => {
                   const previous = data.performance[row.subjectId]?.grades[Number(row.period) - 1];
@@ -451,6 +516,7 @@ function ReportPhotoDialog({
                             onChange={(e) => edit(index, { subjectId: e.target.value })}
                           >
                             <option value="">Escolha a matéria</option>
+                            <option value={newReportSubject}>Criar matéria: {row.source}</option>
                             {data.subjects.map((subject) => (
                               <option key={subject.id} value={subject.id}>
                                 {subject.name}
@@ -503,8 +569,9 @@ function ReportPhotoDialog({
                       </div>
                       {(previous?.score || previous?.absences) && (
                         <p className="report-existing-values">
-                          Já salvo: nota {previous.score || "—"} · faltas {previous.absences || "—"}
-                          .{!overwrite ? " Valores preenchidos serão mantidos." : ""}
+                          Já salvo: nota {previous.score || "—"} · faltas{" "}
+                          {absenceTotal(data, row.subjectId, Number(row.period) - 1)}.
+                          {!overwrite ? " Notas preenchidas serão mantidas." : ""}
                         </p>
                       )}
                       {!row.subjectId && (

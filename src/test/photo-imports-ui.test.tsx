@@ -57,7 +57,10 @@ beforeEach(() => {
     return true;
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 describe("Revisão antes de salvar uma foto", () => {
   it("não envia a foto ao escolher e não insere a transcrição antes de confirmar a revisão", async () => {
     const insert = vi.fn().mockReturnValue(true);
@@ -132,12 +135,12 @@ describe("Revisão antes de salvar uma foto", () => {
     expect(mocks.update).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Bimestre do registro 2")).toHaveValue("");
     expect(screen.getByLabelText("Importar registro 2")).not.toBeChecked();
-    expect(screen.getByLabelText("Importar também as faltas")).not.toBeChecked();
+    expect(screen.getByLabelText("Importar também as faltas")).toBeChecked();
     fireEvent.change(screen.getByLabelText("Nota do registro 1"), { target: { value: "9" } });
     await click("Salvar notas selecionadas");
     expect(mocks.data.performance["subject-0"]!.grades[0]).toMatchObject({
       score: "9",
-      absences: "",
+      absences: "3",
     });
     expect(mocks.data.performance["subject-2"]).toBeUndefined();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -158,4 +161,42 @@ describe("Revisão antes de salvar uma foto", () => {
     expect(screen.getByLabelText("Nota do registro 1")).toHaveValue(8.5);
     expect(screen.getByLabelText("Nota do registro 2")).toHaveValue(90);
   });
+});
+
+describe("Cruzamento do boletim com o horário", () => {
+  it.each([false, true])(
+    "só marca dias ambíguos após confirmação explícita (%s)",
+    async (confirm) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(2026, 9, 21, 12));
+      mocks.data.attendanceYear = 2026;
+      mocks.data.attendancePeriods = [
+        { start: "2026-10-12", end: "2026-10-20" },
+        { start: "2026-11-01", end: "2026-11-15" },
+        { start: "2026-11-16", end: "2026-11-30" },
+        { start: "2026-12-01", end: "2026-12-31" },
+      ];
+      mocks.data.schedule = { rows: 2, cells: { "1": ["subject-0", "subject-2"] } };
+      mocks.report.mockResolvedValue({
+        warnings: [],
+        rows: [
+          { subject: "Matemática", period: 1, periodLabel: "1º", score: 8, absences: 1 },
+          { subject: "Física", period: 1, periodLabel: "1º", score: null, absences: 1 },
+        ],
+      });
+      render(<ReportPhotoImport subjectId="subject-0" />);
+      await click("Importar foto do boletim");
+      await upload();
+      await click("Ler boletim");
+      expect(screen.getByText(/Mais de uma combinação/)).toBeInTheDocument();
+      expect(screen.getByLabelText("Importar registro 2")).toBeChecked();
+      expect(mocks.update).not.toHaveBeenCalled();
+      if (confirm) fireEvent.click(screen.getByLabelText("Confirmo que faltei nos dias sugeridos"));
+      await click("Salvar notas selecionadas");
+      expect(mocks.data.performance["subject-0"]!.grades[0]!.absences).toBe("1");
+      expect(mocks.data.performance["subject-2"]!.grades[0]!.absences).toBe("1");
+      expect(Object.values(mocks.data.attendance ?? {})).toEqual(confirm ? ["absent"] : []);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    },
+  );
 });

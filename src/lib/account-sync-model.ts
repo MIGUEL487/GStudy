@@ -23,6 +23,16 @@ const workspace = z.object({
   name: z.string(),
   schoolYear: schoolYearSchema.optional(),
   avatar: z.string().optional(),
+  attendanceYear: z.number().int().min(2000).max(2100).optional(),
+  attendancePeriods: z
+    .array(
+      z.object({
+        start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      }),
+    )
+    .length(4)
+    .optional(),
   subjects: z.array(
     z.object({
       id: z.string().min(1),
@@ -49,6 +59,12 @@ const workspace = z.object({
         z.object({
           score: z.string(),
           absences: z.string(),
+          absenceCalendarCount: z.number().int().nonnegative().optional(),
+          absenceThrough: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
+          absencePastCount: z.number().int().nonnegative().optional(),
           behavior: z.string(),
           warnings: z.string(),
         }),

@@ -125,7 +125,7 @@ describe("Importação revisada sem perda dos dados anteriores", () => {
       absences: "",
       selected: true,
     });
-    expect(rows[1]).toMatchObject({ subjectId: "", selected: false });
+    expect(rows[1]).toMatchObject({ subjectId: "__new_report_subject__", selected: true });
     expect(rows[2]).toMatchObject({ period: "", selected: false, score: "90" });
     const subjects = [
       ...initialData().subjects,

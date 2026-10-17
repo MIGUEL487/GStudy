@@ -1,3 +1,5 @@
+import { AttendancePeriodsSettings } from '@/components/attendance-periods-settings';
+import { undatedSubjectAbsences, periodForDate } from '@/lib/attendance-model';
 import { NotionCalendar } from '@/components/notion-calendar';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -20,7 +22,7 @@ function CalendarPage() {
   const cells: (Date | null)[] = Array(month.getDay()).fill(null);
   const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   for (let i = 1; i <= count; i++) cells.push(new Date(month.getFullYear(), month.getMonth(), i));
-  const absent = Object.values(att).filter(v => v === 'absent').length; const present = Object.values(att).filter(v => v === 'present').length;
+  const absent = Object.entries(att).filter(([date, v]) => v === 'absent' && periodForDate(data, date) >= 0).length; const present = Object.entries(att).filter(([date, v]) => v === 'present' && periodForDate(data, date) >= 0).length;
   const b = dayBudget(absent); const today = iso(new Date());
   const toggle = (key: string) => update(d => { const a = { ...(d.attendance ?? {}) }; const cur = a[key]; if (!cur) a[key] = 'present'; else if (cur === 'present') a[key] = 'absent'; else delete a[key]; return { ...d, attendance: a }; });
   return <>
@@ -35,11 +37,14 @@ function CalendarPage() {
       <div><small>Ainda pode faltar</small><strong>{b.remaining}</strong></div>
       <p>{b.over ? 'Atenção: você passou de 25% de faltas nos 200 dias letivos.' : 'Base: 200 dias letivos, frequência mínima de 75%.'}</p>
     </div>
+    <AttendancePeriodsSettings />
+    <p className="page-subtitle">Os dias disponíveis seguem os dias da semana e os períodos letivos configurados. Datas fora desses períodos não entram nos bimestres.</p>
+    <p className="page-subtitle">Calendário e tabela usam as mesmas faltas. {data.subjects.reduce((sum, subject) => sum + undatedSubjectAbsences(data, subject.id), 0)} falta(s) de aula registrada(s) no boletim/tabela ainda estão sem data confirmada; não representam dias adicionais.</p>
     <div className="calendar">
       <div className="calendar-head"><Button variant="ghost" size="icon" aria-label="Mês anterior" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ChevronLeft /></Button><h2>{month.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h2><Button variant="ghost" size="icon" aria-label="Próximo mês" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><ChevronRight /></Button></div>
       <div className="calendar-grid" key={iso(month)}>
         {weekdays.map(w => <div className="calendar-weekday" key={w}>{w}</div>)}
-        {cells.map((d, i) => { if (!d) return <div key={`e${i}`} />; const key = iso(d); const school = days.includes(d.getDay()); const st = att[key];
+        {cells.map((d, i) => { if (!d) return <div key={`e${i}`} />; const key = iso(d); const school = days.includes(d.getDay()) && periodForDate(data, key) >= 0; const st = att[key];
           return <button key={key} disabled={!school && !st} onClick={() => toggle(key)} aria-label={`${d.toLocaleDateString('pt-BR')}: ${st === 'present' ? 'presente' : st === 'absent' ? 'falta' : 'sem registro'}`} className={`calendar-day ${st ?? ''} ${key === today ? 'today' : ''} ${school ? '' : 'off'}`}><span>{d.getDate()}</span><small>{st === 'present' ? 'Fui' : st === 'absent' ? 'Faltei' : ''}</small></button>; })}
       </div>
     </div>

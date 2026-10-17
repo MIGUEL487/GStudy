@@ -47,24 +47,23 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("Faltas do calendário e tabela", () => {
-  it("mostra as aulas perdidas na tabela, persiste e remove sem duplicar faltas manuais", () => {
+  it("calendário preenche o mesmo campo bimestral e a edição do total não soma em duplicidade", () => {
     const view = render(<Workspace />);
     fireEvent.click(screen.getByRole("button", { name: "12/10/2026: sem registro" }));
     fireEvent.click(screen.getByRole("button", { name: "12/10/2026: presente" }));
     fireEvent.click(screen.getByText("Ver tabela"));
-    expect(screen.getByLabelText("Faltas pelo calendário")).toHaveTextContent("2");
-    expect(screen.getByLabelText("Faltas 1º bimestre")).toHaveValue(null);
-    fireEvent.change(screen.getByLabelText("Faltas 1º bimestre"), { target: { value: "3" } });
-    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("5");
+    expect(screen.getByLabelText("Faltas 4º bimestre")).toHaveValue(2);
+    fireEvent.change(screen.getByLabelText("Faltas 4º bimestre"), { target: { value: "3" } });
+    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("3");
     view.unmount();
     render(<Workspace />);
     fireEvent.click(screen.getByText("Ver tabela"));
-    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("5");
+    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("3");
     fireEvent.click(screen.getByText("Ver calendário"));
     fireEvent.click(screen.getByRole("button", { name: "12/10/2026: falta" }));
     fireEvent.click(screen.getByText("Ver tabela"));
-    expect(screen.getByLabelText("Faltas pelo calendário")).toHaveTextContent("0");
-    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("3");
+    expect(screen.getByLabelText("Faltas 4º bimestre")).toHaveValue(1);
+    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("1");
   });
   it("rejeita frações e 200 aulas semanais, mas permite registrar faltas acima de 25%", () => {
     render(<Workspace />);

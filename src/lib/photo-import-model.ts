@@ -1,5 +1,13 @@
 import { z } from "zod";
 import {
+  anchorAbsenceTotal,
+  normalizeAbsenceTotals,
+  inferAbsenceDates,
+  applyAbsenceDates,
+  type AbsenceTarget,
+  type AttendanceInference,
+} from "./attendance-model";
+import {
   emptyPerformance,
   maxPeriodAbsences,
   validateCountInput,
@@ -42,6 +50,7 @@ export type ReportDraft = {
   source: string;
   periodLabel: string;
 };
+export const newReportSubject = "__new_report_subject__";
 const normalized = (name: string) =>
   name
     .normalize("NFD")
@@ -51,13 +60,14 @@ const normalized = (name: string) =>
 export function reportDrafts(result: ReportPhotoResult, subjects: Subject[]): ReportDraft[] {
   return result.rows.map((row) => {
     const matches = subjects.filter((s) => normalized(s.name) === normalized(row.subject));
-    const subjectId = matches.length === 1 ? matches[0]!.id : "";
+    const subjectId =
+      matches.length === 1 ? matches[0]!.id : matches.length === 0 ? newReportSubject : "";
     return {
       subjectId,
       period: row.period === null ? "" : String(row.period),
       score: row.score === null ? "" : String(row.score),
       absences: row.absences === null ? "" : String(row.absences),
-      selected: !!subjectId && row.period !== null && row.score !== null,
+      selected: !!subjectId && row.period !== null && (row.score !== null || row.absences !== null),
       source: row.subject,
       periodLabel: row.periodLabel,
     };
@@ -82,16 +92,37 @@ function numeric(value: string, field: string, whole = false) {
 export function applyReportDrafts(
   data: StudyData,
   drafts: ReportDraft[],
-  options: { includeAbsences: boolean; overwrite: boolean },
+  options: { includeAbsences: boolean; overwrite: boolean; confirmedDates?: string[] },
 ) {
   const selected = drafts.filter((row) => row.selected);
   if (!selected.length) throw new Error("Selecione pelo menos um período para importar.");
-  const performance = { ...data.performance },
+  let base = options.includeAbsences ? normalizeAbsenceTotals(data) : data;
+  const subjects = [...base.subjects];
+  const resolved = selected.map((row) => {
+    if (row.subjectId !== newReportSubject) return row;
+    const name = row.source.trim();
+    if (!name || name.length > 100)
+      throw new Error("Confira o nome da nova matéria: use até 100 caracteres.");
+    const matches = subjects.filter((subject) => normalized(subject.name) === normalized(name));
+    if (matches.length > 1)
+      throw new Error(`Há mais de uma matéria chamada ${name}. Escolha a matéria do registro.`);
+    let subject = matches[0];
+    if (!subject) {
+      subject = { id: `report-subject-${normalized(name)}`, name, notebooks: [], courses: [] };
+      if (subjects.some((existing) => existing.id === subject!.id))
+        throw new Error("Escolha uma matéria existente para esse registro.");
+      subjects.push(subject);
+    }
+    return { ...row, subjectId: subject.id };
+  });
+  base = { ...base, subjects };
+  const absenceTargets: AbsenceTarget[] = [];
+  const performance = { ...base.performance },
     targets = new Set<string>();
   let changed = 0,
     kept = 0;
-  for (const row of selected) {
-    const subject = data.subjects.find((s) => s.id === row.subjectId);
+  for (const row of resolved) {
+    const subject = base.subjects.find((s) => s.id === row.subjectId);
     if (!subject) throw new Error(`Escolha uma matéria cadastrada para ${row.source}.`);
     if (!/^[1-4]$/.test(row.period))
       throw new Error(`Escolha o bimestre de ${row.source}; o período da foto não foi definido.`);
@@ -106,11 +137,17 @@ export function applyReportDrafts(
     if (options.includeAbsences && row.absences.trim())
       values.absences = validateCountInput(
         numeric(row.absences, "as faltas", true),
-        maxPeriodAbsences(data, row.subjectId),
+        maxPeriodAbsences(base, row.subjectId),
         "Faltas por bimestre",
       );
     if (!Object.keys(values).length)
       throw new Error(`${subject.name}: preencha a nota ou habilite a importação de faltas.`);
+    if (values.absences !== undefined)
+      absenceTargets.push({
+        subjectId: row.subjectId,
+        period: Number(row.period) - 1,
+        total: Number(values.absences),
+      });
     const current = performance[row.subjectId] ?? emptyPerformance();
     const grades = Array.from({ length: Math.max(4, current.grades.length) }, (_, index) => ({
       ...(current.grades[index] ?? { score: "", absences: "", behavior: "", warnings: "" }),
@@ -118,7 +155,26 @@ export function applyReportDrafts(
     const grade = grades[Number(row.period) - 1]!;
     for (const key of ["score", "absences"] as const) {
       const value = values[key];
-      if (value === undefined || grade[key] === value) continue;
+      if (value === undefined) continue;
+      if (key === "absences") {
+        const anchored = anchorAbsenceTotal(
+          base,
+          row.subjectId,
+          Number(row.period) - 1,
+          grade,
+          value,
+        );
+        if (
+          grade.absences !== anchored.absences ||
+          grade.absenceThrough !== anchored.absenceThrough ||
+          grade.absenceCalendarCount !== anchored.absenceCalendarCount ||
+          grade.absencePastCount !== anchored.absencePastCount
+        )
+          changed++;
+        Object.assign(grade, anchored);
+        continue;
+      }
+      if (grade[key] === value) continue;
       if (grade[key] !== "" && !options.overwrite) {
         kept++;
         continue;
@@ -128,7 +184,19 @@ export function applyReportDrafts(
     }
     performance[row.subjectId] = { ...current, grades };
   }
-  return { data: { ...data, performance }, changed, kept };
+  let next = { ...base, performance };
+  let inference: AttendanceInference | undefined;
+  if (absenceTargets.length) {
+    inference = inferAbsenceDates(next, absenceTargets);
+    const dates =
+      options.confirmedDates ?? (inference.status === "unique" ? inference.dates : undefined);
+    if (dates?.length) {
+      next = applyAbsenceDates(next, absenceTargets, dates);
+      changed += dates.length;
+    }
+  }
+  changed += subjects.length - data.subjects.length;
+  return { data: next, changed, kept, inference };
 }
 export function appendTranscription(existing: string, transcription: string) {
   const text = transcription.trim();
