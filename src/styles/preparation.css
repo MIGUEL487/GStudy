@@ -871,6 +871,7 @@
   margin-bottom: 28px;
 }
 .prep-tabs button {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -889,12 +890,26 @@
   color: var(--prep-accent);
   box-shadow: inset 0 0 0 1px #62734e30;
 }
+.prep-tabs button::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 22%;
+  right: 22%;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(.35);
+  transition: opacity .25s, transform .38s var(--ease);
+}
+.prep-tabs button[aria-selected="true"]::after { opacity: .65; transform: scaleX(1); }
 .prep-tabs button:focus-visible {
   outline: 2px solid var(--prep-accent);
   outline-offset: 2px;
 }
 .prep-dashboard-panel {
-  animation: prep-reveal 0.35s ease both;
+  animation: prep-reveal 0.48s var(--ease) both;
 }
 .prep-route-layout {
   display: grid;

@@ -2,7 +2,7 @@ import { Link, useLocation } from '@tanstack/react-router';
 import { Home, SlidersHorizontal, ChevronRight, Leaf, BookOpen, CalendarDays, LogOut, GraduationCap, Compass } from 'lucide-react';
 import { useAuth } from './auth-gate';
 import { Avatar, useDisplayName } from './avatar';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { logo } from '@/lib/images';
 import { useStudy } from './study-provider';
 import { Button } from '@/components/ui/button';
@@ -26,9 +26,15 @@ export function StudyLayout({ children }: { children: ReactNode }) {
   const path = useLocation({ select: l => l.pathname }); const name = useDisplayName();
   const focused=useTestFocus();
   const page = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!page.current?.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const transition = page.current.animate([{ opacity: .35, transform: 'translateY(7px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 320, easing: 'cubic-bezier(.2,.7,.2,1)' });
+    const transition = page.current.animate(
+      [
+        { opacity: .45, transform: 'translateY(16px) scale(.992)' },
+        { opacity: 1, transform: 'translateY(0) scale(1)' },
+      ],
+      { duration: 470, easing: 'cubic-bezier(.22,1,.36,1)' },
+    );
     return () => transition.cancel();
   }, [path]);
   const selected = (to: string) => ['/aprender', '/preparar'].includes(to) ? path.startsWith(to) : path === to;

@@ -159,7 +159,7 @@ export function FeynmanLesson({ materialSearch, lessonSearch }: { materialSearch
           <div className="feyn-student-copy">
             <p className="eyebrow">{busy ? 'Ouvindo sua explicação' : student.description}</p>
             <h2 id="feyn-student-title">{busy ? 'Deixa eu pensar…' : turns ? 'Me explica uma coisa…' : 'Explique com suas palavras.'}</h2>
-            <div className="feyn-student-question" aria-live="polite" aria-atomic="true">{busy ? <div role="status"><p>Estou olhando sua explicação. Já volto com uma pergunta!</p><div className="dots" aria-hidden="true"><i /><i /><i /></div></div> : <ReactMarkdown>{question}</ReactMarkdown>}</div>
+            <div className="feyn-student-question" aria-live="polite" aria-atomic="true"><div key={busy ? 'thinking' : `${studentId}:${question}`} className="feyn-answer-motion">{busy ? <div role="status"><p>Estou olhando sua explicação. Já volto com uma pergunta!</p><div className="dots" aria-hidden="true"><i /><i /><i /></div></div> : <ReactMarkdown>{question}</ReactMarkdown>}</div></div>
           </div>
           <div className="feyn-student-foot"><Sparkles size={14} /><p>Não precisa ser perfeito.<br />Só precisa fazer sentido para você.</p></div>
         </section>

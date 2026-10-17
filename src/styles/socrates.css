@@ -178,6 +178,11 @@
 }
 .socrates-message.is-assistant {
   border-bottom-left-radius: 4px;
+  animation: socrates-reply-in 0.48s var(--ease) both;
+}
+@keyframes socrates-reply-in {
+  from { opacity: 0; transform: translateY(13px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .socrates-message > small {
   font-size: 10px;
@@ -197,6 +202,11 @@
   margin-top: 14px;
   color: var(--primary);
   font-weight: 500;
+  animation: socrates-question-in .38s .12s var(--ease) both;
+}
+@keyframes socrates-question-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .socrates-question svg {
   display: inline;
@@ -318,6 +328,7 @@
   .socrates-message {
     animation: none;
   }
+  .socrates-message .socrates-question { animation: none; }
   .socrates-empty button,
   .socrates-quick-replies button {
     transition: none;

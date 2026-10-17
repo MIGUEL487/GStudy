@@ -10,6 +10,9 @@
 .activity-lesson .lesson-bar>span { box-shadow:none;transition:width .65s var(--ease); }
 .activity-lesson .lesson-hearts { display:flex;align-items:center;gap:6px; }
 .activity-lesson .lesson-body { gap:20px; }
+.activity-lesson .lesson-body,
+.activity-lesson .lesson-thinking { animation:study-content-in .5s var(--ease) both; }
+@keyframes study-content-in { from { opacity:0;transform:translateY(15px) scale(.99); } to { opacity:1;transform:translateY(0) scale(1); } }
 .activity-lesson .lesson-q { font-size:clamp(27px,3vw,39px);line-height:1.25;text-wrap:pretty; }
 .activity-intro { display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted-foreground); }
 .activity-intro>svg { flex:none;color:var(--primary); }
@@ -44,6 +47,11 @@
 .activity-card-hint { margin:0;color:var(--muted-foreground);font-size:11px;line-height:1.5;text-align:center; }
 .activity-card-count { margin-left:auto;font-size:11px;white-space:nowrap; }
 .activity-lesson .choices { gap:12px; }
+.activity-lesson .choices .choice { animation:study-option-in .36s var(--ease) both; }
+.activity-lesson .choices .choice:nth-child(2) { animation-delay:.045s; }
+.activity-lesson .choices .choice:nth-child(3) { animation-delay:.09s; }
+.activity-lesson .choices .choice:nth-child(4) { animation-delay:.135s; }
+@keyframes study-option-in { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:translateY(0); } }
 .activity-lesson .choice { align-items:flex-start;gap:14px;border-width:1px;border-radius:14px;padding:17px 18px;box-shadow:none;line-height:1.6;transition:background .25s,border-color .25s,transform .25s; }
 .activity-lesson .choice>kbd { margin-top:1px; }
 .activity-lesson .choice>span { flex:1;overflow-wrap:anywhere; }
@@ -53,6 +61,7 @@
 .activity-lesson .choice:disabled { opacity:1;cursor:default; }
 .activity-lesson .choice .choice-status { flex:none;align-self:center; }
 .activity-lesson .foot-msg { gap:8px;min-width:170px; }
+.activity-lesson .foot-msg { animation:study-content-in .38s var(--ease) both; }
 .activity-lesson .foot-msg b { display:flex;gap:8px;align-items:center;font:600 21px var(--font-serif); }
 .activity-lesson .foot-msg>span { font-size:13px;line-height:1.65; }
 .activity-lesson .explain-card { padding:25px 27px;border:1px solid var(--border);border-radius:18px;background:var(--card);font-size:16px;line-height:1.85;overflow-wrap:anywhere; }
