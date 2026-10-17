@@ -111,12 +111,18 @@ describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("socrates-secret-key");
   });
-  it("exige URL e modelo do OmniRoute apenas quando sua chave estiver configurada", () => {
+  it("usa o modelo auto do OmniRoute e exige um servidor HTTPS remoto quando houver chave", () => {
     expect(socratesAiConfig({})).toBeNull();
     expect(() => socratesAiConfig({ SOCRATES_AI_API_KEY: "key" })).toThrow("SOCRATES_AI_BASE_URL");
+    expect(socratesAiConfig({
+      SOCRATES_AI_API_KEY: "key", SOCRATES_AI_BASE_URL: "https://omni.example/v1",
+    })).toMatchObject({ model: "auto" });
     expect(() => socratesAiConfig({
       SOCRATES_AI_API_KEY: "key", SOCRATES_AI_BASE_URL: "http://example.com/v1", SOCRATES_AI_MODEL: "model",
     })).toThrow("HTTPS");
+    expect(() => socratesAiConfig({
+      SOCRATES_AI_API_KEY: "oma_live_admin", SOCRATES_AI_BASE_URL: "https://omni.example/v1",
+    })).toThrow("token de administração");
   });
   it.each(["gemini", "groq"])(
     "Sócrates recebe o consumo e limita a saída com %s",

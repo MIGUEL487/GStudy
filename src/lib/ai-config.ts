@@ -1,15 +1,17 @@
 export class AiSetupError extends Error {}
 
-// OmniRoute is a dedicated, server-only provider for Sócrates.
-// Its URL and model must come from the user's OmniRoute account/documentation.
+// OmniRoute is a self-hosted router. Vercel needs a separately hosted HTTPS
+// instance; the default local http://localhost:20128/v1 cannot be reached there.
 export function socratesAiConfig(env: Record<string, string | undefined>) {
   const key = env["SOCRATES_AI_API_KEY"]?.trim();
   if (!key) return null;
+  if (key.startsWith("oma_live_"))
+    throw new AiSetupError("SOCRATES_AI_API_KEY precisa ser uma chave de inferência OmniRoute, não um token de administração oma_live_.");
   const baseURL = env["SOCRATES_AI_BASE_URL"]?.trim().replace(/\/+$/, "");
-  const model = env["SOCRATES_AI_MODEL"]?.trim();
-  if (!baseURL || !model)
+  const model = env["SOCRATES_AI_MODEL"]?.trim() || "auto";
+  if (!baseURL)
     throw new AiSetupError(
-      "Para usar OmniRoute no Sócrates, configure SOCRATES_AI_BASE_URL e SOCRATES_AI_MODEL conforme o painel do serviço.",
+      "Para usar OmniRoute no Sócrates, hospede o roteador em um servidor HTTPS acessível pela Vercel e configure SOCRATES_AI_BASE_URL com a base /v1 desse servidor. localhost no seu computador não funciona na Vercel.",
     );
   try {
     const url = new URL(baseURL);

@@ -2,18 +2,20 @@
 
 A aba **Sócrates** é uma conversa de estudo por texto. O tutor precisa explicar o porquê e terminar cada etapa com uma pergunta de compreensão. O aplicativo exige os campos de explicação e pergunta antes de mostrar a resposta; o modelo ainda pode cometer erros de conteúdo.
 
-Pode usar uma chave **OmniRoute exclusiva do Sócrates**. Sem ela, continua com Gemini, Groq e OpenRouter já configurados. Com ela, Sócrates chama o OmniRoute primeiro; em falhas técnicas, tenta os provedores existentes. As outras abas nunca usam a chave exclusiva do Sócrates. A integração exige um endpoint de chat compatível com a API OpenAI; confirme isso na documentação do seu serviço OmniRoute.
+Pode usar uma instância **OmniRoute exclusiva do Sócrates**. Sem ela, continua com Gemini, Groq e OpenRouter já configurados. Com ela, Sócrates chama o OmniRoute primeiro; em falhas técnicas, tenta os provedores existentes. As outras abas nunca usam a chave exclusiva do Sócrates. O pacote `omniroute` é um roteador auto-hospedado com API compatível com OpenAI, não um provedor de chave de IA na nuvem.
 
 ## Ativação
 
 No SQL Editor do mesmo projeto Supabase do site, execute o arquivo completo [0003_socrates.sql](drizzle/migrations/0003_socrates.sql). Ele depende da migração 0002 já existente, adiciona a cota e o namespace das conversas e preserva os dados anteriores. Pode ser executado novamente.
 
-Para usar OmniRoute, na Vercel adicione as três variáveis de ambiente **Production** abaixo e publique novamente. Copie a URL base e o identificador do modelo da documentação ou painel da sua conta; não use a URL do site nem inclua `/chat/completions` na base. Nunca use `VITE_` nem coloque a chave no GitHub.
+`npm install -g omniroute` inicia um servidor local em `http://localhost:20128/v1`. Esse endereço só funciona no próprio computador; a Vercel não pode usá-lo. Para integrar o site publicado, hospede o OmniRoute continuamente em outro servidor com URL HTTPS pública e proteja a API com uma **chave de inferência**. Um token de administração `oma_live_...` não é uma chave de inferência. Consulte a [documentação oficial da API](https://github.com/diegosouzapw/OmniRoute/blob/main/docs/reference/API_REFERENCE.md) e do [modo remoto](https://github.com/diegosouzapw/OmniRoute/blob/main/docs/guides/REMOTE-MODE.md).
+
+Depois de hospedar a instância, na Vercel adicione as variáveis de ambiente **Production** abaixo e publique novamente. O modelo padrão é `auto`; não precisa escolher um nome de modelo. A URL base deve terminar em `/v1`, sem `/chat/completions`. Nunca use `VITE_` nem coloque a chave no GitHub.
 
 ```text
 SOCRATES_AI_API_KEY=<sua chave OmniRoute>
-SOCRATES_AI_BASE_URL=<URL HTTPS base da API OmniRoute>
-SOCRATES_AI_MODEL=<identificador exato do modelo>
+SOCRATES_AI_BASE_URL=https://seu-servidor-omniroute.example/v1
+SOCRATES_AI_MODEL=auto
 ```
 
 Depois da publicação, abra Sócrates e clique em **Atualizar cota**. A migração não pode ser executada pela chave pública do aplicativo.
