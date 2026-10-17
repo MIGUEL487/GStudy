@@ -28,6 +28,9 @@ export const preparationResearchSchema = z.object({
   sources: z.array(z.object({ title: z.string().min(1).max(300), url: sourceUrl })).max(8),
   mode: z.enum(["web", "knowledge", "school"]),
   researchedAt: z.string().datetime(),
+  scope: z
+    .object({ subject: z.string().max(120), focus: z.string().max(600), needsSubject: z.boolean() })
+    .optional(),
 });
 export const preparationDetailsSchema = z.object({
   kind: z.enum(["prova", "concurso", "olimpiada"]),
@@ -138,4 +141,43 @@ export function dragGoal(current: number, previousAngle: number, nextAngle: numb
   if (delta > 50) delta -= 100;
   if (delta < -50) delta += 100;
   return Math.max(0, Math.min(100, current + delta));
+}
+
+export const snapGoal = (value: number) => Math.max(0, Math.min(100, Math.round(value / 5) * 5));
+export function preparationQuestions(report: string) {
+  const parts = report.split(/(?:^|\n)(?:#{1,6}\s*|\*\*)Antes de montar[^\n]*\n/i);
+  const forbidden =
+    /quanto.{0,35}tempo|tempo.{0,35}(estud|dispon|dia)|minutos?.{0,25}(dia|estud)|horas?.{0,25}(dia|estud)|qual.{0,20}meta|nota.{0,20}(tirar|desej|quer)|quanto.{0,20}(tirar|acert)|porcentagem|percentual|data.{0,20}prova|quando.{0,20}prova/i;
+  const lines = (parts[1] || "").split(/\n/).filter((line) => line.trim() && !forbidden.test(line));
+  const fallback = [
+    "1. O que você já conhece desse conteúdo?",
+    "2. Em quais ideias ou tipos de questão sente mais dificuldade?",
+    "3. Há alguma orientação do professor ou organizador que precisa entrar no plano?",
+  ];
+  return (
+    parts[0]!.trim() +
+    "\n\n### Antes de montar seu plano\n" +
+    (lines.length ? lines.join("\n") : fallback.join("\n"))
+  );
+}
+export function preparationPreferences(answer: string) {
+  const minutes = /\b(\d{1,3})\s*(?:minutos?|min)\b/i.exec(answer);
+  const hours = /\b(\d(?:[.,]\d)?)\s*(?:horas?|h)\b/i.exec(answer);
+  const target =
+    /(?:meta|quero|tirar|acertar|conseguir|atingir)[^\n.!?%]{0,35}?\b(\d{1,3})\s*%/i.exec(answer);
+  const grade = /(?:nota|tirar)\s*(?:uma?\s*)?(\d(?:[.,]\d)?)\b/i.exec(answer);
+  const time = minutes
+    ? Number(minutes[1])
+    : hours
+      ? Number(hours[1]!.replace(",", ".")) * 60
+      : undefined;
+  const goal = target
+    ? Number(target[1])
+    : grade && Number(grade[1]!.replace(",", ".")) <= 10
+      ? Number(grade[1]!.replace(",", ".")) * 10
+      : undefined;
+  return {
+    ...(time && time >= 15 && time <= 180 ? { dailyMinutes: Math.round(time) } : {}),
+    ...(goal && goal > 0 && goal <= 100 ? { target: snapGoal(goal) } : {}),
+  };
 }

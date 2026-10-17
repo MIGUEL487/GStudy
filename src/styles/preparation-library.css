@@ -441,3 +441,34 @@
   grid-template-columns: minmax(0, 1fr);
   max-width: 900px;
 }
+
+.library-catalogue-searches {
+  margin-top: 24px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+}
+.library-catalogue-searches h4 {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 25px;
+  font-weight: 400;
+  margin: 0 0 10px;
+}
+.library-catalogue-searches p {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.9;
+}
+.library-catalogue-searches > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+.library-catalogue-searches a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--prep-accent);
+  font-size: 11px;
+  min-height: 44px;
+}

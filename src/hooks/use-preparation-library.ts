@@ -57,6 +57,7 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
               books: result.books,
               bookNotice: result.bookNotice,
               bookSearchVersion: result.bookSearchVersion,
+              bookSearchStatus: result.bookSearchStatus,
             }
           : result;
       setDraft(library);
@@ -85,7 +86,7 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
     // Retry libraries saved by the former combined search once, without paying
     // for another YouTube search or replacing the student's selected videos.
     if (
-      !guide.library.bookSearchVersion &&
+      guide.library.bookSearchVersion !== 3 &&
       !guide.library.books.some((book) => book.access === "open") &&
       guide.library.videos.length
     ) {

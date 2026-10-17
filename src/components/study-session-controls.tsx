@@ -11,6 +11,8 @@ const activityPaths = [
   "/aprender/feynman",
   "/aprender/recall",
   "/aprender/revisao",
+  "/preparar/questoes",
+  "/preparar/flashcards",
 ];
 function useNow() {
   const [now, setNow] = useState(Date.now);
@@ -44,6 +46,7 @@ export function useTestFocus() {
   );
 }
 export function FocusSessionHeader() {
+  const path = useLocation({ select: (location) => location.pathname });
   const search = learningSearch(useSearch({ strict: false }) as Record<string, unknown>);
   return (
     <div className="focus-session-header">
@@ -51,7 +54,10 @@ export function FocusSessionHeader() {
         <LockKeyhole size={14} />
         Modo foco
       </span>
-      <Link to="/aprender" search={search.p ? { p: search.p } : {}}>
+      <Link
+        to={path.startsWith("/preparar/") ? "/preparar" : "/aprender"}
+        search={search.p ? { p: search.p } : {}}
+      >
         Sair do teste <ArrowRight size={14} />
       </Link>
     </div>

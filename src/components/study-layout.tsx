@@ -29,7 +29,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     const transition = page.current.animate([{ opacity: .35, transform: 'translateY(7px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 320, easing: 'cubic-bezier(.2,.7,.2,1)' });
     return () => transition.cancel();
   }, [path]);
-  const selected = (to: string) => to === '/aprender' ? path.startsWith('/aprender') : path === to;
+  const selected = (to: string) => ['/aprender', '/preparar'].includes(to) ? path.startsWith(to) : path === to;
   const pageName = navigation.find(item => selected(item.to))?.label ?? 'Minhas matérias';
   return <div className={`app-shell ${focused?'is-test-focused':''}`}>
     <aside className="sidebar" inert={focused} aria-hidden={focused||undefined}>

@@ -23,6 +23,7 @@ import {
   curatePreparationLibrary,
   getPreparationYouTubeStatus,
   resolveLibrarySources,
+  relevantOpenStaxBooks,
   selectVideoClip,
 } from "@/lib/preparation-library.functions";
 import {
@@ -159,6 +160,64 @@ afterEach(() => {
 });
 
 describe("Curadoria oficial de aulas e livros", () => {
+  it("mantém leitura pública verificada para OBGP mesmo quando a IA omite todas as fontes gratuitas", async () => {
+    const work = {
+      id: 123,
+      title: "World History, Volume 2",
+      slug: "world-history-volume-2",
+      meta: { type: "books.Book", locale: "en" },
+      book_state: "live",
+      license_url: "https://creativecommons.org/licenses/by/4.0/",
+      authors: [{ type: "author", value: { name: "Autora de teste" } }],
+      pdf_url: "https://assets.openstax.org/oscms-prodcms/media/documents/history.pdf",
+    };
+    const base = mocks.fetch.getMockImplementation()!;
+    mocks.fetch.mockImplementation((input, init) => {
+      const url = new URL(String(input));
+      if (url.hostname === "openstax.org")
+        return url.pathname === "/apps/cms/api/v2/pages/"
+          ? json({ items: [work] })
+          : url.pathname === "/apps/cms/api/v2/pages/123/"
+            ? json(work)
+            : new Response("<h1>Livro</h1>", { headers: { "content-type": "text/html" } });
+      if (url.hostname === "assets.openstax.org")
+        return new Response(null, { headers: { "content-type": "application/pdf" } });
+      return base(input, init);
+    });
+    mocks.research.mockResolvedValue({ text: "Pesquisa web indisponível.", sources: [] });
+    mocks.object.mockResolvedValue({ videos: [], books: [] });
+    const result = await call({
+      ...data,
+      scope: "books",
+      exam: "OBGP",
+      kind: "olimpiada",
+      subject: "Programa completo",
+      focus: "Geopolítica",
+      topics: [
+        { title: "Ordem mundial e relações de poder", goal: "Relacionar poder e território." },
+      ],
+    });
+    expect(result.books[0]).toMatchObject({
+      title: work.title,
+      access: "open",
+      language: "en",
+      pdf: { url: work.pdf_url, license: "CC BY" },
+    });
+    expect(result.bookSearchStatus).toBe("verified");
+  });
+  it("prioriza referências pertinentes ao conteúdo de geopolítica da OBGP", () => {
+    const sources = [
+      "Biology 2e",
+      "World History, Volume 2",
+      "Introduction to Political Science",
+      "College Algebra",
+    ].map((title) => ({ title, url: "https://openstax.org/apps/cms/api/v2/pages/123/" }));
+    const selected = relevantOpenStaxBooks(sources, "Geopolítica e ordem mundial");
+    expect(selected).toHaveLength(2);
+    expect(selected.map((book) => book.title)).toEqual(
+      expect.arrayContaining(["World History, Volume 2", "Introduction to Political Science"]),
+    );
+  });
   it("busca vídeos reais, mantém logo/nome do canal e seleciona só capítulos publicados", async () => {
     const result = await call();
     expect(result.mode).toBe("youtube-api");
@@ -202,8 +261,8 @@ describe("Curadoria oficial de aulas e livros", () => {
     expect(result.mode).toBe("unavailable");
     expect(result.videos).toEqual([]);
     expect(
-      mocks.fetch.mock.calls.every(
-        ([url]) => new URL(String(url)).hostname === "educapes.capes.gov.br",
+      mocks.fetch.mock.calls.every(([url]) =>
+        ["educapes.capes.gov.br", "openstax.org"].includes(new URL(String(url)).hostname),
       ),
     ).toBe(true);
   });
@@ -432,11 +491,11 @@ describe("Catálogos públicos e formatos de repositórios", () => {
   it("busca só livros sem refazer chamadas, capítulos ou avatares do YouTube", async () => {
     const result = await call({ ...data, scope: "books" });
     expect(result.books[0].access).toBe("open");
-    expect(result.bookSearchVersion).toBe(2);
+    expect(result.bookSearchVersion).toBe(3);
     expect(result.videos).toEqual([]);
     expect(
-      mocks.fetch.mock.calls.every(
-        ([url]) => new URL(String(url)).hostname === "biblioteca.exemplo.edu.br",
+      mocks.fetch.mock.calls.every(([url]) =>
+        ["biblioteca.exemplo.edu.br", "openstax.org"].includes(new URL(String(url)).hostname),
       ),
     ).toBe(true);
     expect(mocks.research.mock.calls[0]?.[0]).toContain("dedicada a LIVROS");

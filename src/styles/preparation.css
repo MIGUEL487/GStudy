@@ -1450,3 +1450,55 @@
     transition: none;
   }
 }
+
+.prep-practice-topics {
+  display: grid;
+  gap: 18px;
+  margin: 24px 0;
+}
+.prep-practice-topic {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--card);
+}
+.prep-practice-topic h3 {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 29px;
+  font-weight: 400;
+  margin: 12px 0;
+}
+.prep-practice-topic > p {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.prep-practice-topic > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+}
+.prep-practice-action small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--prep-accent);
+  font-size: 10px;
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .prep-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .prep-practice-topic {
+    padding: 19px;
+  }
+  .prep-practice-topic > div {
+    flex-direction: column;
+  }
+  .prep-practice-action .duo-btn {
+    width: 100%;
+  }
+}

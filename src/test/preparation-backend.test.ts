@@ -74,6 +74,59 @@ beforeEach(() => {
   mocks.object.mockResolvedValue(path);
 });
 describe("Pesquisa e geração de preparação", () => {
+  it("pesquisa o programa completo da OBGP sem pedir matéria", async () => {
+    expect(
+      await call(researchPreparation, { ...details, exam: "OBGP", subject: "", focus: "" }),
+    ).toMatchObject({ scope: { subject: "Programa completo", needsSubject: false } });
+    expect(JSON.parse(mocks.research.mock.calls[0]![1][0].content)).toMatchObject({
+      exam: "OBGP",
+      subject: "Programa completo",
+    });
+    expect(mocks.object).not.toHaveBeenCalled();
+  });
+  it("reconhece conteúdo no nome da prova escolar e mantém o recorte", async () => {
+    mocks.object.mockResolvedValue({
+      hasContent: true,
+      subject: "Matemática",
+      focus: "Equações do primeiro grau",
+    });
+    expect(
+      await call(researchPreparation, {
+        ...details,
+        kind: "prova",
+        exam: "Prova de equações do primeiro grau",
+        subject: "",
+        focus: "",
+        availableSubjects: ["Matemática"],
+      }),
+    ).toMatchObject({
+      scope: { subject: "Matemática", focus: "Equações do primeiro grau", needsSubject: false },
+    });
+    expect(mocks.research).not.toHaveBeenCalled();
+  });
+  it("pede matéria apenas se a prova não informa conteúdo", async () => {
+    mocks.object.mockResolvedValue({ hasContent: false, subject: "", focus: "" });
+    expect(
+      await call(researchPreparation, {
+        ...details,
+        kind: "prova",
+        exam: "Bimestral",
+        subject: "",
+        focus: "",
+      }),
+    ).toMatchObject({ scope: { needsSubject: true } });
+    expect(mocks.text).not.toHaveBeenCalled();
+  });
+  it("remove perguntas repetidas sobre tempo e meta do diagnóstico", async () => {
+    mocks.research.mockResolvedValue({
+      text: "### Sobre o desafio\nConheça o programa.\n### Antes de montar seu plano\n1. Quanto tempo você tem por dia?\n2. Qual é sua meta de acertos?\n3. Qual conceito é mais difícil?",
+      sources: [],
+    });
+    const result = (await call(researchPreparation, details)) as { report: string };
+    expect(result.report).not.toContain("Quanto tempo");
+    expect(result.report).not.toContain("meta de acertos");
+    expect(result.report).toContain("Qual conceito é mais difícil");
+  });
   it("pesquisa desafios públicos e só aceita URLs HTTPS realmente devolvidas pelo provedor", async () => {
     mocks.research.mockResolvedValue({
       text: research.report,

@@ -31,6 +31,7 @@ import {
   preparationKinds,
   preparationSearch,
   preparationProgress,
+  preparationPreferences,
   type PreparationKind,
   type PreparationResearch,
 } from "@/lib/preparation-model";
@@ -54,7 +55,8 @@ const stages = ["Seu desafio", "Sua matéria", "Conversa com a IA", "Sua meta"];
 const kindIcons = { prova: GraduationCap, concurso: Trophy, olimpiada: Medal };
 
 function PreparationRoute() {
-  return <PreparationPage search={Route.useSearch()} />;
+  const search = Route.useSearch();
+  return <PreparationPage key={search.p || "new"} search={search} />;
 }
 
 export function PreparationPage({ search = {} }: { search?: { p?: string | undefined } } = {}) {
@@ -70,6 +72,9 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
     [exam, setExam] = useState(""),
     [edition, setEdition] = useState("");
   const [subjectId, setSubjectId] = useState(""),
+    [resolvedSubject, setResolvedSubject] = useState(""),
+    [resolvedFocus, setResolvedFocus] = useState(""),
+    [showSubjectStep, setShowSubjectStep] = useState(false),
     [focus, setFocus] = useState(""),
     [program, setProgram] = useState("");
   const [notebooks, setNotebooks] = useState<string[]>([]),
@@ -92,8 +97,8 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
     exam: exam.trim(),
     edition: edition.trim(),
     schoolYear,
-    subject: subject?.name ?? "",
-    focus: focus.trim(),
+    subject: resolvedSubject || subject?.name || (kind !== "prova" ? "Programa completo" : ""),
+    focus: focus.trim() || resolvedFocus,
   };
   const go = (next: number) => {
     setStage(next);
@@ -127,18 +132,36 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
       return;
     }
     setYear(schoolYear);
-    go(1);
+    void investigate("");
   };
-  const investigate = async () => {
-    if (!subject || lock.current) {
-      if (!subject) setError("Escolha uma das suas matérias.");
-      return;
-    }
+  const investigate = async (subjectName = subject?.name ?? "") => {
+    if (lock.current) return;
     lock.current = true;
     setBusy(true);
     setError("");
     try {
-      const result = await researchFn({ data: details });
+      const result = await researchFn({
+        data: {
+          ...details,
+          subject: subjectName,
+          focus: focus.trim(),
+          availableSubjects: data.subjects.map((item) => item.name),
+        },
+      });
+      if (result.scope?.needsSubject) {
+        setShowSubjectStep(true);
+        go(1);
+        return;
+      }
+      const inferred = result.scope?.subject || subjectName || "Programa completo";
+      setResolvedSubject(inferred);
+      setSubjectId(
+        data.subjects.find(
+          (item) => item.name.toLocaleLowerCase("pt-BR") === inferred.toLocaleLowerCase("pt-BR"),
+        )?.id || "",
+      );
+      setResolvedFocus(result.scope?.focus || "");
+      if (stage === 0) setShowSubjectStep(false);
       setResearch(result);
       go(2);
     } catch (cause) {
@@ -153,14 +176,17 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
     }
   };
   const create = async () => {
-    if (lock.current || !subject || !research || target < 1) return;
+    if (lock.current || !details.subject || !research || target < 1) return;
     lock.current = true;
     setBusy(true);
     setError("");
     try {
       let next = draft;
       if (!next) {
-        const cadernos = notebookNotes(subject, notebooks);
+        const cadernos = data.subjects
+          .map((item) => notebookNotes(item, notebooks))
+          .filter(Boolean)
+          .join("\n\n");
         const notes = [program.trim(), cadernos].filter(Boolean).join("\n\n");
         if (notes.length > 22000)
           throw new Error(
@@ -171,7 +197,7 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
           exam: exam.trim(),
           edition: edition.trim(),
           schoolYear,
-          focus: focus.trim(),
+          focus: focus.trim() || resolvedFocus,
           target,
           ...(examDate ? { examDate } : {}),
           answers: answers.trim(),
@@ -179,14 +205,14 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
           dailyMinutes,
         };
         const result = await createFn({ data: { ...details, preparation, notes, ids: picked } });
+        const planId = crypto.randomUUID();
         next = {
-          id: crypto.randomUUID(),
-          subjectId: subject.id,
-          subject: subject.name,
-          topic: (exam.trim() + (focus.trim() ? " · " + focus.trim() : " · " + subject.name)).slice(
-            0,
-            200,
-          ),
+          id: planId,
+          subjectId: subject?.id || "preparation:" + planId,
+          subject: details.subject,
+          topic: (
+            exam.trim() + (details.focus ? " · " + details.focus : " · " + details.subject)
+          ).slice(0, 200),
           overview: result.overview,
           materialIds: picked,
           notes: [
@@ -195,7 +221,7 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
             "Meta desejada: " + target + "% de acertos (não é nota obtida).",
             "Edição/nível/cargo: " + edition.trim(),
             examDate ? "Data da prova: " + examDate : "",
-            "Foco: " + focus.trim(),
+            "Foco: " + details.focus,
             "Orientação para as atividades: " + result.brief,
             "Respostas do estudante: " + answers.trim(),
             notes,
@@ -228,6 +254,8 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
   if (!ready || !studyReady) return <Thinking text="Abrindo sua preparação…" />;
   const selected = saved.find((plan) => plan.id === search.p);
   if (selected) return <PreparationDashboard key={selected.id} plan={selected} />;
+  const stageIds = showSubjectStep ? [0, 1, 2, 3] : [0, 2, 3];
+  const stepIndex = stageIds.indexOf(stage);
   return (
     <div className="preparation-page">
       <header className="prep-heading">
@@ -247,21 +275,24 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
         </p>
       )}
       <ol className="prep-steps" aria-label="Etapas da preparação">
-        {stages.map((title, index) => (
+        {stageIds.map((id, index) => (
           <li
-            key={title}
-            className={stage === index ? "is-current" : stage > index ? "is-done" : ""}
-            aria-current={stage === index ? "step" : undefined}
+            key={id}
+            className={stepIndex === index ? "is-current" : stepIndex > index ? "is-done" : ""}
+            aria-current={stepIndex === index ? "step" : undefined}
           >
-            <span>{stage > index ? <Check size={15} /> : index + 1}</span>
-            <b>{title}</b>
+            <span>{stepIndex > index ? <Check size={15} /> : index + 1}</span>
+            <b>{stages[id]}</b>
           </li>
         ))}
       </ol>
       <div className={"prep-layout " + (stage === 3 ? "has-goal" : "")}>
         <section className="prep-card" aria-busy={busy}>
           <div className="prep-stage" key={stage}>
-            <span className="prep-kicker">PASSO {String(stage + 1).padStart(2, "0")} DE 04</span>
+            <span className="prep-kicker">
+              PASSO {String(stepIndex + 1).padStart(2, "0")} DE{" "}
+              {String(stageIds.length).padStart(2, "0")}
+            </span>
             <h2 ref={heading} tabIndex={-1}>
               {
                 [
@@ -317,6 +348,11 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                           onChange={() => {
                             setKind(value);
                             setEdition("");
+                            setSubjectId("");
+                            setResolvedSubject("");
+                            setResolvedFocus("");
+                            setFocus("");
+                            setShowSubjectStep(false);
                             setResearch(null);
                           }}
                         />
@@ -341,6 +377,9 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                     value={exam}
                     onChange={(event) => {
                       setExam(event.target.value);
+                      setResolvedSubject("");
+                      setResolvedFocus("");
+                      setSubjectId("");
                       setResearch(null);
                     }}
                     maxLength={140}
@@ -353,6 +392,22 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                     }
                   />
                 </label>
+                {kind === "prova" && (
+                  <label className="form-label">
+                    Conteúdo da prova <span>(se já souber)</span>
+                    <textarea
+                      className="form-input"
+                      rows={2}
+                      maxLength={600}
+                      value={focus}
+                      onChange={(event) => {
+                        setFocus(event.target.value);
+                        setResearch(null);
+                      }}
+                      placeholder="Ex.: equações e porcentagem. Se o nome da prova já diz o conteúdo, pode deixar vazio."
+                    />
+                  </label>
+                )}
                 {kind !== "prova" && (
                   <label className="form-label">
                     Edição, nível, instituição ou cargo <span>(se souber)</span>
@@ -484,11 +539,13 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                       setDraft(null);
                     }}
                   >
-                    {[15, 30, 45, 60, 90, 120, 180].map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutes} minutos por dia
-                      </option>
-                    ))}
+                    {[...new Set([15, 30, 45, 60, 90, 120, 180, dailyMinutes])]
+                      .sort((a, b) => a - b)
+                      .map((minutes) => (
+                        <option key={minutes} value={minutes}>
+                          {minutes} minutos por dia
+                        </option>
+                      ))}
                   </select>
                 </label>
                 <p className="prep-caption">
@@ -518,7 +575,8 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                       placeholder="Cole o conteúdo que você precisa estudar…"
                     />
                   </label>
-                  {subject?.notebooks
+                  {data.subjects
+                    .flatMap((item) => item.notebooks)
                     .filter((item) => item.text.trim())
                     .map((item) => (
                       <label className="prep-source" key={item.id}>
@@ -568,7 +626,7 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                 <i />
               </span>
               <span>
-                {stage === 1
+                {stage < 2
                   ? kind === "prova"
                     ? "Preparando suas perguntas…"
                     : "Conhecendo o desafio e preparando as perguntas…"
@@ -587,7 +645,7 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                 type="button"
                 className="duo-btn ghost"
                 disabled={busy}
-                onClick={() => go(stage - 1)}
+                onClick={() => go(stage === 2 && !showSubjectStep ? 0 : stage - 1)}
               >
                 <ArrowLeft size={16} />
                 Voltar
@@ -600,8 +658,12 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
               onClick={() => {
                 if (stage === 0) start();
                 else if (stage === 1) void investigate();
-                else if (stage === 2) go(3);
-                else void create();
+                else if (stage === 2) {
+                  const preferences = preparationPreferences(answers);
+                  if (preferences.dailyMinutes) setDailyMinutes(preferences.dailyMinutes);
+                  if (preferences.target) setTarget(preferences.target);
+                  go(3);
+                } else void create();
               }}
             >
               {stage === 0
@@ -638,7 +700,7 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
             </span>
             <span>
               <BookOpen size={16} />
-              {subject?.name || "Uma matéria por preparação"}
+              {details.subject || "Conteúdo informado ou identificado pela IA"}
             </span>
             <span>
               <Target size={16} />

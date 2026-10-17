@@ -12,8 +12,8 @@ vi.mock('@/components/learning-provider', () => ({ useLessonContext: () => ({
   complete: mocks.complete, backSearch: { p: 'plan-1' }, next: { to: '/aprender/quiz', search: { p: 'plan-1', t: 'topic-1' } },
 }) }));
 vi.mock('@/lib/learn-client', () => ({ awardXp: mocks.award }));
-import { FlashcardsLesson } from '@/routes/aprender.flashcards';
-import { QuizLesson } from '@/routes/aprender.quiz';
+import { FlashcardsLesson } from '@/components/flashcards-lesson';
+import { QuizLesson } from '@/components/quiz-lesson';
 import { ExplanationsLesson } from '@/routes/aprender.explicacoes';
 const search = { p: 'plan-1', t: 'topic-1' };
 beforeEach(() => { vi.clearAllMocks(); mocks.ready = true; mocks.allowed = true; mocks.generated = null; mocks.complete.mockReturnValue(true); mocks.award.mockResolvedValue(undefined); });

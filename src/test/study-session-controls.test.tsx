@@ -80,6 +80,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("Foco e cronômetro persistente", () => {
+  it.each(["/preparar/questoes", "/preparar/flashcards"])(
+    "recolhe a navegação em %s e volta ao plano correto",
+    (path) => {
+      router.path = path;
+      mount();
+      expect(screen.getByLabelText("Foco")).toHaveTextContent("true");
+      expect(screen.getByRole("link", { name: /Sair do teste/ })).toHaveAttribute(
+        "href",
+        "/preparar",
+      );
+    },
+  );
   it("permite navegar durante a leitura e recolhe o menu ao terminar o prazo", () => {
     mount();
     expect(screen.getByLabelText("Foco")).toHaveTextContent("false");

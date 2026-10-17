@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {
   amazonSearch,
+  officialCatalogueSearches,
   videoEmbedUrl,
   videoTime,
   videoWatchUrl,
@@ -208,6 +209,24 @@ export function PreparationLibraryPanel({
             </div>
           </details>
         )}
+        {!open.length && !busy && (
+          <div className="library-catalogue-searches">
+            <h4>Explore os acervos públicos</h4>
+            <p>
+              Buscas pelo seu conteúdo, não indicações de PDFs já autorizados. A licença precisa ser
+              conferida na página de cada obra.
+            </p>
+            <div>
+              {officialCatalogueSearches(plan.topics[0]?.title || plan.subject).map((source) => (
+                <a key={source.name} href={source.url} target="_blank" rel="noopener noreferrer">
+                  <BookOpen size={15} />
+                  Buscar em {source.name}
+                  <ExternalLink size={12} />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
       <section className="library-books-section">
         <div className="library-section-title">
@@ -370,6 +389,17 @@ function PaidBook({ book, topic }: { book: LibraryBook; topic: string }) {
       <small className="prep-resource-topic">{topic}</small>
       <h3>{book.title}</h3>
       {book.author && <p className="prep-resource-creator">{book.author}</p>}
+      {book.language && (
+        <small className="prep-caption">
+          Idioma:{" "}
+          {(
+            { en: "inglês", es: "espanhol", pt: "português", "pt-BR": "português" } as Record<
+              string,
+              string
+            >
+          )[book.language] || book.language}
+        </small>
+      )}
       <p>{book.reason}</p>
       <a
         href={book.amazonUrl || amazonSearch(book.title, book.author)}
@@ -399,6 +429,17 @@ export function OpenBook({ book, topic }: { book: LibraryBook; topic: string }) 
       <small className="prep-resource-topic">{topic}</small>
       <h3>{book.title}</h3>
       {book.author && <p className="prep-resource-creator">{book.author}</p>}
+      {book.language && (
+        <small className="prep-caption">
+          Idioma:{" "}
+          {(
+            { en: "inglês", es: "espanhol", pt: "português", "pt-BR": "português" } as Record<
+              string,
+              string
+            >
+          )[book.language] || book.language}
+        </small>
+      )}
       <p>{book.reason}</p>
       <div className="library-open-actions">
         {book.pdf?.embeddable && (

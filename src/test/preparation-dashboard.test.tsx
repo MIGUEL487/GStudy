@@ -195,7 +195,7 @@ describe("Rumo à prova com progresso próprio", () => {
       ...libraryFixture,
       mode: "unavailable",
       videos: [],
-      bookSearchVersion: 2,
+      bookSearchVersion: 3,
     });
     const view = open(false, existing);
     await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
@@ -207,7 +207,7 @@ describe("Rumo à prova com progresso próprio", () => {
     const saved = readLearning(localStorage.getItem(key)).plans[0]!.preparation!.guide!.library!;
     expect(saved.videos).toEqual(existing.videos);
     expect(saved.mode).toBe(existing.mode);
-    expect(saved.bookSearchVersion).toBe(2);
+    expect(saved.bookSearchVersion).toBe(3);
     expect(saved.books).toEqual(libraryFixture.books);
     expect(mocks.status).not.toHaveBeenCalled();
     view.unmount();
@@ -225,7 +225,7 @@ describe("Rumo à prova com progresso próprio", () => {
       ...libraryFixture,
       mode: "unavailable",
       videos: [],
-      bookSearchVersion: 2,
+      bookSearchVersion: 3,
     });
     open(false, libraryFixture);
     await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
@@ -236,7 +236,7 @@ describe("Rumo à prova com progresso próprio", () => {
       expect(
         readLearning(localStorage.getItem(key)).plans[0]!.preparation!.guide!.library!
           .bookSearchVersion,
-      ).toBe(2),
+      ).toBe(3),
     );
     expect(screen.getByTitle(libraryFixture.videos[0]!.title)).toBeInTheDocument();
     expect(

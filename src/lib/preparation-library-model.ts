@@ -80,6 +80,7 @@ const educationalPublishers = [
   "impa.br",
   "obmep.org.br",
   "scielo.br",
+  "openstax.org",
 ];
 export const officialBookUrl = (value: string) => {
   try {
@@ -159,6 +160,7 @@ export const libraryBookSchema = z
     topicIndex: z.number().int().min(0).max(7),
     reason: z.string().min(1).max(1500),
     access: z.enum(["open", "official", "paid"]),
+    language: z.string().max(80).optional(),
     officialUrl: httpsUrl.refine(officialBookUrl).optional(),
     amazonUrl: httpsUrl.refine((value) => amazonProduct(value) === value).optional(),
     pdf: z
@@ -190,7 +192,8 @@ export const preparationLibrarySchema = z.object({
   books: z.array(libraryBookSchema).max(12),
   videoNotice: z.string().max(500).optional(),
   bookNotice: z.string().max(500).optional(),
-  bookSearchVersion: z.literal(2).optional(),
+  bookSearchVersion: z.union([z.literal(2), z.literal(3)]).optional(),
+  bookSearchStatus: z.enum(["verified", "catalogues", "no-results", "unavailable"]).optional(),
 });
 export type PreparationLibrary = z.infer<typeof preparationLibrarySchema>;
 export type LibraryVideo = PreparationLibrary["videos"][number];
@@ -242,3 +245,15 @@ export function preferredChannels(subject: string, exam: string, focus: string) 
 
 export const youtubeMissingNotice =
   "A busca de aulas ainda não está configurada neste site. O responsável precisa ativar a integração do YouTube na hospedagem.";
+
+export function officialCatalogueSearches(query: string) {
+  const term = encodeURIComponent(query.slice(0, 250));
+  return [
+    { name: "eduCAPES", url: "https://educapes.capes.gov.br/simple-search?query=" + term },
+    { name: "SciELO Livros", url: "https://books.scielo.org/?s=" + term },
+    {
+      name: "Repositório do Ipea",
+      url: "https://repositorio.ipea.gov.br/simple-search?query=" + term,
+    },
+  ];
+}

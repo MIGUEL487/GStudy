@@ -23,6 +23,8 @@ import { Route as AprenderRevisaoRouteImport } from './routes/aprender.revisao'
 import { Route as CadernosNotebookIdRouteImport } from './routes/cadernos.$notebookId'
 import { Route as DesempenhoSubjectIdRouteImport } from './routes/desempenho.$subjectId'
 import { Route as MateriasSubjectIdRouteImport } from './routes/materias.$subjectId'
+import { Route as PrepararFlashcardsRouteImport } from './routes/preparar_.flashcards'
+import { Route as PrepararQuestoesRouteImport } from './routes/preparar_.questoes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +96,16 @@ const MateriasSubjectIdRoute = MateriasSubjectIdRouteImport.update({
   path: '/materias/$subjectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrepararFlashcardsRoute = PrepararFlashcardsRouteImport.update({
+  id: '/preparar_/flashcards',
+  path: '/preparar/flashcards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrepararQuestoesRoute = PrepararQuestoesRouteImport.update({
+  id: '/preparar_/questoes',
+  path: '/preparar/questoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -109,6 +121,8 @@ export interface FileRoutesByFullPath {
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
+  '/preparar/flashcards': typeof PrepararFlashcardsRoute
+  '/preparar/questoes': typeof PrepararQuestoesRoute
   '/aprender/': typeof AprenderIndexRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +139,8 @@ export interface FileRoutesByTo {
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
+  '/preparar/flashcards': typeof PrepararFlashcardsRoute
+  '/preparar/questoes': typeof PrepararQuestoesRoute
   '/aprender': typeof AprenderIndexRoute
 }
 export interface FileRoutesById {
@@ -142,6 +158,8 @@ export interface FileRoutesById {
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
+  '/preparar_/flashcards': typeof PrepararFlashcardsRoute
+  '/preparar_/questoes': typeof PrepararQuestoesRoute
   '/aprender/': typeof AprenderIndexRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +178,8 @@ export interface FileRouteTypes {
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
     | '/materias/$subjectId'
+    | '/preparar/flashcards'
+    | '/preparar/questoes'
     | '/aprender/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +196,8 @@ export interface FileRouteTypes {
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
     | '/materias/$subjectId'
+    | '/preparar/flashcards'
+    | '/preparar/questoes'
     | '/aprender'
   id:
     | '__root__'
@@ -192,6 +214,8 @@ export interface FileRouteTypes {
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
     | '/materias/$subjectId'
+    | '/preparar_/flashcards'
+    | '/preparar_/questoes'
     | '/aprender/'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +233,8 @@ export interface RootRouteChildren {
   CadernosNotebookIdRoute: typeof CadernosNotebookIdRoute
   DesempenhoSubjectIdRoute: typeof DesempenhoSubjectIdRoute
   MateriasSubjectIdRoute: typeof MateriasSubjectIdRoute
+  PrepararFlashcardsRoute: typeof PrepararFlashcardsRoute
+  PrepararQuestoesRoute: typeof PrepararQuestoesRoute
   AprenderIndexRoute: typeof AprenderIndexRoute
 }
 
@@ -312,6 +338,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MateriasSubjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/preparar_/flashcards': {
+      id: '/preparar_/flashcards'
+      path: '/preparar/flashcards'
+      fullPath: '/preparar/flashcards'
+      preLoaderRoute: typeof PrepararFlashcardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/preparar_/questoes': {
+      id: '/preparar_/questoes'
+      path: '/preparar/questoes'
+      fullPath: '/preparar/questoes'
+      preLoaderRoute: typeof PrepararQuestoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -329,6 +369,8 @@ const rootRouteChildren: RootRouteChildren = {
   CadernosNotebookIdRoute: CadernosNotebookIdRoute,
   DesempenhoSubjectIdRoute: DesempenhoSubjectIdRoute,
   MateriasSubjectIdRoute: MateriasSubjectIdRoute,
+  PrepararFlashcardsRoute: PrepararFlashcardsRoute,
+  PrepararQuestoesRoute: PrepararQuestoesRoute,
   AprenderIndexRoute: AprenderIndexRoute,
 }
 export const routeTree = rootRouteImport

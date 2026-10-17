@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useLearning } from "./learning-provider";
 import { SubjectIcon } from "./subject-icon";
+import { PreparationPractice } from "./preparation-practice";
 import { PreparationLibraryPanel } from "./preparation-library";
 import { usePreparationLibrary } from "@/hooks/use-preparation-library";
 import { createPreparationPath } from "@/lib/preparation.functions";
@@ -45,6 +46,7 @@ const missionKinds = {
 const tabs = [
   { id: "route", label: "Meu roteiro", icon: ListChecks },
   { id: "library", label: "Vídeos & livros", icon: BookOpen },
+  { id: "practice", label: "Questões & flashcards", icon: ListChecks },
   { id: "map", label: "Mapa da prova", icon: Layers },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
@@ -366,13 +368,15 @@ export function PreparationDashboard({ plan }: { plan: LearningPlan }) {
                     <span style={{ width: `${percentage}%` }} />
                   </div>
                   <small>Progresso das sessões · não é uma estimativa da sua nota.</small>
-                  <Link
-                    to="/materias/$subjectId"
-                    params={{ subjectId: plan.subjectId }}
-                    className="duo-btn ghost"
-                  >
-                    <BookOpen size={16} /> Abrir meus cadernos
-                  </Link>
+                  {!plan.subjectId.startsWith("preparation:") && (
+                    <Link
+                      to="/materias/$subjectId"
+                      params={{ subjectId: plan.subjectId }}
+                      className="duo-btn ghost"
+                    >
+                      <BookOpen size={16} /> Abrir meus cadernos
+                    </Link>
+                  )}
                   <button className="text-action" onClick={() => setTab("library")}>
                     <Play size={15} /> Explorar vídeos e livros <ArrowRight size={14} />
                   </button>
@@ -380,6 +384,7 @@ export function PreparationDashboard({ plan }: { plan: LearningPlan }) {
               </div>
             )}
             {tab === "library" && <PreparationLibraryPanel plan={plan} {...libraryState} />}
+            {tab === "practice" && <PreparationPractice plan={plan} />}
             {tab === "map" && (
               <section className="prep-program">
                 <div className="prep-section-heading">

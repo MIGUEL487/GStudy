@@ -5,7 +5,7 @@ import { useAuth } from './auth-gate';
 import { signalAccountChange } from '@/lib/account-sync-model';
 import type { PreparationLibrary } from '@/lib/preparation-library-model';
 import { preparationMissionKey, type PreparationGuide } from '@/lib/preparation-model';
-import { activities, activityOrder, activityUnlocked, completeActivity, learningKey, readLearning, type ActivityMode, type LearningContext, type LearningPlan, type LearningSearch, type LearningWorkspace } from '@/lib/learning-model';
+import { activities, activityOrder, activityUnlocked, completeActivity, learningKey, preparationActivities, readLearning, type ActivityMode, type LearningContext, type LearningPlan, type LearningSearch, type LearningWorkspace } from '@/lib/learning-model';
 
 type LearningValue = { plans: LearningPlan[]; ready: boolean; savePlan: (plan: LearningPlan) => boolean; removePlan: (id: string) => boolean; complete: (planId: string, topicId: string, mode: ActivityMode) => boolean; setPreparationMission: (planId: string, index: number, done: boolean) => boolean; savePreparationGuide: (planId: string, guide: PreparationGuide) => boolean; savePreparationLibrary: (planId: string, library: PreparationLibrary) => boolean };
 const Context = createContext<LearningValue | null>(null);
@@ -71,8 +71,9 @@ export function useLessonContext(search: LearningSearch) {
   const path = useLocation({ select: l => l.pathname });
   const plan = learning.plans.find(p => p.id === search.p);
   const topic = plan?.topics.find(t => t.id === search.t);
-  const mode = activityOrder.find(m => activities[m].to === path);
-  const allowed = !plan || Boolean(topic && mode && activityUnlocked(plan, topic.id, mode));
+  const preparationRoute = path.startsWith('/preparar/');
+  const mode = activityOrder.find(m => activities[m].to === path || ((m === 'quiz' || m === 'flashcards') && preparationActivities[m].to === path));
+  const allowed = (!plan && !preparationRoute) || Boolean(plan && (!preparationRoute || plan.preparation) && topic && mode && activityUnlocked(plan, topic.id, mode));
   const context: LearningContext | undefined = plan && topic && allowed ? { subject: plan.subject, topic: topic.title, goal: topic.goal, notes: plan.notes, challenge: topic.challenge } : undefined;
   const backSearch: LearningSearch = plan ? { p: plan.id, ...(topic ? { t: topic.id } : {}) } : {};
   const complete = useCallback((activity: ActivityMode) => plan && topic ? learning.complete(plan.id, topic.id, activity) : false, [plan, topic, learning.complete]);
@@ -83,5 +84,6 @@ export function useLessonContext(search: LearningSearch) {
     ? { to: activities[nextMode].to, search: { ...search, p: plan.id, t: topic.id } }
     : nextTopic ? { to: activities.explain.to, search: { ...search, p: plan.id, t: nextTopic.id } } : { to: '/aprender' as const, search: backSearch }
     : undefined;
-  return { context, plan, topic, complete, next, backSearch, allowed, ready: learning.ready };
+  const preparationNext = plan?.preparation && topic && mode === 'flashcards' ? { to: preparationActivities.quiz.to, search: { ...search, p: plan.id, t: topic.id } } : undefined;
+  return { context, plan, topic, complete, next: plan?.preparation ? preparationNext : next, backTo: plan?.preparation || preparationRoute ? '/preparar' as const : '/aprender' as const, backSearch, allowed, ready: learning.ready };
 }

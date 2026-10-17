@@ -74,6 +74,7 @@ vi.mock("@/lib/preparation.functions", () => ({
   researchPreparation: mocks.research,
   createPreparationPath: mocks.create,
 }));
+vi.mock("@/hooks/use-daily-attempt", () => ({ useDailyAttempt: () => ({ remaining: 2 }) }));
 vi.mock("@/lib/learn-client", () => ({ useMaterials: () => ({ items: [], reload: vi.fn() }) }));
 vi.mock("@/components/learning-materials", () => ({
   AddMaterial: () => <div>Adicionar material</div>,
@@ -90,6 +91,7 @@ const research = {
   sources: [{ title: "OBMEP", url: "https://www.obmep.org.br/" }],
   mode: "web",
   researchedAt: "2026-10-16T12:00:00.000Z",
+  scope: { subject: "Programa completo", focus: "", needsSubject: false },
 };
 beforeEach(() => {
   vi.clearAllMocks();
@@ -125,9 +127,6 @@ const openQuestions = async () => {
   fireEvent.change(screen.getByLabelText("Qual é a olimpíada?"), { target: { value: "OBMEP" } });
   fireEvent.change(screen.getByLabelText(/Edição, nível/), { target: { value: "Nível 2, 2027" } });
   fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
-  fireEvent.click(screen.getByRole("button", { name: "Matemática" }));
-  fireEvent.change(screen.getByLabelText(/Algum assunto/), { target: { value: "Geometria" } });
-  fireEvent.click(screen.getByRole("button", { name: "Conversar com a IA" }));
   await screen.findByText("Fontes consultadas");
 };
 describe("Preparação personalizada", () => {
@@ -139,8 +138,9 @@ describe("Preparação personalizada", () => {
         exam: "OBMEP",
         edition: "Nível 2, 2027",
         schoolYear: "fundamental-8",
-        subject: "Matemática",
-        focus: "Geometria",
+        subject: "",
+        focus: "",
+        availableSubjects: ["Matemática"],
       },
     });
     fireEvent.change(screen.getByLabelText("Suas respostas para a IA"), {
@@ -154,13 +154,13 @@ describe("Preparação personalizada", () => {
     await waitFor(() => expect(mocks.save).toHaveBeenCalled());
     const plan = mocks.save.mock.calls[0]![0];
     expect(plan.preparation).toMatchObject({
-      target: 81,
+      target: 85,
       schoolYear: "fundamental-8",
       kind: "olimpiada",
       answers: "Preciso entender áreas e já conheço ângulos.",
     });
     expect(plan.notes).toContain("Áreas de figuras planas.");
-    expect(plan.notes).toContain("81% de acertos");
+    expect(plan.notes).toContain("85% de acertos");
     expect(plan.preparation.guide).toEqual(preparationGuide);
     expect(plan.preparation.dailyMinutes).toBe(30);
     expect(plan.completed).toEqual({});
@@ -179,23 +179,49 @@ describe("Preparação personalizada", () => {
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.save.mock.calls[0]![0].id).toBe(mocks.save.mock.calls[1]![0].id);
   });
-  it("preserva a matéria e o foco quando a pesquisa falha e permite tentar novamente", async () => {
+  it("preserva o conteúdo se a pesquisa falhar e reaproveita preferências já respondidas", async () => {
     mocks.research.mockRejectedValueOnce(new Error("Pesquisa indisponível."));
+    render(<PreparationPage />);
+    fireEvent.change(screen.getByLabelText("Qual é a prova?"), {
+      target: { value: "Prova de equações" },
+    });
+    fireEvent.change(screen.getByLabelText(/Conteúdo da prova/), { target: { value: "Equações" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pesquisa indisponível.");
+    expect(screen.getByLabelText(/Conteúdo da prova/)).toHaveValue("Equações");
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    await screen.findByLabelText("Suas respostas para a IA");
+    expect(screen.queryByRole("group", { name: "Matéria da preparação" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Suas respostas para a IA"), {
+      target: { value: "Tenho 45 minutos por dia e quero acertar 90%." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Escolher minha meta" }));
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "90");
+    expect(screen.getByLabelText("Quanto tempo você tem por dia?")).toHaveValue("45");
+  });
+  it("pede matéria apenas para uma prova sem conteúdo identificado", async () => {
+    mocks.research
+      .mockResolvedValueOnce({ ...research, scope: { subject: "", focus: "", needsSubject: true } })
+      .mockResolvedValueOnce({
+        ...research,
+        scope: { subject: "Matemática", focus: "Equações", needsSubject: false },
+      });
     render(<PreparationPage />);
     fireEvent.change(screen.getByLabelText("Qual é a prova?"), { target: { value: "Bimestral" } });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    await screen.findByRole("heading", { name: "O que vamos estudar?" });
     fireEvent.click(screen.getByRole("button", { name: "Matemática" }));
-    fireEvent.change(screen.getByLabelText(/Algum assunto/), { target: { value: "Áreas" } });
+    fireEvent.change(screen.getByLabelText(/Algum assunto/), { target: { value: "Equações" } });
     fireEvent.click(screen.getByRole("button", { name: "Conversar com a IA" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Pesquisa indisponível.");
-    expect(screen.getByLabelText(/Algum assunto/)).toHaveValue("Áreas");
-    expect(screen.getByRole("button", { name: "Matemática" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Conversar com a IA" }));
-    await screen.findByText("Fontes consultadas");
-    expect(mocks.research).toHaveBeenCalledTimes(2);
+    await screen.findByLabelText("Suas respostas para a IA");
+    fireEvent.click(screen.getByRole("button", { name: "Escolher minha meta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Montar meu plano" }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    expect(mocks.save.mock.calls[0]![0]).toMatchObject({
+      subject: "Matemática",
+      subjectId: "math",
+      preparation: { focus: "Equações" },
+    });
   });
 });
 describe("Meta circular acessível", () => {

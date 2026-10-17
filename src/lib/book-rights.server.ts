@@ -212,7 +212,7 @@ export function bookLicenseEvidence(
   }
   return null;
 }
-async function officialFetch(value: string, init: RequestInit = {}) {
+export async function officialFetch(value: string, init: RequestInit = {}) {
   let url = new URL(value);
   const signal = AbortSignal.timeout(6000);
   for (let hop = 0; hop < 4; hop++) {

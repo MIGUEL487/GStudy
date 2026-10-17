@@ -12,6 +12,7 @@ export const activities = {
   feynman: { title: 'Ensine', description: 'Explique aos alunos com a sua lousa', to: '/aprender/feynman' },
   review: { title: 'Conecte as ideias', description: 'Uma revisão visual para descobrir o porquê', to: '/aprender/revisao' },
 } as const;
+export const preparationActivities = { flashcards: { title: 'Flashcards', to: '/preparar/flashcards' }, quiz: { title: 'Questões', to: '/preparar/questoes' } } as const;
 export type LearningContext = { subject: string; topic: string; goal?: string; notes?: string; challenge?: string };
 export type LearningSearch = { m?: string | undefined; p?: string | undefined; t?: string | undefined };
 export function learningSearch(s: Record<string, unknown>): LearningSearch {
@@ -47,6 +48,7 @@ export function topicUnlocked(plan: LearningPlan, index: number) {
 }
 export function activityUnlocked(plan: LearningPlan, topicId: string, mode: ActivityMode) {
   const index = plan.topics.findIndex(t => t.id === topicId);
+  if (plan.preparation) return index >= 0 && (mode === 'quiz' || mode === 'flashcards');
   return index >= 0 && topicUnlocked(plan, index) && activityOrder.slice(0, activityOrder.indexOf(mode)).every(m => isCompleted(plan, topicId, m));
 }
 export function planProgress(plan: LearningPlan) {

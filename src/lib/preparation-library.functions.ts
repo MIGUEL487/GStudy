@@ -19,6 +19,7 @@ import {
   type LibraryBook,
   type LibraryVideo,
 } from "./preparation-library-model";
+import { searchOpenStaxBooks, checkOpenStaxBook, openStaxApi } from "./openstax-books.server";
 import { checkOfficialBook, searchOfficialBooks } from "./book-rights.server";
 import {
   searchYouTube,
@@ -53,6 +54,36 @@ const normalize = (value: string) =>
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+export function relevantOpenStaxBooks(
+  books: { title: string; url: string; language?: string }[],
+  context: string,
+) {
+  const topic = normalize(context),
+    terms = topic.split(" ").filter((word) => word.length > 3);
+  for (const [pattern, english] of [
+    [
+      /geopolit|geografia|relacoes internacionais|ordem mundial/,
+      ["politic", "world history", "econom", "sociolog"],
+    ],
+    [/historia|civiliza/, ["history"]],
+    [/politic|socio|sociais/, ["politic", "sociolog"]],
+    [/matemat|equac|fraco|porcent|aritmet|axioma/, ["algebra", "precalculus", "math"]],
+    [/biolog|ecolog/, ["biology"]],
+    [/fisica|mecanic/, ["physics"]],
+    [/quimic/, ["chemistry"]],
+    [/econom/, ["economic"]],
+  ] as [RegExp, string[]][])
+    if (pattern.test(topic)) terms.push(...english);
+  return books
+    .map((book) => ({
+      book,
+      score: terms.filter((term) => normalize(book.title).includes(term)).length,
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+    .map((item) => item.book);
+}
 const supportedSource = (value: string) =>
   Boolean(youtubeId(value) || amazonProduct(value) || officialBookUrl(value));
 export async function resolveLibrarySources(sources: PublicSource[]) {
@@ -182,7 +213,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         ].join(" "),
       );
     // Only public topics are searched: no notebooks, private exam names, answers or PDFs.
-    const [researchResult, searchResult] = await Promise.allSettled([
+    const [researchResult, searchResult, catalogueResult] = await Promise.allSettled([
       aiResearch(
         [
           learningLanguage,
@@ -191,6 +222,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         [{ role: "user", content: JSON.stringify(publicContext) }],
       ),
       key ? searchYouTube(queries, key) : Promise.resolve([]),
+      searchOpenStaxBooks(),
     ]);
     const research =
       researchResult.status === "fulfilled"
@@ -202,10 +234,20 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
     const sources = await resolveLibrarySources(research.sources);
     if (!sources.some((source) => officialBookUrl(source.url))) {
       const catalogueResults = await searchOfficialBooks(
-        data.topics.slice(0, 2).map((topic) => [data.subject, topic.title].join(" ")),
+        data.topics.slice(0, 2).map((topic) => topic.title),
       );
       sources.push(...catalogueResults);
     }
+    if (catalogueResult.status === "fulfilled") {
+      const extra = relevantOpenStaxBooks(
+        catalogueResult.value.books,
+        [data.subject, data.focus, ...data.topics.map((topic) => topic.title)].join(" "),
+      );
+      sources.push(...extra.filter((book) => !sources.some((source) => source.url === book.url)));
+    }
+    const catalogueAvailable =
+      sources.some((source) => officialBookUrl(source.url)) ||
+      (catalogueResult.status === "fulfilled" && catalogueResult.value.available);
     let candidates: VideoCandidate[] = [],
       mode: "youtube-api" | "sources" | "unavailable" = "unavailable";
     let videoNotice: string | undefined;
@@ -303,7 +345,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
           learningLanguage,
           "Faça uma curadoria pedagógica a partir SOMENTE dos vídeos verificados e das fontes recebidas. Priorize relevância e adequação à etapa escolar; dê preferência aos canais indicados, incluindo Universo Narrado Militares para provas militares e Universo Narrado/Pedro Asaad em matemática/física. Não chame esta seleção de um ranking objetivo de todos os vídeos do YouTube. Não invente títulos, autores, canais, logos, vídeo IDs ou links.",
           "Selecione até oito vídeos pelo index, com topicIndex e reason específica. Para um vídeo longo, escolha firstChapter e lastChapter (inclusivo) SOMENTE entre os capítulos publicados nos metadados, com seus índices. Se não houver capítulos, ou não der para localizar o assunto com confiança, ambos devem ser null e o player abre a aula completa. Nunca estime um horário pelo tamanho do vídeo. Uma aula de 12 horas não é uma sessão de estudo de 12 horas. Não afirme ter assistido ao conteúdo.",
-          "Indique livros reais relevantes, priorizando referências gratuitas oficiais. Quando houver catálogos institucionais relevantes nas fontes, inclua essas obras na seleção; não substitua toda a biblioteca pública por livros comerciais. Copie o título completo da obra, pois a licença será conferida com esse título. sourceIndex aponta para a fonte fornecida, ou null se não houver fonte correspondente. Não infira permissão comercial, não gere URLs de PDF, não use Drive particular. O aplicativo verificará a licença do próprio livro na fonte oficial antes de disponibilizar um PDF; o selo gov.br não basta. Inclua também uma seleção complementar de livros pagos disponíveis para procurar na Amazon Brasil, sem inventar preço, ISBN, ASIN ou gratuidade. Não invente que leu um livro só por ver o catálogo.",
+          "Indique livros reais relevantes, priorizando referências gratuitas oficiais em português. OpenStax é uma editora educacional complementar: preserve o título original e não invente que a edição é em português; avise no reason se o material for de outro idioma. Quando houver catálogos institucionais relevantes nas fontes, inclua essas obras na seleção; não substitua toda a biblioteca pública por livros comerciais. Copie o título completo da obra, pois a licença será conferida com esse título. sourceIndex aponta para a fonte fornecida, ou null se não houver fonte correspondente. Não infira permissão comercial, não gere URLs de PDF, não use Drive particular. O aplicativo verificará a licença do próprio livro na fonte oficial antes de disponibilizar um PDF; o selo gov.br não basta. Inclua também uma seleção complementar de livros pagos disponíveis para procurar na Amazon Brasil, sem inventar preço, ISBN, ASIN ou gratuidade. Não invente que leu um livro só por ver o catálogo.",
         ].join("\n"),
         [
           {
@@ -385,10 +427,18 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
           topicIndex: item.topicIndex,
         };
         if (source && officialBookUrl(source.url)) {
-          const checked = await checkOfficialBook(source.url, item.title);
+          const checked: {
+            landing: boolean;
+            url?: string;
+            language?: string;
+            pdf: LibraryBook["pdf"] | null;
+          } = openStaxApi(source.url)
+            ? await checkOpenStaxBook(source.url, item.title)
+            : await checkOfficialBook(source.url, item.title);
           return {
             ...base,
             ...(checked.landing ? { officialUrl: checked.url || source.url } : {}),
+            ...(checked.language ? { language: checked.language } : {}),
             access: checked.pdf ? ("open" as const) : ("official" as const),
             ...(checked.pdf
               ? { pdf: checked.pdf, author: checked.pdf.attribution.slice(0, 200) }
@@ -402,21 +452,65 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         return { ...base, access: "paid" as const, ...(product ? { amazonUrl: product } : {}) };
       }),
     );
+    // A text-only fallback can omit every public source while ranking books.
+    // Keep up to two relevant, independently verified publisher records instead
+    // of turning an available open catalogue into an empty paid-only selection.
+    if (!books.some((book) => book.access === "open")) {
+      const additional = sources
+        .filter(
+          (source) =>
+            openStaxApi(source.url) &&
+            !uniqueBooks.some(
+              (item) => item.sourceIndex !== null && sources[item.sourceIndex]?.url === source.url,
+            ),
+        )
+        .slice(0, 2);
+      const verified = await Promise.all(
+        additional.map(async (source) => {
+          const checked = await checkOpenStaxBook(source.url, source.title);
+          return checked.pdf && checked.url
+            ? {
+                title: source.title,
+                author: checked.pdf.attribution.slice(0, 200),
+                topicIndex: topicIndexFor(source.title),
+                reason:
+                  "Leitura complementar da editora educacional. Confira o índice e o idioma da edição para selecionar os capítulos pertinentes ao seu conteúdo.",
+                access: "open" as const,
+                officialUrl: checked.url,
+                pdf: checked.pdf,
+                ...(checked.language ? { language: checked.language } : {}),
+              }
+            : null;
+        }),
+      );
+      for (const book of verified)
+        if (book && !books.some((item) => normalize(item.title) === normalize(book.title)))
+          books.push(book);
+    }
     return preparationLibrarySchema.parse({
       version: 1,
       checkedAt: new Date().toISOString(),
       mode,
       videos,
       books,
-      bookSearchVersion: 2,
+      bookSearchVersion: 3,
+      bookSearchStatus: books.some((book) => book.access === "open")
+        ? "verified"
+        : books.some((book) => book.officialUrl)
+          ? "catalogues"
+          : catalogueAvailable
+            ? "no-results"
+            : "unavailable",
       ...(videoNotice ? { videoNotice } : {}),
       ...(!books.some((book) => book.access === "open")
         ? {
-            bookNotice: !sources.some((source) => officialBookUrl(source.url))
-              ? "A pesquisa não retornou catálogos públicos verificáveis para este assunto. Tente buscar livros novamente; os vídeos já escolhidos serão mantidos."
-              : books.some((book) => book.access === "official" && book.officialUrl)
-                ? "Os catálogos encontrados ainda não permitiram confirmar um PDF com licença comercial explícita. Consulte as referências oficiais abaixo ou tente buscar livros novamente."
-                : "Ainda não foi possível confirmar uma referência pública acessível para este assunto. Tente buscar livros novamente; as aulas salvas serão mantidas.",
+            bookNotice: !catalogueAvailable
+              ? "Não foi possível confirmar uma consulta completa aos acervos agora. Isso não significa que não existam livros para este assunto. Explore as buscas nos catálogos abaixo ou tente novamente; seus vídeos serão mantidos."
+              : !sources.some((source) => officialBookUrl(source.url))
+                ? "A pesquisa não retornou catálogos públicos verificáveis para este assunto. Tente buscar livros novamente; os vídeos já escolhidos serão mantidos."
+                : books.some((book) => book.access === "official" && book.officialUrl)
+                  ? "Os catálogos encontrados ainda não permitiram confirmar um PDF com licença comercial explícita. Consulte as referências oficiais abaixo ou tente buscar livros novamente."
+                  : "Ainda não foi possível confirmar uma referência pública acessível para este assunto. Tente buscar livros novamente; as aulas salvas serão mantidas.",
           }
         : {}),
     });

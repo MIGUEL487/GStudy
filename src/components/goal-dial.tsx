@@ -1,6 +1,6 @@
 import { useRef, type PointerEvent } from "react";
 import { Minus, Plus } from "lucide-react";
-import { dragGoal, goalAngle } from "@/lib/preparation-model";
+import { dragGoal, goalAngle, snapGoal } from "@/lib/preparation-model";
 
 export function GoalDial({
   value,
@@ -12,7 +12,7 @@ export function GoalDial({
   disabled?: boolean;
 }) {
   const dragging = useRef<{ id: number; angle: number; value: number } | null>(null);
-  const update = (next: number) => onChange(Math.max(0, Math.min(100, Math.round(next))));
+  const update = (next: number) => onChange(snapGoal(next));
   const angle = (value / 100) * Math.PI * 2 - Math.PI / 2;
   const point = (event: PointerEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -62,9 +62,9 @@ export function GoalDial({
                     : event.key === "PageDown"
                       ? value - 10
                       : ["ArrowUp", "ArrowRight"].includes(event.key)
-                        ? value + 1
+                        ? value + 5
                         : ["ArrowDown", "ArrowLeft"].includes(event.key)
-                          ? value - 1
+                          ? value - 5
                           : undefined;
             if (next !== undefined) {
               event.preventDefault();
@@ -149,7 +149,7 @@ export function GoalDial({
         </button>
       </div>
       <small className="goal-dial-help">
-        Uma volta completa vale 100%. Também funciona com as setas do teclado.
+        De 5% em 5%. Arraste a borda ou use as setas do teclado.
       </small>
     </div>
   );
