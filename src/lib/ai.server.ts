@@ -7,12 +7,12 @@ import {
   type ModelMessage,
   type ToolSet,
 } from "ai";
-import { aiConfig, AiSetupError, groqConfig, openRouterConfig } from "./ai-config";
+import { aiConfig, AiSetupError, groqConfig, openRouterConfig, socratesAiConfig } from "./ai-config";
 import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
 import { fallbackMessages, hasImages } from "./ai-fallback-media.server";
 import { hasPdf, validateOpenRouterFiles } from "./openrouter-media.server";
 
-type Provider = "gemini" | "groq" | "openrouter";
+type Provider = "gemini" | "groq" | "openrouter" | "omniroute";
 const groqTimeoutMs = 25000;
 type GenerationMeter = { maxOutputTokens: number; onUsage: (total: number | undefined) => void };
 async function provider(name: Provider, vision: boolean, research = false, document = false) {
@@ -21,6 +21,8 @@ async function provider(name: Provider, vision: boolean, research = false, docum
     google: name === "gemini",
     groq: name === "groq",
     openrouter: name === "openrouter",
+    omniroute: name === "omniroute",
+    ...(name === "omniroute" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
     document,
   };
   const providerFetch: typeof fetch = async (input, init) => {
@@ -53,6 +55,19 @@ async function provider(name: Provider, vision: boolean, research = false, docum
       fetch: providerFetch,
     });
     return google(config.model);
+  }
+  if (name === "omniroute") {
+    const config = socratesAiConfig(process.env);
+    if (!config) throw new AiSetupError("Configure SOCRATES_AI_API_KEY para ativar OmniRoute no Sócrates.");
+    const { createOpenAICompatible } = await import("@ai-sdk/openai-compatible");
+    const omniroute = createOpenAICompatible({
+      name: "omniroute",
+      apiKey: config.key,
+      baseURL: config.baseURL,
+      fetch: providerFetch,
+      supportsStructuredOutputs: false,
+    });
+    return omniroute.chatModel(config.model);
   }
   if (name === "openrouter") {
     const config = openRouterConfig(process.env);
@@ -89,6 +104,8 @@ function logFailure(error: unknown, name: Provider, vision: boolean) {
     google: name === "gemini",
     groq: name === "groq",
     openrouter: name === "openrouter",
+    omniroute: name === "omniroute",
+    ...(name === "omniroute" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
   });
   // SDK exceptions may contain keys, photos, notes or request bodies. Log only safe fields.
   console.error("[GStudy AI] Falha na geração:", {
@@ -125,7 +142,9 @@ async function generate(
       messages,
       maxRetries: 0,
       ...(meter ? { maxOutputTokens: meter.maxOutputTokens } : {}),
-      ...(name === "openrouter" ? { abortSignal: AbortSignal.timeout(45000) } : {}),
+      ...(name === "openrouter" || name === "omniroute"
+        ? { abortSignal: AbortSignal.timeout(45000) }
+        : {}),
       ...(research && name === "gemini"
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
         : {}),
@@ -196,14 +215,16 @@ async function withFallback(
   schema?: Record<string, unknown>,
   research = false,
   meter?: GenerationMeter,
+  socrates = false,
 ) {
   const vision = whiteboard || hasImages(messages);
   const providers: Provider[] = [
+    ...(socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() ? ["omniroute" as const] : []),
     "gemini",
     ...(process.env["GROQ_API_KEY"]?.trim() ? ["groq" as const] : []),
     ...(process.env["OPENROUTER_API_KEY"]?.trim() ? ["openrouter" as const] : []),
   ];
-  const labels = { gemini: "Gemini", groq: "Groq", openrouter: "OpenRouter" };
+  const labels = { gemini: "Gemini", groq: "Groq", openrouter: "OpenRouter", omniroute: "OmniRoute" };
   const failed: string[] = [];
   for (const [index, name] of providers.entries()) {
     try {
@@ -268,13 +289,16 @@ export async function aiMeteredObject(
   schema: Record<string, unknown>,
   maxOutputTokens: number,
 ) {
+  // A partially configured dedicated provider is a setup error, not a silent
+  // switch to the site's shared credential.
+  if (process.env["SOCRATES_AI_API_KEY"]?.trim()) socratesAiConfig(process.env);
   let totalTokens: number | undefined;
   const result = await withFallback(instructions, messages, false, schema, false, {
     maxOutputTokens,
     onUsage: (total) => {
       totalTokens = total;
     },
-  });
+  }, true);
   return { value: result.value, totalTokens };
 }
 

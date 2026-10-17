@@ -2,13 +2,21 @@
 
 A aba **Sócrates** é uma conversa de estudo por texto. O tutor precisa explicar o porquê e terminar cada etapa com uma pergunta de compreensão. O aplicativo exige os campos de explicação e pergunta antes de mostrar a resposta; o modelo ainda pode cometer erros de conteúdo.
 
-Usa os mesmos provedores já configurados: Gemini primeiro, Groq e OpenRouter gratuito nas falhas técnicas. Não precisa de outra chave. O OmniRoute não faz parte desta mudança.
+Pode usar uma chave **OmniRoute exclusiva do Sócrates**. Sem ela, continua com Gemini, Groq e OpenRouter já configurados. Com ela, Sócrates chama o OmniRoute primeiro; em falhas técnicas, tenta os provedores existentes. As outras abas nunca usam a chave exclusiva do Sócrates. A integração exige um endpoint de chat compatível com a API OpenAI; confirme isso na documentação do seu serviço OmniRoute.
 
 ## Ativação
 
 No SQL Editor do mesmo projeto Supabase do site, execute o arquivo completo [0003_socrates.sql](drizzle/migrations/0003_socrates.sql). Ele depende da migração 0002 já existente, adiciona a cota e o namespace das conversas e preserva os dados anteriores. Pode ser executado novamente.
 
-Depois da publicação na Vercel, abra Sócrates e clique em **Atualizar cota**. Não é necessário alterar variáveis de ambiente. A migração não pode ser executada pela chave pública do aplicativo.
+Para usar OmniRoute, na Vercel adicione as três variáveis de ambiente **Production** abaixo e publique novamente. Copie a URL base e o identificador do modelo da documentação ou painel da sua conta; não use a URL do site nem inclua `/chat/completions` na base. Nunca use `VITE_` nem coloque a chave no GitHub.
+
+```text
+SOCRATES_AI_API_KEY=<sua chave OmniRoute>
+SOCRATES_AI_BASE_URL=<URL HTTPS base da API OmniRoute>
+SOCRATES_AI_MODEL=<identificador exato do modelo>
+```
+
+Depois da publicação, abra Sócrates e clique em **Atualizar cota**. A migração não pode ser executada pela chave pública do aplicativo.
 
 ## Cota e histórico
 

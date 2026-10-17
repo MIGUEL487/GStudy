@@ -1,5 +1,30 @@
 export class AiSetupError extends Error {}
 
+// OmniRoute is a dedicated, server-only provider for Sócrates.
+// Its URL and model must come from the user's OmniRoute account/documentation.
+export function socratesAiConfig(env: Record<string, string | undefined>) {
+  const key = env["SOCRATES_AI_API_KEY"]?.trim();
+  if (!key) return null;
+  const baseURL = env["SOCRATES_AI_BASE_URL"]?.trim().replace(/\/+$/, "");
+  const model = env["SOCRATES_AI_MODEL"]?.trim();
+  if (!baseURL || !model)
+    throw new AiSetupError(
+      "Para usar OmniRoute no Sócrates, configure SOCRATES_AI_BASE_URL e SOCRATES_AI_MODEL conforme o painel do serviço.",
+    );
+  try {
+    const url = new URL(baseURL);
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash)
+      throw new Error();
+  } catch {
+    throw new AiSetupError("SOCRATES_AI_BASE_URL precisa ser uma URL HTTPS da API OmniRoute, sem chave na URL.");
+  }
+  if (/\/(?:chat\/completions|responses)$/.test(baseURL))
+    throw new AiSetupError("SOCRATES_AI_BASE_URL deve ser a base da API, sem /chat/completions ou /responses.");
+  if (model.length > 180 || /^https?:\/\//i.test(model) || /\s/.test(model))
+    throw new AiSetupError("SOCRATES_AI_MODEL deve ser um identificador de modelo do OmniRoute, não uma URL.");
+  return { key, baseURL, model };
+}
+
 // One server-side configuration serves conversations, images and activities.
 // Keep the existing BOARD_AI_* names so deployed Gemini credentials are reused.
 export function aiConfig(env: Record<string, string | undefined>) {

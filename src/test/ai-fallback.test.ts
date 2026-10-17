@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { aiText, aiObject, aiResearch, aiMeteredObject } from "@/lib/ai.server";
 import { canFallback, providerFailure } from "@/lib/ai-errors";
-import { AiSetupError, groqConfig } from "@/lib/ai-config";
+import { AiSetupError, groqConfig, socratesAiConfig } from "@/lib/ai-config";
 const fetchMock = vi.fn();
 const prompt = "Anotação privada do estudante que não deve aparecer nos logs.";
 const messages = [{ role: "user" as const, content: prompt }];
@@ -48,6 +48,9 @@ const groq = (content = "Resposta Groq", finish_reason = "stop") =>
   );
 beforeEach(() => {
   vi.stubEnv("OPENROUTER_API_KEY", "");
+  vi.stubEnv("SOCRATES_AI_API_KEY", "");
+  vi.stubEnv("SOCRATES_AI_BASE_URL", "");
+  vi.stubEnv("SOCRATES_AI_MODEL", "");
   vi.stubEnv("GROK_API_KEY", "");
   vi.stubEnv("XAI_API_KEY", "");
   vi.stubEnv("BOARD_AI_API_KEY", "gemini-private-key");
@@ -68,6 +71,53 @@ afterEach(() => {
   fetchMock.mockReset();
 });
 describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
+  it("usa OmniRoute só no Sócrates e mantém a chave isolada das outras atividades", async () => {
+    vi.stubEnv("SOCRATES_AI_API_KEY", "socrates-secret-key");
+    vi.stubEnv("SOCRATES_AI_BASE_URL", "https://api.omniroute.example/v1");
+    vi.stubEnv("SOCRATES_AI_MODEL", "study-model");
+    fetchMock.mockResolvedValueOnce(groq(JSON.stringify({
+      explanation: "Uma unidade contém duas metades.",
+      question: "Por que duas metades formam um inteiro?",
+    })));
+    const schema = {
+      type: "object", additionalProperties: false, required: ["explanation", "question"],
+      properties: { explanation: { type: "string" }, question: { type: "string" } },
+    };
+    const result = await aiMeteredObject("Explique e pergunte.", messages, schema, 4096);
+    expect(result.totalTokens).toBe(14);
+    expect(result.value).toHaveProperty("question");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe("https://api.omniroute.example/v1/chat/completions");
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer socrates-secret-key");
+    expect(JSON.parse(init.body).model).toBe("study-model");
+    fetchMock.mockResolvedValueOnce(google());
+    await expect(aiText("Outra atividade.", messages)).resolves.toBe("Resposta Gemini");
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("generativelanguage.googleapis.com");
+    expect(new Headers(fetchMock.mock.calls[1]![1].headers).get("x-goog-api-key"))
+      .toBe("gemini-private-key");
+  });
+  it("usa Gemini se OmniRoute falhar tecnicamente, sem expor a chave nos logs", async () => {
+    vi.stubEnv("SOCRATES_AI_API_KEY", "socrates-secret-key");
+    vi.stubEnv("SOCRATES_AI_BASE_URL", "https://api.omniroute.example/v1");
+    vi.stubEnv("SOCRATES_AI_MODEL", "study-model");
+    fetchMock.mockResolvedValueOnce(failed(429)).mockResolvedValueOnce(google(JSON.stringify({
+      explanation: "Explicação didática de exemplo.", question: "Por que isso acontece?",
+    })));
+    const result = await aiMeteredObject("Explique.", messages, {
+      type: "object", required: ["explanation", "question"],
+      properties: { explanation: { type: "string" }, question: { type: "string" } },
+    }, 4096);
+    expect(result.totalTokens).toBe(12);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("socrates-secret-key");
+  });
+  it("exige URL e modelo do OmniRoute apenas quando sua chave estiver configurada", () => {
+    expect(socratesAiConfig({})).toBeNull();
+    expect(() => socratesAiConfig({ SOCRATES_AI_API_KEY: "key" })).toThrow("SOCRATES_AI_BASE_URL");
+    expect(() => socratesAiConfig({
+      SOCRATES_AI_API_KEY: "key", SOCRATES_AI_BASE_URL: "http://example.com/v1", SOCRATES_AI_MODEL: "model",
+    })).toThrow("HTTPS");
+  });
   it.each(["gemini", "groq"])(
     "Sócrates recebe o consumo e limita a saída com %s",
     async (provider) => {
