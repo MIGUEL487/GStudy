@@ -38,7 +38,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
       <Link to="/" className="brand"><img src={logo.url} alt="" />GStudy</Link>
       <div className="side-caption">SEU ESPAÇO</div>
       <nav className="side-nav" aria-label="Navegação principal">
-        {navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} className={selected(to) ? 'active' : ''} aria-current={selected(to) ? 'page' : undefined}><Icon size={18} />{label}</Link>)}
+        {navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} className={selected(to) ? 'active' : ''} aria-current={selected(to) ? 'page' : undefined}>{to === '/socrates' ? <span className="socrates-nav-icon"><Icon size={15} /></span> : <Icon size={18} />}{label}</Link>)}
       </nav>
       <div className="side-subjects"><div className="side-caption">SUAS MATÉRIAS</div>
         <nav className="side-nav" aria-label="Suas matérias">{data.subjects.map(s => <Link key={s.id} to="/materias/$subjectId" params={{ subjectId: s.id }} className={path.includes(s.id) ? 'active' : ''}><SubjectIcon name={s.name} size={18} />{s.name}</Link>)}</nav>
@@ -57,7 +57,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
       <main className="content">{focused?<FocusSessionHeader/>:<RecallResume />}<div className="page-transition" ref={page}>{children}</div><footer className="page-footer"><span className="footer-motto">Sapere aude. <span className="font-sans text-[10px] not-italic">Ouse saber.</span></span><span>Feito para o seu próximo capítulo.</span></footer></main>
     </div>
     <nav className="mobile-bottom-nav" aria-label="Navegação principal no celular" inert={focused} aria-hidden={focused||undefined}>
-      {navigation.map(({ to, label, mobileLabel, icon: Icon }) => <Link key={to} to={to} className={selected(to) ? 'active' : ''} aria-current={selected(to) ? 'page' : undefined} aria-label={label}><Icon size={21} strokeWidth={to === '/socrates' ? 90 : 1.65} /><span>{mobileLabel}</span></Link>)}
+      {navigation.map(({ to, label, mobileLabel, icon: Icon }) => <Link key={to} to={to} className={selected(to) ? 'active' : ''} aria-current={selected(to) ? 'page' : undefined} aria-label={label}>{to === '/socrates' ? <span className="socrates-nav-icon"><Icon size={18} /></span> : <Icon size={21} strokeWidth={1.65} />}<span>{mobileLabel}</span></Link>)}
     </nav>
     <RecallTimerPopup/>
   </div>;
