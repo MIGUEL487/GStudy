@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { aiText, aiObject, aiResearch } from "@/lib/ai.server";
+import { aiText, aiObject, aiResearch, aiMeteredObject } from "@/lib/ai.server";
 import { canFallback, providerFailure } from "@/lib/ai-errors";
 import { AiSetupError, groqConfig } from "@/lib/ai-config";
 const fetchMock = vi.fn();
@@ -68,6 +68,39 @@ afterEach(() => {
   fetchMock.mockReset();
 });
 describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
+  it.each(["gemini", "groq"])(
+    "Sócrates recebe o consumo e limita a saída com %s",
+    async (provider) => {
+      const output = {
+        explanation: "Explicação didática de exemplo.",
+        question: "Por que isso acontece?",
+      };
+      if (provider === "gemini") fetchMock.mockResolvedValueOnce(google(JSON.stringify(output)));
+      else
+        fetchMock
+          .mockResolvedValueOnce(failed(429))
+          .mockResolvedValueOnce(groq(JSON.stringify(output)));
+      const result = await aiMeteredObject(
+        "Explique o porquê e pergunte.",
+        messages,
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["explanation", "question"],
+          properties: { explanation: { type: "string" }, question: { type: "string" } },
+        },
+        4096,
+      );
+      expect(result.value).toEqual(output);
+      expect(result.totalTokens).toBe(provider === "gemini" ? 12 : 14);
+      const request = JSON.parse(fetchMock.mock.calls.at(-1)![1].body);
+      expect(
+        provider === "gemini"
+          ? request.generationConfig.maxOutputTokens
+          : (request.max_tokens ?? request.max_completion_tokens),
+      ).toBe(4096);
+    },
+  );
   it("usa Groq mesmo se variáveis antigas de Grok continuarem cadastradas", async () => {
     vi.stubEnv("GROK_API_KEY", "grok_old_unused");
     vi.stubEnv("XAI_API_KEY", "xai-old-unused");

@@ -4,8 +4,9 @@ import { loadData, storageKey, initialData } from "./study-model";
 import { learningKey, readLearning } from "./learning-model";
 import { parseRecallSessions, recallStorageKey } from "./recall-session";
 import { attemptKey, readAttempts } from "./daily-attempts";
+import { socratesStorageKey, readSocratesDocument } from "./socrates-model";
 
-export const namespaces = ["workspace", "learning", "recall", "attempts"] as const;
+export const namespaces = ["workspace", "learning", "recall", "attempts", "socrates"] as const;
 export type Namespace = (typeof namespaces)[number];
 export type Document = Record<string, unknown>;
 export type Fingerprint = Record<string, string>;
@@ -14,9 +15,11 @@ export const localDocumentKey = (user: string, ns: Namespace) =>
     ? `${storageKey}:${user}`
     : ns === "learning"
       ? `${learningKey}:${user}`
-      : ns === "recall"
-        ? recallStorageKey(user)
-        : attemptKey(user);
+      : ns === "socrates"
+        ? socratesStorageKey(user)
+        : ns === "recall"
+          ? recallStorageKey(user)
+          : attemptKey(user);
 const named = z.object({ id: z.string().min(1).max(300), title: z.string() });
 const workspace = z.object({
   version: z.literal(1),
@@ -82,6 +85,7 @@ export function parseAccountDocument(ns: Namespace, value: unknown): Document {
   }
   if (ns === "learning") return readLearning(JSON.stringify(value)) as unknown as Document;
   if (ns === "recall") return parseRecallSessions(value) as unknown as Document;
+  if (ns === "socrates") return readSocratesDocument(JSON.stringify(value)) as unknown as Document;
   return readAttempts(JSON.stringify(value)) as unknown as Document;
 }
 export function canonical(value: unknown): string {

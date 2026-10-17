@@ -32,3 +32,5 @@ Todas as funções de IA tentam Gemini (`BOARD_AI_*`) primeiro e usam Groq (`GRO
 Em **Aprender**, escolha uma matéria para suas trilhas de atividades. **Rumo à prova** tem um painel próprio com roteiro de sessões, indicações de vídeos e livros e mapa do programa, sem misturar seus planos com as trilhas. Planos antigos podem receber o novo roteiro mantendo seus dados. Veja [PREPARACAO.md](./PREPARACAO.md).
 
 A biblioteca de Rumo à prova usa player YouTube com trechos por capítulos, materiais oficiais com licença comercial confirmada e links para a Amazon. Para a busca completa com avatar e capítulos, configure `YOUTUBE_API_KEY` seguindo [BIBLIOTECA-DE-ESTUDOS.md](./BIBLIOTECA-DE-ESTUDOS.md).
+
+A aba **Sócrates** explica o porquê e faz uma pergunta ao final de cada etapa, com 50 mil tokens diários por conta. Ative a migração 0003 no Supabase conforme [SOCRATES.md](./SOCRATES.md).

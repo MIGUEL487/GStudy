@@ -31,6 +31,34 @@ const edit = (document: Document, text: string) => {
 const notes = (document: Document) => (document as unknown as StudyData).subjects[0]!.notebooks;
 
 describe("Mesclagem dos aparelhos por conta", () => {
+  it("preserva conversas de Sócrates e turnos escritos em dois aparelhos", () => {
+    const conversation = {
+      id: crypto.randomUUID(),
+      title: "Frações",
+      subject: "Matemática",
+      createdAt: new Date().toISOString(),
+      messages: [],
+    };
+    const original = parseAccountDocument("socrates", {
+      version: 1,
+      conversations: [conversation],
+    });
+    const message = (text: string) => ({
+      id: crypto.randomUUID(),
+      role: "user",
+      text,
+      createdAt: new Date().toISOString(),
+    });
+    const phone = message("Dúvida do celular"),
+      desktop = message("Dúvida do computador");
+    const local = { version: 1, conversations: [{ ...conversation, messages: [phone] }] };
+    const remote = { version: 1, conversations: [{ ...conversation, messages: [desktop] }] };
+    const result = mergeAccountDocuments("socrates", fingerprint(original), local, remote);
+    expect(result.document).toMatchObject({
+      conversations: [{ messages: expect.arrayContaining([phone, desktop]) }],
+    });
+    expect(localDocumentKey("alice", "socrates")).not.toBe(localDocumentKey("bob", "socrates"));
+  });
   it("combina campos diferentes sem guardar o texto no histórico de comparação", () => {
     const original = workspace(),
       local = { ...original, name: "Nome do celular" },

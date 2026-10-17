@@ -37,6 +37,7 @@ const baselineSchema = z
     learning: baselineEntry,
     recall: baselineEntry,
     attempts: baselineEntry,
+    socrates: baselineEntry,
   })
   .partial();
 type Baselines = Partial<Record<Namespace, { revision: number; nodes: Fingerprint } | undefined>>;
@@ -111,6 +112,7 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
           .abortSignal(AbortSignal.any([cancellation.signal, AbortSignal.timeout(10000)]));
         if (error) throw error;
         if (!alive) return;
+        let socratesSetup = false;
         for (const ns of namespaces) {
           if (!alive) return;
           let local = read(ns);
@@ -140,7 +142,16 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
                 p_document: proposal.document as Json,
               })
               .abortSignal(AbortSignal.any([cancellation.signal, AbortSignal.timeout(10000)]));
-            if (writeError) throw writeError;
+            if (writeError) {
+              if (
+                ns === "socrates" &&
+                ["PGRST202", "42P01", "23514", "22023"].includes(writeError.code)
+              ) {
+                socratesSetup = true;
+                break;
+              }
+              throw writeError;
+            }
             if (!alive) return;
             const reply = responseSchema.parse(data);
             revision = reply.revision;
@@ -158,7 +169,7 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
             if (attempt === 3)
               throw new Error("Há alterações em outro aparelho. Tentaremos sincronizar novamente.");
           }
-          if (!acknowledged) continue;
+          if (!acknowledged || (ns === "socrates" && socratesSetup)) continue;
           const newest = read(ns);
           const effective =
             newest && canonical(newest) !== canonical(local)
@@ -174,7 +185,12 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
           if (canonical(effective) !== canonical(acknowledged)) pending = true;
         }
         localStorage.setItem(key, JSON.stringify(baselines));
-        show("synced", "Sua conta está sincronizada.");
+        if (socratesSetup)
+          show(
+            "setup",
+            "Ative a migração 0003_socrates.sql no Supabase para sincronizar Sócrates. Os demais estudos foram sincronizados.",
+          );
+        else show("synced", "Sua conta está sincronizada.");
       } catch (e) {
         const code = e && typeof e === "object" && "code" in e ? String(e.code) : "";
         if (["PGRST205", "PGRST202", "42P01", "42883"].includes(code))

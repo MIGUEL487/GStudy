@@ -14,6 +14,7 @@ import { hasPdf, validateOpenRouterFiles } from "./openrouter-media.server";
 
 type Provider = "gemini" | "groq" | "openrouter";
 const groqTimeoutMs = 25000;
+type GenerationMeter = { maxOutputTokens: number; onUsage: (total: number | undefined) => void };
 async function provider(name: Provider, vision: boolean, research = false, document = false) {
   const context = {
     whiteboard: vision,
@@ -110,6 +111,7 @@ async function generate(
   name: Provider,
   schema?: Record<string, unknown>,
   research = false,
+  meter?: GenerationMeter,
 ): Promise<unknown> {
   if (name === "openrouter") await validateOpenRouterFiles(messages);
   const model = await provider(name, hasImages(messages), research, hasPdf(messages));
@@ -122,6 +124,7 @@ async function generate(
           : instructions,
       messages,
       maxRetries: 0,
+      ...(meter ? { maxOutputTokens: meter.maxOutputTokens } : {}),
       ...(name === "openrouter" ? { abortSignal: AbortSignal.timeout(45000) } : {}),
       ...(research && name === "gemini"
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
@@ -161,6 +164,7 @@ async function generate(
     throw new AiSetupError(
       "A IA atingiu o limite de geração antes de concluir a resposta. Tente um conteúdo menor.",
     );
+  meter?.onUsage(result.usage.totalTokens);
   if (schema) {
     const output = result.output;
     if (!output || typeof output !== "object" || Array.isArray(output))
@@ -191,6 +195,7 @@ async function withFallback(
   whiteboard: boolean,
   schema?: Record<string, unknown>,
   research = false,
+  meter?: GenerationMeter,
 ) {
   const vision = whiteboard || hasImages(messages);
   const providers: Provider[] = [
@@ -220,6 +225,7 @@ async function withFallback(
         name,
         schema,
         research,
+        meter,
       );
       return { value, convertedPdf: prepared.convertedPdf || parsedPdf };
     } catch (error) {
@@ -253,6 +259,23 @@ export async function aiObject<T>(
   schema: Record<string, unknown>,
 ): Promise<T> {
   return (await withFallback(instructions, messages, false, schema)).value as T;
+}
+
+/** Only the Socrates endpoint opts into metering; other study requests keep their settings. */
+export async function aiMeteredObject(
+  instructions: string,
+  messages: ModelMessage[],
+  schema: Record<string, unknown>,
+  maxOutputTokens: number,
+) {
+  let totalTokens: number | undefined;
+  const result = await withFallback(instructions, messages, false, schema, false, {
+    maxOutputTokens,
+    onUsage: (total) => {
+      totalTokens = total;
+    },
+  });
+  return { value: result.value, totalTokens };
 }
 
 // Source URLs come from provider grounding metadata, never from prose.
