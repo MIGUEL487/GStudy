@@ -9,8 +9,7 @@ import {
 } from "./attendance-model";
 import {
   emptyPerformance,
-  maxPeriodAbsences,
-  validateCountInput,
+  validateAbsenceCount,
   type StudyData,
   type Subject,
 } from "./study-model";
@@ -34,7 +33,7 @@ export const reportPhotoResult = z.object({
         period: z.number().int().min(1).max(4).nullable(),
         periodLabel: z.string().trim().max(100),
         score: z.number().finite().min(0).max(1000).nullable(),
-        absences: z.number().int().min(0).max(1000).nullable(),
+        absences: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable(),
       }),
     )
     .max(80),
@@ -77,16 +76,15 @@ const valueSchema = z
   .string()
   .trim()
   .regex(/^\d+(?:[.,]\d+)?$/);
-function numeric(value: string, field: string, whole = false) {
+function numeric(value: string, field: string) {
   const raw = valueSchema.safeParse(value);
   const number = raw.success ? Number(raw.data.replace(",", ".")) : NaN;
   if (
     !Number.isFinite(number) ||
     number < 0 ||
-    number > 1000 ||
-    (whole && !Number.isInteger(number))
+    number > 1000
   )
-    throw new Error(`Confira ${field}: use um número ${whole ? "inteiro " : ""}entre 0 e 1000.`);
+    throw new Error(`Confira ${field}: use um número entre 0 e 1000.`);
   return String(number);
 }
 export function applyReportDrafts(
@@ -135,11 +133,7 @@ export function applyReportDrafts(
     const values: { score?: string; absences?: string } = {};
     if (row.score.trim()) values.score = numeric(row.score, "a nota");
     if (options.includeAbsences && row.absences.trim())
-      values.absences = validateCountInput(
-        numeric(row.absences, "as faltas", true),
-        maxPeriodAbsences(base, row.subjectId),
-        "Faltas por bimestre",
-      );
+      values.absences = validateAbsenceCount(row.absences.trim());
     if (!Object.keys(values).length)
       throw new Error(`${subject.name}: preencha a nota ou habilite a importação de faltas.`);
     if (values.absences !== undefined)

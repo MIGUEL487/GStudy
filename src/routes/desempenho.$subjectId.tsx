@@ -6,7 +6,6 @@ import {
   emptyPerformance,
   absenceBudget,
   maxWeeklyClasses,
-  maxPeriodAbsences,
   performanceWeeklyClasses,
   validatePerformanceCounts,
   type Performance,
@@ -19,9 +18,7 @@ import {
   totalSubjectAbsences,
   anchorAbsenceTotal,
   undatedSubjectAbsences,
-  attendancePeriods,
 } from "@/lib/attendance-model";
-import { AttendancePeriodsSettings } from "@/components/attendance-periods-settings";
 import { ReportPhotoImport } from "@/components/photo-imports";
 export const Route = createFileRoute("/desempenho/$subjectId")({
   head: () => ({
@@ -139,9 +136,8 @@ function PerformancePage() {
       </p>
       <p className="page-subtitle">
         {undatedSubjectAbsences(data, subjectId)} falta(s) de aula ainda sem data confirmada.
-        Confira as datas dos bimestres antes de importar o boletim.
+        No calendário, elas aparecem como sugestões em ordem cronológica até você confirmar os dias.
       </p>
-      <AttendancePeriodsSettings />
       <div className="grade-scroll">
         <table className="grade-table">
           <thead>
@@ -158,10 +154,6 @@ function PerformancePage() {
               <tr key={i}>
                 <td>
                   {i + 1}º
-                  <small className="block text-xs text-muted-foreground">
-                    {attendancePeriods(data)[i]?.start.split("-").reverse().join("/")} a{" "}
-                    {attendancePeriods(data)[i]?.end.split("-").reverse().join("/")}
-                  </small>
                 </td>
                 {(["score", "behavior", "warnings", "absences"] as const).map((key) => (
                   <td key={key}>
@@ -189,7 +181,6 @@ function PerformancePage() {
                         aria-label={`${key === "score" ? "Nota" : key === "absences" ? "Faltas" : "Advertências"} ${i + 1}º bimestre`}
                         type="number"
                         min="0"
-                        max={key === "absences" ? maxPeriodAbsences(data, subjectId) : undefined}
                         step={key === "score" ? "0.1" : "1"}
                         className="form-input"
                         value={

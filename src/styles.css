@@ -136,6 +136,9 @@ button { font:inherit; } :focus-visible { outline:2px solid var(--primary); outl
 .calendar-day:hover:not(:disabled) { transform:translateY(-2px);border-color:var(--primary); } .calendar-day span { font-size:14px; } .calendar-day small { font-size:10px;min-height:12px; }
 .calendar-day.off { opacity:.35;cursor:default; } .calendar-day.today { border-color:var(--primary);border-width:2px; }
 .calendar-day.present { background:oklch(.929 .031 133);color:oklch(.38 .06 133); } .calendar-day.absent { background:color-mix(in oklch,var(--destructive) 16%,var(--background));color:var(--destructive); }
+.calendar-day.pending:not(.present):not(.absent) { border-style:dashed;border-color:var(--primary);background:color-mix(in srgb,var(--primary) 7%,var(--background)); }
+.calendar-pending-count { position:absolute;top:2px;right:5px;font-size:10px!important;color:var(--primary);font-weight:700; }
+.calendar-day { position:relative; }
 .day-chips { display:flex;flex-wrap:wrap;gap:8px; } .day-chip { padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--foreground);cursor:pointer;font-size:13px;transition:background .2s,color .2s,transform .2s var(--ease); } .day-chip:hover { transform:translateY(-1px); } .day-chip.on { background:var(--primary);color:var(--primary-foreground);border-color:var(--primary); }
 @media (max-width:700px) { .login-screen { grid-template-columns:1fr; } .login-art { display:none; } .absence-box { grid-template-columns:repeat(2,minmax(0,1fr)); } .calendar { padding:10px; } .calendar-grid { gap:3px; } .calendar-day small { display:none; } }
 

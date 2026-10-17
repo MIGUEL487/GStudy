@@ -65,7 +65,7 @@ describe("Faltas do calendário e tabela", () => {
     expect(screen.getByLabelText("Faltas 4º bimestre")).toHaveValue(1);
     expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("1");
   });
-  it("rejeita frações e 200 aulas semanais, mas permite registrar faltas acima de 25%", () => {
+  it("rejeita frações e 200 aulas semanais, mas aceita qualquer total inteiro de faltas", () => {
     render(<Workspace />);
     fireEvent.click(screen.getByText("Ver tabela"));
     const weekly = screen.getByLabelText("Aulas dessa matéria por semana");
@@ -79,11 +79,19 @@ describe("Faltas do calendário e tabela", () => {
     fireEvent.change(absences, { target: { value: "3.56" } });
     expect(absences).toHaveValue(null);
     fireEvent.change(absences, { target: { value: "37" } });
-    expect(absences).toHaveValue(null);
-    fireEvent.change(absences, { target: { value: "30" } });
+    expect(absences).toHaveValue(37);
     fireEvent.change(screen.getByLabelText("Faltas 2º bimestre"), { target: { value: "10" } });
-    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("40");
+    expect(screen.getByLabelText("Total de faltas")).toHaveTextContent("47");
     expect(screen.getByText(/você passou do limite de 25%/)).toBeInTheDocument();
+  });
+  it("mostra faltas da tabela em dias sugeridos por ordem crescente sem confirmar datas", () => {
+    render(<Workspace />);
+    fireEvent.click(screen.getByText("Ver tabela"));
+    fireEvent.change(screen.getByLabelText("Faltas 4º bimestre"), { target: { value: "3" } });
+    fireEvent.click(screen.getByText("Ver calendário"));
+    expect(screen.getByRole("button", { name: /05\/10\/2026: sem registro; 2 falta\(s\) de aula a localizar/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /12\/10\/2026: sem registro; 1 falta\(s\) de aula a localizar/ })).toBeInTheDocument();
+    expect(screen.getByText(/3 falta\(s\) de aula lançadas na tabela/)).toBeInTheDocument();
   });
   it("limita o horário a 12 aulas por dia", () => {
     const data = initialData();

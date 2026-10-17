@@ -66,7 +66,7 @@ export const readReportPhoto = createServerFn({ method: "POST" })
             period: nullable({ type: "integer", minimum: 1, maximum: 4 }),
             periodLabel: string,
             score: nullable({ type: "number", minimum: 0, maximum: 1000 }),
-            absences: nullable({ type: "integer", minimum: 0, maximum: 1000 }),
+            absences: nullable({ type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
           }),
           0,
           80,

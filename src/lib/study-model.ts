@@ -81,6 +81,12 @@ export function validateCountInput(value: string, max: number, label: string) {
     throw new Error(`${label}: use um número inteiro entre 0 e ${max}.`);
   return String(Number(value));
 }
+export function validateAbsenceCount(value: string) {
+  if (value === "") return value;
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)))
+    throw new Error("Faltas por bimestre: use um número inteiro não negativo.");
+  return String(Number(value));
+}
 export function validatePerformanceCounts(
   data: Pick<StudyData, "schedule" | "schoolDays" | "performance">,
   subjectId: string,
@@ -90,10 +96,9 @@ export function validatePerformanceCounts(
   const weeklyChanged = performance.perWeek !== previous?.perWeek;
   if (weeklyChanged)
     validateCountInput(performance.perWeek ?? "", maxWeeklyClasses(data), "Aulas por semana");
-  const next = { ...data, performance: { ...data.performance, [subjectId]: performance } };
   performance.grades.forEach((grade, index) => {
     if (weeklyChanged || grade.absences !== previous?.grades[index]?.absences)
-      validateCountInput(grade.absences, maxPeriodAbsences(next, subjectId), "Faltas por bimestre");
+      validateAbsenceCount(grade.absences);
   });
   return performance;
 }

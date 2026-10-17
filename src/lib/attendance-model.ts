@@ -99,6 +99,39 @@ export function undatedSubjectAbsences(data: StudyData, subjectId: string) {
     0,
   );
 }
+export type PendingAbsence = { subjectId: string; count: number };
+/** Display undated table totals in ascending calendar order, without claiming those dates occurred. */
+export function pendingAbsenceSuggestions(data: StudyData, today = dateKey(new Date())) {
+  const suggestions: Record<string, PendingAbsence[]> = {};
+  const periods = attendancePeriods(data);
+  const schoolDays = data.schoolDays ?? [1, 2, 3, 4, 5];
+  for (const subject of data.subjects) {
+    const hasScheduledLessons = schoolDays.some((weekday) =>
+      (data.schedule?.cells[String(weekday)] ?? [])
+        .slice(0, data.schedule?.rows ?? 0)
+        .includes(subject.id),
+    );
+    for (let period = 0; period < periods.length; period++) {
+      let remaining = absenceTotal(data, subject.id, period) - datedAbsences(data, subject.id, period);
+      if (remaining <= 0) continue;
+      const range = periods[period]!;
+      const start = parseAttendanceDate(range.start);
+      if (!start) continue;
+      for (const day = new Date(start); dateKey(day) <= range.end && dateKey(day) <= today && remaining > 0; day.setDate(day.getDate() + 1)) {
+        const date = dateKey(day);
+        if (!schoolDays.includes(day.getDay()) || data.attendance?.[date]) continue;
+        // A blank timetable can still display a provisional chronology, one lesson at a time.
+        const scheduled = lessonsOnDate(data, date, subject.id);
+        if (hasScheduledLessons && !scheduled) continue;
+        const lessons = scheduled || 1;
+        const count = Math.min(remaining, lessons);
+        (suggestions[date] ??= []).push({ subjectId: subject.id, count });
+        remaining -= count;
+      }
+    }
+  }
+  return suggestions;
+}
 export function anchorAbsenceTotal(
   data: StudyData,
   subjectId: string,

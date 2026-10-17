@@ -9,6 +9,7 @@ import {
 import { applyReportDrafts, reportDrafts, type ReportDraft } from "@/lib/photo-import-model";
 import {
   absenceTotal,
+  pendingAbsenceSuggestions,
   inferAbsenceDates,
   normalizeAbsenceTotals,
   totalSubjectAbsences,
@@ -52,6 +53,19 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 describe("Um total de faltas para calendário, tabela e boletim", () => {
+  it("projeta os totais da tabela desde janeiro em dias crescentes sem inventar ausências", () => {
+    const data = workspace();
+    data.attendancePeriods![0] = { start: "2026-01-01", end: "2026-02-28" };
+    data.schedule = { rows: 1, cells: { "1": ["subject-0"] } };
+    data.performance["subject-0"] = emptyPerformance();
+    data.performance["subject-0"]!.grades[0]!.absences = "2";
+    data.attendance = { "2026-01-05": "present" };
+    const suggestions = pendingAbsenceSuggestions(data, "2026-02-28");
+    expect(Object.keys(suggestions)).toEqual(["2026-01-12", "2026-01-19"]);
+    expect(suggestions["2026-01-12"]).toEqual([{ subjectId: "subject-0", count: 1 }]);
+    expect(data.attendance).toEqual({ "2026-01-05": "present" });
+    expect(absenceTotal(data, "subject-0", 0)).toBe(2);
+  });
   it("deduz uma combinação única por todas as matérias e não duplica ao importar novamente", () => {
     const data = workspace();
     const rows = [row("subject-0", "3"), row("subject-2", "1")];

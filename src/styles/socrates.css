@@ -1,5 +1,5 @@
 .socrates-page {
-  max-width: 1050px;
+  max-width: 1320px;
   margin: 0 auto;
 }
 .socrates-hero .eyebrow {
@@ -88,8 +88,8 @@
 .socrates-dialogue {
   display: flex;
   flex-direction: column;
-  height: clamp(340px, calc(100dvh - 480px), 640px);
-  min-height: 380px;
+  height: clamp(500px, calc(100dvh - 370px), 900px);
+  min-height: 500px;
   border: 1px solid var(--border);
   border-radius: 22px;
   background: color-mix(in srgb, var(--background) 75%, white);
@@ -298,8 +298,8 @@
     padding: 15px;
   }
   .socrates-dialogue {
-    height: clamp(340px, calc(100dvh - 400px), 620px);
-    min-height: 340px;
+    height: clamp(480px, calc(100dvh - 350px), 760px);
+    min-height: 480px;
   }
   .socrates-dialogue-heading {
     padding: 12px 17px;

@@ -12,7 +12,6 @@ import {
   newReportSubject,
   type ReportDraft,
 } from "@/lib/photo-import-model";
-import { AttendancePeriodsSettings } from "./attendance-periods-settings";
 import { absenceTotal } from "@/lib/attendance-model";
 import { prepareStudyPhoto, type StudyPhoto } from "@/lib/study-photo";
 import "@/styles/photo-imports.css";
@@ -443,12 +442,11 @@ function ReportPhotoDialog({
                 {includeAbsences && (
                   <p>
                     As faltas do boletim atualizam o mesmo total da tabela e do calendário; não são
-                    somadas outra vez. Confira o ano, os bimestres e seu horário atual. Presenças já
+                    somadas outra vez. Confira o bimestre e seu horário atual. Presenças já
                     registradas serão preservadas.
                   </p>
                 )}
               </div>
-              {includeAbsences && <AttendancePeriodsSettings />}
               {includeAbsences && preview.result?.inference && (
                 <div className="study-photo-help" role="status">
                   <p>{preview.result.inference.message}</p>
