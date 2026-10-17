@@ -41,7 +41,7 @@ import { libraryVideo } from "./helpers/library-fixture";
 const page = "https://biblioteca.exemplo.edu.br/catalogo/matematica";
 const title = "Matemática Básica Aberta";
 const html = (rights = "https://creativecommons.org/licenses/by/4.0/") =>
-  `<html><meta name="DC.title" content="${title}"><meta name="DC.creator" content="Equipe de Matemática"><meta name="DC.rights" content="${rights}"><meta name="citation_pdf_url" content="/livro.pdf"><a href="/livro.pdf">PDF</a></html>`;
+  `<html><meta name="DC.title" content="${title}"><meta name="DC.language" content="pt-BR"><meta name="DC.creator" content="Equipe de Matemática"><meta name="DC.rights" content="${rights}"><meta name="citation_pdf_url" content="/livro.pdf"><a href="/livro.pdf">PDF</a></html>`;
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const data = {
@@ -96,6 +96,7 @@ beforeEach(() => {
         topicIndex: 0,
         reason: "Retome os fundamentos desta unidade.",
         sourceIndex: 1,
+        language: "pt",
       },
       {
         title: "O Homem que Calculava",
@@ -103,6 +104,7 @@ beforeEach(() => {
         topicIndex: 1,
         reason: "Pratique o raciocínio com desafios.",
         sourceIndex: 2,
+        language: "pt",
       },
     ],
   });
@@ -170,11 +172,12 @@ describe("Curadoria oficial de aulas e livros", () => {
           topicIndex: 0,
           reason: "Leitura complementar para o conteúdo.",
           sourceIndex: 0,
+          language: "pt",
         },
       ],
     },
   ])(
-    "mantém a leitura e o título oficial da OBGP quando a IA omite ou traduz a referência (caso %#)",
+    "recusa livros ingleses da OBGP mesmo quando a IA traduz o título e afirma português (caso %#)",
     async ({ books }) => {
       const work = {
         id: 123,
@@ -211,13 +214,9 @@ describe("Curadoria oficial de aulas e livros", () => {
           { title: "Ordem mundial e relações de poder", goal: "Relacionar poder e território." },
         ],
       });
-      expect(result.books[0]).toMatchObject({
-        title: work.title,
-        access: "open",
-        language: "en",
-        pdf: { url: work.pdf_url, license: "CC BY" },
-      });
-      expect(result.bookSearchStatus).toBe("verified");
+      expect(result.books).toEqual([]);
+      expect(result.bookSearchStatus).not.toBe("verified");
+      expect(result.bookNotice).toContain("português");
     },
   );
   it("prioriza referências pertinentes ao conteúdo de geopolítica da OBGP", () => {
@@ -228,9 +227,22 @@ describe("Curadoria oficial de aulas e livros", () => {
       "College Algebra",
     ].map((title) => ({ title, url: "https://openstax.org/apps/cms/api/v2/pages/123/" }));
     const selected = relevantOpenStaxBooks(sources, "Geopolítica e ordem mundial");
-    expect(selected).toHaveLength(2);
-    expect(selected.map((book) => book.title)).toEqual(
-      expect.arrayContaining(["World History, Volume 2", "Introduction to Political Science"]),
+    expect(selected).toHaveLength(0);
+  });
+  it("respeita o idioma do catálogo mesmo se a IA disser português", async () => {
+    const base = mocks.fetch.getMockImplementation()!;
+    mocks.fetch.mockImplementation((input, init) =>
+      String(input) === page
+        ? new Response(html().replace('content="pt-BR"', 'content="en"'), {
+            headers: { "content-type": "text/html" },
+          })
+        : base(input, init),
+    );
+    const result = await call();
+    expect(result.books.some((book: { title: string }) => book.title === title)).toBe(false);
+    expect(result.books[0]).toMatchObject({ title: "O Homem que Calculava", language: "pt" });
+    expect(mocks.research.mock.calls[0]?.[0]).toContain(
+      "SOMENTE livros e materiais escritos em português",
     );
   });
   it("busca vídeos reais, mantém logo/nome do canal e seleciona só capítulos publicados", async () => {
@@ -329,7 +341,7 @@ describe("Curadoria oficial de aulas e livros", () => {
     expect(result.videos[0].title).toBe(libraryVideo.title);
     expect(result.videos[0].clip).toBeUndefined();
     expect(result.books[0]).toMatchObject({ title, access: "open" });
-    expect(result.books[1].access).toBe("paid");
+    expect(result.books).toHaveLength(1); // Unknown-language suggestions are omitted without AI confirmation.
   });
   it("mantém um vídeo não incorporável como link externo, sem contornar o bloqueio", async () => {
     const base = mocks.fetch.getMockImplementation()!;
@@ -506,7 +518,7 @@ describe("Catálogos públicos e formatos de repositórios", () => {
   it("busca só livros sem refazer chamadas, capítulos ou avatares do YouTube", async () => {
     const result = await call({ ...data, scope: "books" });
     expect(result.books[0].access).toBe("open");
-    expect(result.bookSearchVersion).toBe(4);
+    expect(result.bookSearchVersion).toBe(5);
     expect(result.videos).toEqual([]);
     expect(
       mocks.fetch.mock.calls.every(([url]) =>

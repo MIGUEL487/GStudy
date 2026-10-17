@@ -283,7 +283,12 @@ export async function searchOfficialBooks(queries: string[]) {
 export async function checkOfficialBook(
   pageUrl: string,
   title: string,
-): Promise<{ landing: boolean; url?: string; pdf: NonNullable<LibraryBook["pdf"]> | null }> {
+): Promise<{
+  landing: boolean;
+  url?: string;
+  language?: string;
+  pdf: NonNullable<LibraryBook["pdf"]> | null;
+}> {
   if (!officialBookUrl(pageUrl) || /\.pdf$/i.test(new URL(pageUrl).pathname))
     return { landing: false, pdf: null };
   try {
@@ -296,7 +301,22 @@ export async function checkOfficialBook(
       return { landing: false, pdf: null };
     const html = await response.text();
     if (html.length > 1_500_000) return { landing: false, pdf: null };
-    const landing = { landing: true, url: landingUrl, pdf: null };
+    const languages = [...html.matchAll(/<meta\b[^>]*>/gi)]
+      .map((match) => attributes(match[0]))
+      .filter((meta) =>
+        /^(?:dc\.language(?:\.iso)?|dcterms\.language|citation_language)$/i.test(
+          meta["name"] || meta["property"] || "",
+        ),
+      )
+      .map((meta) => meta["content"]?.trim())
+      .filter(Boolean);
+    const language = [...new Set(languages)].join(", ") || undefined;
+    const landing = {
+      landing: true,
+      url: landingUrl,
+      ...(language ? { language } : {}),
+      pdf: null,
+    };
     const evidence = bookLicenseEvidence(html, landingUrl, title);
     if (!evidence) return landing;
     // A repository can allow downloads while rejecting HEAD. Inspect only the
@@ -321,8 +341,7 @@ export async function checkOfficialBook(
     const xfo = pdf.headers.get("x-frame-options"),
       csp = pdf.headers.get("content-security-policy");
     return {
-      landing: true,
-      url: landingUrl,
+      ...landing,
       pdf: { ...evidence, url: pdfUrl, embeddable: !xfo && !/frame-ancestors/i.test(csp || "") },
     };
   } catch {

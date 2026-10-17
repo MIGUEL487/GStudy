@@ -26,6 +26,7 @@ export const libraryBook: LibraryBook = {
   topicIndex: 0,
   reason: "Leia a seção de equações para retomar os fundamentos.",
   access: "open",
+  language: "pt-BR",
   officialUrl: "https://biblioteca.exemplo.edu.br/catalogo/matematica",
   pdf: {
     url: "https://biblioteca.exemplo.edu.br/livro.pdf",
@@ -39,6 +40,7 @@ export const libraryBook: LibraryBook = {
 };
 export const libraryFixture: PreparationLibrary = {
   version: 1,
+  bookSearchVersion: 5,
   checkedAt: "2026-10-16T12:00:00.000Z",
   mode: "youtube-api",
   videos: [libraryVideo],
@@ -50,6 +52,7 @@ export const libraryFixture: PreparationLibrary = {
       topicIndex: 1,
       reason: "Exercite o raciocínio com desafios e confira a edição.",
       access: "paid",
+      language: "pt",
       amazonUrl: "https://www.amazon.com.br/dp/8501011665",
     },
   ],

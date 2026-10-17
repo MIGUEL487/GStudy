@@ -6,7 +6,11 @@ import {
   getPreparationYouTubeStatus,
 } from "@/lib/preparation-library.functions";
 import type { LearningPlan } from "@/lib/learning-model";
-import { youtubeMissingNotice, type PreparationLibrary } from "@/lib/preparation-library-model";
+import {
+  youtubeMissingNotice,
+  portugueseBookLanguage,
+  type PreparationLibrary,
+} from "@/lib/preparation-library-model";
 
 export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
   const curate = useServerFn(curatePreparationLibrary);
@@ -83,12 +87,11 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
       void refresh();
       return;
     }
-    // Retry libraries saved by the former combined search once, without paying
+    // Refresh libraries saved before the Portuguese-only policy once, without paying
     // for another YouTube search or replacing the student's selected videos.
     if (
-      guide.library.bookSearchVersion !== 4 &&
-      !guide.library.books.some((book) => book.access === "open") &&
-      guide.library.videos.length
+      guide.library.bookSearchVersion !== 5 &&
+      (guide.library.videos.length || guide.library.mode !== "unavailable")
     ) {
       void refresh("books");
       return;
@@ -113,8 +116,13 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
     })();
   }, [active, guide]);
   const saved = draft ?? guide?.library;
-  const library =
-    configurationMissing && saved ? { ...saved, videoNotice: youtubeMissingNotice } : saved;
+  const library = saved
+    ? {
+        ...saved,
+        books: saved.books.filter((book) => portugueseBookLanguage(book.language)),
+        ...(configurationMissing ? { videoNotice: youtubeMissingNotice } : {}),
+      }
+    : saved;
   return {
     library,
     busy,

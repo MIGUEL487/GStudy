@@ -116,6 +116,11 @@ export function amazonProduct(value: string) {
     return null;
   }
 }
+export const portugueseBookLanguage = (language?: string) =>
+  /^(?:pt(?:[-_]br|[-_]pt)?|por|portugu[eê]s(?: brasileiro)?|portuguese)$/i.test(
+    language?.trim() || "",
+  );
+
 export const amazonSearch = (title: string, author: string) =>
   "https://www.amazon.com.br/s?k=" + encodeURIComponent([title, author].filter(Boolean).join(" "));
 const chapter = z
@@ -193,7 +198,7 @@ export const preparationLibrarySchema = z.object({
   books: z.array(libraryBookSchema).max(12),
   videoNotice: z.string().max(500).optional(),
   bookNotice: z.string().max(500).optional(),
-  bookSearchVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  bookSearchVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(),
   bookSearchStatus: z.enum(["verified", "catalogues", "no-results", "unavailable"]).optional(),
 });
 export type PreparationLibrary = z.infer<typeof preparationLibrarySchema>;

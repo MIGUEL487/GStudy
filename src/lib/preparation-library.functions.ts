@@ -11,6 +11,7 @@ import {
 import { preparationDetailsSchema, sourceUrl } from "./preparation-model";
 import {
   amazonProduct,
+  portugueseBookLanguage,
   officialBookUrl,
   preferredChannels,
   preparationLibrarySchema,
@@ -75,6 +76,7 @@ export function relevantOpenStaxBooks(
   ] as [RegExp, string[]][])
     if (pattern.test(topic)) terms.push(...english);
   return books
+    .filter((book) => portugueseBookLanguage(book.language))
     .map((book) => ({
       book,
       score: terms.filter((term) => normalize(book.title).includes(term)).length,
@@ -144,6 +146,7 @@ const selection = z.object({
       z.object({
         title: z.string().trim().min(1).max(250),
         author: z.string().trim().max(200),
+        language: z.enum(["pt", "other", "unknown"]).default("unknown"),
         topicIndex: z.number().int().min(0).max(7),
         reason: z.string().trim().min(1).max(1500),
         sourceIndex: z.number().int().nonnegative().nullable(),
@@ -217,6 +220,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
       aiResearch(
         [
           learningLanguage,
+          "Recomende SOMENTE livros e materiais escritos em português, inclusive na seção paga. Não traduza títulos estrangeiros para simular uma edição em português. Confirme o idioma da edição nas fontes. Se não encontrar obras em português adequadas, informe a limitação sem preencher com livros em inglês ou outro idioma.",
           "Faça uma pesquisa web dedicada a LIVROS e materiais didáticos públicos para estes tópicos e etapa escolar. As videoaulas são buscadas separadamente: não gaste as fontes da pesquisa com vídeos. Priorize obras relevantes de órgãos públicos e instituições de ensino brasileiras com licença comercial explícita CC BY, CC BY-SA, CC BY-ND, CC0 ou domínio público. Pesquise nos catálogos educapes.capes.gov.br, repositorio.ufsc.br e outras editoras e repositórios de universidades públicas (inclusive usp.br, unesp.br, ufmg.br, ufrgs.br), além de portais gov.br e edu.br. Use termos do assunto junto de licença Creative Commons CC BY; não indique uma obra só por ser gratuita. Retorne preferencialmente 3 a 6 páginas de catálogo de OBRAS ESPECÍFICAS com título, autoria e metadados de direitos; não páginas iniciais, listas genéricas nem PDFs soltos. Uma publicação no governo não concede licença comercial por si só. Inclua complementarmente páginas de produto de livros comerciais na Amazon Brasil. Não use pastas particulares, cópias piratas, apostilas vazadas ou livros pagos disponibilizados sem permissão. Não invente URLs, direitos nem que leu o livro. Retorne recomendações descritivas e fontes reais da busca; sem busca, deixe a limitação clara.",
         ].join("\n"),
         [{ role: "user", content: JSON.stringify(publicContext) }],
@@ -319,6 +323,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
                   {
                     title: source.title.slice(0, 250),
                     author: "",
+                    language: "unknown" as const,
                     topicIndex: topicIndexFor(source.title),
                     reason:
                       "Referência encontrada no catálogo oficial. Consulte o índice e relacione a leitura ao seu tópico de estudo.",
@@ -333,6 +338,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
           .map((resource) => ({
             title: resource.title,
             author: resource.creator,
+            language: "unknown" as const,
             topicIndex: Math.min(resource.topicIndex, data.topics.length - 1),
             reason: "Referência sugerida para complementar o estudo. Confira a edição na Amazon.",
             sourceIndex: null,
@@ -345,7 +351,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
           learningLanguage,
           "Faça uma curadoria pedagógica a partir SOMENTE dos vídeos verificados e das fontes recebidas. Priorize relevância e adequação à etapa escolar; dê preferência aos canais indicados, incluindo Universo Narrado Militares para provas militares e Universo Narrado/Pedro Asaad em matemática/física. Não chame esta seleção de um ranking objetivo de todos os vídeos do YouTube. Não invente títulos, autores, canais, logos, vídeo IDs ou links.",
           "Selecione até oito vídeos pelo index, com topicIndex e reason específica. Para um vídeo longo, escolha firstChapter e lastChapter (inclusivo) SOMENTE entre os capítulos publicados nos metadados, com seus índices. Se não houver capítulos, ou não der para localizar o assunto com confiança, ambos devem ser null e o player abre a aula completa. Nunca estime um horário pelo tamanho do vídeo. Uma aula de 12 horas não é uma sessão de estudo de 12 horas. Não afirme ter assistido ao conteúdo.",
-          "Indique livros reais relevantes, priorizando referências gratuitas oficiais em português. OpenStax é uma editora educacional complementar: preserve o título original e não invente que a edição é em português; avise no reason se o material for de outro idioma. Quando houver catálogos institucionais relevantes nas fontes, inclua essas obras na seleção; não substitua toda a biblioteca pública por livros comerciais. Copie o título completo da obra, pois a licença será conferida com esse título. sourceIndex aponta para a fonte fornecida, ou null se não houver fonte correspondente. Não infira permissão comercial, não gere URLs de PDF, não use Drive particular. O aplicativo verificará a licença do próprio livro na fonte oficial antes de disponibilizar um PDF; o selo gov.br não basta. Inclua também uma seleção complementar de livros pagos disponíveis para procurar na Amazon Brasil, sem inventar preço, ISBN, ASIN ou gratuidade. Não invente que leu um livro só por ver o catálogo.",
+          "Indique SOMENTE livros em português, gratuitos e pagos. language deve ser pt apenas se a edição for em português nas fontes, other para outro idioma e unknown se não for possível confirmar. Omita obras em inglês e outros idiomas. Não traduza títulos nem invente edições portuguesas. Na ausência de obras adequadas em português, retorne books vazio. Quando houver catálogos institucionais relevantes nas fontes, inclua essas obras na seleção; não substitua toda a biblioteca pública por livros comerciais. Copie o título completo da obra, pois a licença será conferida com esse título. sourceIndex aponta para a fonte fornecida, ou null se não houver fonte correspondente. Não infira permissão comercial, não gere URLs de PDF, não use Drive particular. O aplicativo verificará a licença do próprio livro na fonte oficial antes de disponibilizar um PDF; o selo gov.br não basta. Inclua também uma seleção complementar de livros pagos disponíveis para procurar na Amazon Brasil, sem inventar preço, ISBN, ASIN ou gratuidade. Não invente que leu um livro só por ver o catálogo.",
         ].join("\n"),
         [
           {
@@ -378,6 +384,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
             objectSchema({
               title: stringSchema,
               author: stringSchema,
+              language: { type: "string", enum: ["pt", "other", "unknown"] },
               topicIndex: { type: "integer", minimum: 0, maximum: data.topics.length - 1 },
               reason: stringSchema,
               sourceIndex: nullableIndex,
@@ -412,12 +419,16 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         : "A busca do YouTube não encontrou aulas para estes termos. Tente atualizar as indicações ou ajustar o foco do plano.";
     const bookTitles = new Set<string>();
     const uniqueBooks = chosen.books.filter((item) => {
-      if (item.topicIndex >= data.topics.length || bookTitles.has(normalize(item.title)))
+      if (
+        item.topicIndex >= data.topics.length ||
+        (item.sourceIndex !== null && !sources[item.sourceIndex]) ||
+        bookTitles.has(normalize(item.title))
+      )
         return false;
       bookTitles.add(normalize(item.title));
       return true;
     });
-    const books: LibraryBook[] = await Promise.all(
+    const checkedBooks = await Promise.all(
       uniqueBooks.map(async (item) => {
         const source = item.sourceIndex === null ? undefined : sources[item.sourceIndex];
         const base = {
@@ -425,6 +436,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
           author: cleanLearningText(item.author),
           reason: cleanLearningText(item.reason),
           topicIndex: item.topicIndex,
+          ...(item.language === "pt" ? { language: "pt" } : {}),
         };
         if (source && officialBookUrl(source.url)) {
           const checked: {
@@ -455,49 +467,17 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         return { ...base, access: "paid" as const, ...(product ? { amazonUrl: product } : {}) };
       }),
     );
-    // A text-only fallback can omit every public source while ranking books.
-    // Keep up to two relevant, independently verified publisher records instead
-    // of turning an available open catalogue into an empty paid-only selection.
-    if (!books.some((book) => book.access === "open")) {
-      const additional = sources
-        .filter(
-          (source) =>
-            openStaxApi(source.url) &&
-            !uniqueBooks.some(
-              (item) => item.sourceIndex !== null && sources[item.sourceIndex]?.url === source.url,
-            ),
-        )
-        .slice(0, 2);
-      const verified = await Promise.all(
-        additional.map(async (source) => {
-          const checked = await checkOpenStaxBook(source.url, source.title);
-          return checked.pdf && checked.url
-            ? {
-                title: source.title,
-                author: checked.pdf.attribution.slice(0, 200),
-                topicIndex: topicIndexFor(source.title),
-                reason:
-                  "Leitura complementar da editora educacional. Confira o índice e o idioma da edição para selecionar os capítulos pertinentes ao seu conteúdo.",
-                access: "open" as const,
-                officialUrl: checked.url,
-                pdf: checked.pdf,
-                ...(checked.language ? { language: checked.language } : {}),
-                ...(checked.editionStatus ? { editionStatus: checked.editionStatus } : {}),
-              }
-            : null;
-        }),
-      );
-      for (const book of verified)
-        if (book && !books.some((item) => normalize(item.title) === normalize(book.title)))
-          books.push(book);
-    }
+    // Publisher metadata takes precedence over the AI, including a translated title.
+    const books: LibraryBook[] = checkedBooks.filter((book) =>
+      portugueseBookLanguage(book.language),
+    );
     return preparationLibrarySchema.parse({
       version: 1,
       checkedAt: new Date().toISOString(),
       mode,
       videos,
       books,
-      bookSearchVersion: 4,
+      bookSearchVersion: 5,
       bookSearchStatus: books.some((book) => book.access === "open")
         ? "verified"
         : books.some((book) => book.officialUrl)
@@ -508,13 +488,15 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
       ...(videoNotice ? { videoNotice } : {}),
       ...(!books.some((book) => book.access === "open")
         ? {
-            bookNotice: !catalogueAvailable
-              ? "Não foi possível confirmar uma consulta completa aos acervos agora. Isso não significa que não existam livros para este assunto. Explore as buscas nos catálogos abaixo ou tente novamente; seus vídeos serão mantidos."
-              : !sources.some((source) => officialBookUrl(source.url))
-                ? "A pesquisa não retornou catálogos públicos verificáveis para este assunto. Tente buscar livros novamente; os vídeos já escolhidos serão mantidos."
-                : books.some((book) => book.access === "official" && book.officialUrl)
-                  ? "Os catálogos encontrados ainda não permitiram confirmar um PDF com licença comercial explícita. Consulte as referências oficiais abaixo ou tente buscar livros novamente."
-                  : "Ainda não foi possível confirmar uma referência pública acessível para este assunto. Tente buscar livros novamente; as aulas salvas serão mantidas.",
+            bookNotice:
+              "Apenas livros em português são indicados. Ainda não foi possível confirmar um PDF em português com licença comercial compatível. " +
+              (!catalogueAvailable
+                ? "Não foi possível confirmar uma consulta completa aos acervos agora. Isso não significa que não existam livros para este assunto. Explore as buscas nos catálogos abaixo ou tente novamente; seus vídeos serão mantidos."
+                : !sources.some((source) => officialBookUrl(source.url))
+                  ? "A pesquisa não retornou catálogos públicos verificáveis para este assunto. Tente buscar livros novamente; os vídeos já escolhidos serão mantidos."
+                  : books.some((book) => book.access === "official" && book.officialUrl)
+                    ? "Os catálogos encontrados ainda não permitiram confirmar um PDF com licença comercial explícita. Consulte as referências oficiais abaixo ou tente buscar livros novamente."
+                    : "Ainda não foi possível confirmar uma referência pública acessível para este assunto. Tente buscar livros novamente; as aulas salvas serão mantidas."),
           }
         : {}),
     });
