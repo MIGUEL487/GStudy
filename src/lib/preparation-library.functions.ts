@@ -434,10 +434,11 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
             editionStatus?: "current" | "previous";
             pdf: LibraryBook["pdf"] | null;
           } = openStaxApi(source.url)
-            ? await checkOpenStaxBook(source.url, item.title)
+            ? await checkOpenStaxBook(source.url, source.title)
             : await checkOfficialBook(source.url, item.title);
           return {
             ...base,
+            ...(openStaxApi(source.url) && checked.landing ? { title: source.title } : {}),
             ...(checked.landing ? { officialUrl: checked.url || source.url } : {}),
             ...(checked.language ? { language: checked.language } : {}),
             ...(checked.editionStatus ? { editionStatus: checked.editionStatus } : {}),

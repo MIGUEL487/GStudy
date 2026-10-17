@@ -160,50 +160,66 @@ afterEach(() => {
 });
 
 describe("Curadoria oficial de aulas e livros", () => {
-  it("mantém leitura pública verificada para OBGP mesmo quando a IA omite todas as fontes gratuitas", async () => {
-    const work = {
-      id: 123,
-      title: "World History, Volume 2",
-      meta: { type: "books.Book", slug: "world-history-volume-2", locale: "en" },
-      book_state: "live",
-      license_url: "https://creativecommons.org/licenses/by/4.0/",
-      authors: [{ type: "author", value: { name: "Autora de teste" } }],
-      pdf_url: "https://assets.openstax.org/oscms-prodcms/media/documents/history.pdf",
-    };
-    const base = mocks.fetch.getMockImplementation()!;
-    mocks.fetch.mockImplementation((input, init) => {
-      const url = new URL(String(input));
-      if (url.hostname === "openstax.org")
-        return url.pathname === "/apps/cms/api/v2/pages/"
-          ? json({ items: [work] })
-          : url.pathname === "/apps/cms/api/v2/pages/123/"
-            ? json(work)
-            : new Response("<h1>Livro</h1>", { headers: { "content-type": "text/html" } });
-      if (url.hostname === "assets.openstax.org")
-        return new Response(null, { headers: { "content-type": "application/pdf" } });
-      return base(input, init);
-    });
-    mocks.research.mockResolvedValue({ text: "Pesquisa web indisponível.", sources: [] });
-    mocks.object.mockResolvedValue({ videos: [], books: [] });
-    const result = await call({
-      ...data,
-      scope: "books",
-      exam: "OBGP",
-      kind: "olimpiada",
-      subject: "Programa completo",
-      focus: "Geopolítica",
-      topics: [
-        { title: "Ordem mundial e relações de poder", goal: "Relacionar poder e território." },
+  it.each([
+    { books: [] },
+    {
+      books: [
+        {
+          title: "História Mundial — título traduzido pela IA",
+          author: "",
+          topicIndex: 0,
+          reason: "Leitura complementar para o conteúdo.",
+          sourceIndex: 0,
+        },
       ],
-    });
-    expect(result.books[0]).toMatchObject({
-      title: work.title,
-      access: "open",
-      language: "en",
-      pdf: { url: work.pdf_url, license: "CC BY" },
-    });
-    expect(result.bookSearchStatus).toBe("verified");
-  });
+    },
+  ])(
+    "mantém a leitura e o título oficial da OBGP quando a IA omite ou traduz a referência (caso %#)",
+    async ({ books }) => {
+      const work = {
+        id: 123,
+        title: "World History, Volume 2",
+        meta: { type: "books.Book", slug: "world-history-volume-2", locale: "en" },
+        book_state: "live",
+        license_url: "https://creativecommons.org/licenses/by/4.0/",
+        authors: [{ type: "author", value: { name: "Autora de teste" } }],
+        pdf_url: "https://assets.openstax.org/oscms-prodcms/media/documents/history.pdf",
+      };
+      const base = mocks.fetch.getMockImplementation()!;
+      mocks.fetch.mockImplementation((input, init) => {
+        const url = new URL(String(input));
+        if (url.hostname === "openstax.org")
+          return url.pathname === "/apps/cms/api/v2/pages/"
+            ? json({ items: [work] })
+            : url.pathname === "/apps/cms/api/v2/pages/123/"
+              ? json(work)
+              : new Response("<h1>Livro</h1>", { headers: { "content-type": "text/html" } });
+        if (url.hostname === "assets.openstax.org")
+          return new Response(null, { headers: { "content-type": "application/pdf" } });
+        return base(input, init);
+      });
+      mocks.research.mockResolvedValue({ text: "Pesquisa web indisponível.", sources: [] });
+      mocks.object.mockResolvedValue({ videos: [], books });
+      const result = await call({
+        ...data,
+        scope: "books",
+        exam: "OBGP",
+        kind: "olimpiada",
+        subject: "Programa completo",
+        focus: "Geopolítica",
+        topics: [
+          { title: "Ordem mundial e relações de poder", goal: "Relacionar poder e território." },
+        ],
+      });
+      expect(result.books[0]).toMatchObject({
+        title: work.title,
+        access: "open",
+        language: "en",
+        pdf: { url: work.pdf_url, license: "CC BY" },
+      });
+      expect(result.bookSearchStatus).toBe("verified");
+    },
+  );
   it("prioriza referências pertinentes ao conteúdo de geopolítica da OBGP", () => {
     const sources = [
       "Biology 2e",
