@@ -12,7 +12,7 @@ import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
 import { fallbackMessages, hasImages } from "./ai-fallback-media.server";
 import { hasPdf, validateOpenRouterFiles } from "./openrouter-media.server";
 
-type Provider = "gemini" | "groq" | "openrouter" | "omniroute";
+type Provider = "gemini" | "groq" | "openrouter" | "omniroute" | "deepseek";
 const groqTimeoutMs = 25000;
 type GenerationMeter = { maxOutputTokens: number; onUsage: (total: number | undefined) => void };
 async function provider(name: Provider, vision: boolean, research = false, document = false) {
@@ -22,7 +22,8 @@ async function provider(name: Provider, vision: boolean, research = false, docum
     groq: name === "groq",
     openrouter: name === "openrouter",
     omniroute: name === "omniroute",
-    ...(name === "omniroute" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
+    deepseek: name === "deepseek",
+    ...(name === "omniroute" || name === "deepseek" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
     document,
   };
   const providerFetch: typeof fetch = async (input, init) => {
@@ -56,18 +57,18 @@ async function provider(name: Provider, vision: boolean, research = false, docum
     });
     return google(config.model);
   }
-  if (name === "omniroute") {
+  if (name === "omniroute" || name === "deepseek") {
     const config = socratesAiConfig(process.env);
-    if (!config) throw new AiSetupError("Configure SOCRATES_AI_API_KEY para ativar OmniRoute no Sócrates.");
+    if (!config) throw new AiSetupError("Configure SOCRATES_AI_API_KEY para ativar a IA exclusiva do Sócrates.");
     const { createOpenAICompatible } = await import("@ai-sdk/openai-compatible");
-    const omniroute = createOpenAICompatible({
-      name: "omniroute",
+    const dedicated = createOpenAICompatible({
+      name,
       apiKey: config.key,
       baseURL: config.baseURL,
       fetch: providerFetch,
       supportsStructuredOutputs: false,
     });
-    return omniroute.chatModel(config.model);
+    return dedicated.chatModel(config.model);
   }
   if (name === "openrouter") {
     const config = openRouterConfig(process.env);
@@ -105,7 +106,8 @@ function logFailure(error: unknown, name: Provider, vision: boolean) {
     groq: name === "groq",
     openrouter: name === "openrouter",
     omniroute: name === "omniroute",
-    ...(name === "omniroute" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
+    deepseek: name === "deepseek",
+    ...(name === "omniroute" || name === "deepseek" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
   });
   // SDK exceptions may contain keys, photos, notes or request bodies. Log only safe fields.
   console.error("[GStudy AI] Falha na geração:", {
@@ -142,7 +144,7 @@ async function generate(
       messages,
       maxRetries: 0,
       ...(meter ? { maxOutputTokens: meter.maxOutputTokens } : {}),
-      ...(name === "openrouter" || name === "omniroute"
+      ...(name === "openrouter" || name === "omniroute" || name === "deepseek"
         ? { abortSignal: AbortSignal.timeout(45000) }
         : {}),
       ...(research && name === "gemini"
@@ -219,18 +221,22 @@ async function withFallback(
 ) {
   const vision = whiteboard || hasImages(messages);
   const providers: Provider[] = [
-    ...(socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() ? ["omniroute" as const] : []),
+    ...(socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() && !vision
+      ? [socratesAiConfig(process.env)?.provider ?? "deepseek"]
+      : []),
     "gemini",
     ...(process.env["GROQ_API_KEY"]?.trim() ? ["groq" as const] : []),
     ...(process.env["OPENROUTER_API_KEY"]?.trim() ? ["openrouter" as const] : []),
   ];
-  const labels = { gemini: "Gemini", groq: "Groq", openrouter: "OpenRouter", omniroute: "OmniRoute" };
+  const labels = { gemini: "Gemini", groq: "Groq", openrouter: "OpenRouter", omniroute: "OmniRoute", deepseek: "DeepSeek" };
   const failed: string[] = [];
   for (const [index, name] of providers.entries()) {
     try {
       // Every alternative starts from the original messages, including the original PDF.
       const prepared =
-        name === "groq" ? await fallbackMessages(messages) : { messages, convertedPdf: false };
+        name === "groq" || name === "deepseek" || name === "omniroute"
+          ? await fallbackMessages(messages)
+          : { messages, convertedPdf: false };
       const parsedPdf = name === "openrouter" && hasPdf(messages);
       const extra =
         prepared.convertedPdf || parsedPdf

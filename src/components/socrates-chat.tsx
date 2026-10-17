@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUp, BookOpen, MessageCircleQuestion, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowUp, BookOpen, FileText, Image, MessageCircleQuestion, Paperclip, Plus, RefreshCw, Sparkles, X } from "lucide-react";
 import { useStudy } from "./study-provider";
 import { Button } from "./ui/button";
 import { useSocratesConversations } from "@/hooks/use-socrates-conversations";
@@ -13,7 +13,15 @@ import {
 } from "@/lib/socrates-model";
 import "@/styles/socrates.css";
 import { SocratesIcon } from "./socrates-icon";
+import { prepareStudyPhoto } from "@/lib/study-photo";
 const number = (value: number) => value.toLocaleString("pt-BR");
+type SocratesAttachment = { name: string; mediaType: "image/jpeg" | "application/pdf"; dataUrl: string };
+const readPdf = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result));
+  reader.onerror = () => reject(new Error("Não foi possível ler este PDF."));
+  reader.readAsDataURL(file);
+});
 export function SocratesChat({ userId }: { userId: string }) {
   const { data } = useStudy();
   const history = useSocratesConversations(userId);
@@ -28,12 +36,15 @@ export function SocratesChat({ userId }: { userId: string }) {
     [quotaError, setQuotaError] = useState("");
   const [busy, setBusy] = useState(false),
     [pending, setPending] = useState<SocratesMessage | null>(null);
+  const [attachment, setAttachment] = useState<SocratesAttachment | null>(null),
+    [preparingFile, setPreparingFile] = useState(false);
   const [unsaved, setUnsaved] = useState<{
     conversationId: string;
     messages: SocratesMessage[];
   } | null>(null);
   const lock = useRef(false),
-    scroll = useRef<HTMLDivElement>(null);
+    scroll = useRef<HTMLDivElement>(null),
+    fileInput = useRef<HTMLInputElement>(null);
   const conversation = history.conversations.find((item) => item.id === selected);
   const messages = [
     ...(conversation?.messages ?? []),
@@ -88,15 +99,17 @@ export function SocratesChat({ userId }: { userId: string }) {
     }
   };
   const send = async () => {
-    if (lock.current || unsaved || !quota || !quota.remaining || !draft.trim()) return;
+    if (lock.current || unsaved || !quota || !quota.remaining || (!draft.trim() && !attachment)) return;
     lock.current = true;
     setBusy(true);
     setError("");
     setWarning("");
+    const visibleText = [draft.trim(), attachment ? `[${attachment.mediaType === "application/pdf" ? "PDF" : "Imagem"}: ${attachment.name}]` : ""]
+      .filter(Boolean).join("\n");
     const userMessage: SocratesMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      text: draft.trim(),
+      text: visibleText,
       createdAt: new Date().toISOString(),
     };
     try {
@@ -108,6 +121,7 @@ export function SocratesChat({ userId }: { userId: string }) {
           accountId: userId,
           subject: current.subject,
           message: userMessage.text,
+          attachment: attachment ?? undefined,
           history: recentSocratesHistory(current.messages),
         },
       });
@@ -126,6 +140,7 @@ export function SocratesChat({ userId }: { userId: string }) {
       };
       const completed = { conversationId: current.id, messages: [userMessage, assistant] };
       setDraft("");
+      setAttachment(null);
       if (result.warning) setWarning(result.warning);
       try {
         history.append(current.id, completed.messages);
@@ -209,6 +224,7 @@ export function SocratesChat({ userId }: { userId: string }) {
               setSelected(event.target.value);
               setError("");
               setDraft("");
+              setAttachment(null);
             }}
           >
             <option value="">Nova conversa</option>
@@ -247,6 +263,7 @@ export function SocratesChat({ userId }: { userId: string }) {
           onClick={() => {
             setSelected("");
             setDraft("");
+            setAttachment(null);
             setError("");
             setWarning("");
           }}
@@ -275,7 +292,7 @@ export function SocratesChat({ userId }: { userId: string }) {
               <h2>O que desperta sua curiosidade?</h2>
               <p>
                 Traga uma dúvida, uma ideia ou algo que ainda não fez sentido. Vamos explorar um
-                conceito de cada vez.
+                conceito de cada vez. Você também pode anexar uma foto ou PDF no clipe abaixo.
               </p>
               <div>
                 {[
@@ -329,6 +346,54 @@ export function SocratesChat({ userId }: { userId: string }) {
             void send();
           }}
         >
+          {attachment && (
+            <div className="socrates-attachment" role="status">
+              {attachment.mediaType === "application/pdf" ? <FileText size={16} /> : <Image size={16} />}
+              <span>{attachment.name}</span>
+              <button type="button" aria-label="Remover anexo" disabled={busy} onClick={() => setAttachment(null)}>
+                <X size={15} />
+              </button>
+            </div>
+          )}
+          <input
+            ref={fileInput}
+            className="sr-only"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            aria-label="Selecionar imagem ou PDF"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              setError("");
+              setPreparingFile(true);
+              try {
+                if (file.type === "application/pdf") {
+                  if (!file.size || file.size > 4 * 1024 * 1024)
+                    throw new Error("Escolha um PDF de até 4 MB e 40 páginas.");
+                  setAttachment({ name: file.name, mediaType: "application/pdf", dataUrl: await readPdf(file) });
+                } else {
+                  const photo = await prepareStudyPhoto(file);
+                  setAttachment({ name: file.name, mediaType: "image/jpeg", dataUrl: photo.dataUrl });
+                }
+              } catch (cause) {
+                setAttachment(null);
+                setError(cause instanceof Error ? cause.message : "Não foi possível preparar o anexo.");
+              } finally {
+                setPreparingFile(false);
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="socrates-attach-button"
+            aria-label="Anexar imagem ou PDF"
+            title="Anexar imagem ou PDF"
+            disabled={busy || preparingFile || !!unsaved || full}
+            onClick={() => fileInput.current?.click()}
+          >
+            <Paperclip size={19} />
+          </button>
           <label className="sr-only" htmlFor="socrates-message">
             Sua pergunta ou explicação
           </label>
@@ -339,7 +404,7 @@ export function SocratesChat({ userId }: { userId: string }) {
             value={draft}
             disabled={busy || !!unsaved || full}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Pergunte, tente explicar, pense em voz alta…"
+            placeholder={preparingFile ? "Preparando anexo…" : "Pergunte, tente explicar, pense em voz alta…"}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
@@ -354,7 +419,7 @@ export function SocratesChat({ userId }: { userId: string }) {
               busy ||
               !!unsaved ||
               full ||
-              !draft.trim() ||
+              (!draft.trim() && !attachment) ||
               !quota?.remaining ||
               !!quotaError ||
               !!history.error
@@ -393,8 +458,9 @@ export function SocratesChat({ userId }: { userId: string }) {
       )}
       <p className="socrates-footnote">
         O consumo inclui contexto recente e resposta, usando a contagem do provedor ou uma
-        estimativa quando ela não estiver disponível. Sócrates pode errar: questione e confira o que
-        aprender.
+        estimativa quando ela não estiver disponível. Em PDFs, imagens e diagramas dependem de uma
+        IA com visão; provedores de texto recebem apenas o texto extraído. Sócrates pode errar:
+        questione e confira o que aprender.
       </p>
     </section>
   );

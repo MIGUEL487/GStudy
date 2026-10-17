@@ -78,6 +78,19 @@ describe("Sócrates: didática e cota no servidor", () => {
     expect(await call()).toMatchObject({ ok: false, error: expect.stringContaining("cota") });
     expect(mocks.ai).not.toHaveBeenCalled();
   });
+  it("aceita foto ou PDF mesmo sem texto e envia o arquivo apenas no turno atual", async () => {
+    const attachment = {
+      name: "pagina.jpg",
+      mediaType: "image/jpeg",
+      dataUrl: "data:image/jpeg;base64,AA==",
+    };
+    expect(await call({ ...input, message: "", attachment })).toMatchObject({ ok: true });
+    const sent = mocks.ai.mock.calls[0]![1];
+    expect(sent.at(-1).content).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "file", mediaType: "image/jpeg", filename: "pagina.jpg" }),
+    ]));
+    expect(JSON.stringify(sent.slice(0, -1))).not.toContain(attachment.dataUrl);
+  });
   it.each([
     { explanation: "42", question: "Entendeu?" },
     { explanation: answer.explanation },

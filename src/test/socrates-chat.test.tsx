@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ reply: vi.fn(), quota: vi.fn() }));
+const mocks = vi.hoisted(() => ({ reply: vi.fn(), quota: vi.fn(), photo: vi.fn() }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@/lib/socrates.functions", () => ({
   socratesReply: mocks.reply,
@@ -9,6 +9,7 @@ vi.mock("@/lib/socrates.functions", () => ({
 vi.mock("@/components/study-provider", () => ({
   useStudy: () => ({ data: { subjects: [{ id: "math", name: "Matemática" }] } }),
 }));
+vi.mock("@/lib/study-photo", () => ({ prepareStudyPhoto: mocks.photo }));
 import { SocratesChat } from "@/components/socrates-chat";
 import { socratesStorageKey, readSocratesDocument } from "@/lib/socrates-model";
 const user = "11111111-1111-4111-8111-111111111111";
@@ -40,6 +41,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.quota.mockResolvedValue({ ok: true, quota });
   mocks.reply.mockResolvedValue(response);
+  mocks.photo.mockResolvedValue({
+    dataUrl: "data:image/jpeg;base64,AA==",
+    name: "caderno.png",
+    width: 100,
+    height: 100,
+  });
 });
 afterEach(() => {
   cleanup();
@@ -84,6 +91,25 @@ describe("Aba Sócrates", () => {
       readSocratesDocument(localStorage.getItem(socratesStorageKey(user))).conversations[0]!
         .messages,
     ).toHaveLength(0);
+  });
+  it("envia uma foto com pergunta opcional e mostra o anexo no histórico", async () => {
+    render(<SocratesChat userId={user} />);
+    await screen.findByText("49.700 tokens disponíveis");
+    const file = new File(["image"], "caderno.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Selecionar imagem ou PDF"), {
+      target: { files: [file] },
+    });
+    expect(await screen.findByText("caderno.png")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Enviar para Sócrates" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Enviar para Sócrates" }));
+    await waitFor(() => expect(mocks.reply).toHaveBeenCalledTimes(1));
+    expect(mocks.reply.mock.calls[0]![0].data).toMatchObject({
+      attachment: { name: "caderno.png", mediaType: "image/jpeg", dataUrl: "data:image/jpeg;base64,AA==" },
+    });
+    expect(within(screen.getByRole("log", { name: "Conversa com Sócrates" }))
+      .getByText("[Imagem: caderno.png]")).toBeInTheDocument();
   });
   it("bloqueia novos gastos sem cota e explica a renovação", async () => {
     mocks.quota.mockResolvedValue({ ok: true, quota: { ...quota, used: 50000, remaining: 0 } });

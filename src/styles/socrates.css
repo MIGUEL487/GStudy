@@ -236,12 +236,54 @@
   padding: 0 20px 10px;
 }
 .socrates-composer {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: end;
   gap: 10px;
   border-top: 1px solid var(--border);
   background: var(--background);
   padding: 14px 18px;
+}
+.socrates-attachment {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--secondary);
+  color: var(--primary);
+  font-size: 11px;
+}
+.socrates-attachment span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.socrates-attachment button,
+.socrates-attach-button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--primary);
+  border-radius: 50%;
+}
+.socrates-attachment button:disabled,
+.socrates-attach-button:disabled {
+  opacity: .45;
+}
+.socrates-attach-button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  transition: background .2s, transform .2s;
+}
+.socrates-attach-button:hover:not(:disabled) {
+  background: var(--secondary);
+  transform: translateY(-2px);
 }
 .socrates-composer textarea {
   resize: none;
@@ -259,7 +301,7 @@
   outline: 1px solid var(--ring);
   border-radius: 6px;
 }
-.socrates-composer > button {
+.socrates-composer > button[type="submit"] {
   border-radius: 50%;
   width: 40px;
   height: 40px;

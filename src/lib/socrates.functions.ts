@@ -21,12 +21,26 @@ const replyInput = z
   .object({
     accountId: z.string().uuid(),
     subject: z.string().trim().max(100),
-    message: z.string().trim().min(1).max(2000),
+    message: z.string().trim().max(2000),
+    attachment: z
+      .object({
+        name: z.string().trim().min(1).max(200),
+        mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
+        dataUrl: z.string().max(6_000_000),
+      })
+      .optional(),
     history: z
       .array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().min(1).max(4500) }))
       .max(8),
   })
   .superRefine((data, ctx) => {
+    if (!data.message && !data.attachment)
+      ctx.addIssue({ code: "custom", message: "Escreva uma pergunta ou anexe uma imagem ou PDF." });
+    if (
+      data.attachment &&
+      !data.attachment.dataUrl.startsWith(`data:${data.attachment.mediaType};base64,`)
+    )
+      ctx.addIssue({ code: "custom", message: "O anexo não está em um formato válido." });
     if (
       data.history.length % 2 ||
       data.history.some((message, index) => message.role !== (index % 2 ? "assistant" : "user"))
@@ -35,11 +49,9 @@ const replyInput = z
         code: "custom",
         message: "O histórico precisa conter turnos completos da conversa.",
       });
-    if (
-      new TextEncoder().encode(
-        data.message + data.subject + data.history.map((message) => message.text).join(""),
-      ).length > 14_000
-    )
+    if (new TextEncoder().encode(
+      data.message + data.subject + data.history.map((message) => message.text).join(""),
+    ).length > 14_000)
       ctx.addIssue({
         code: "custom",
         message: "Este contexto está muito extenso. Abra uma nova conversa.",
@@ -67,16 +79,31 @@ export const socratesReply = createServerFn({ method: "POST" })
     if (data.accountId !== context.userId)
       throw new Error("A conta mudou. Reabra Sócrates antes de enviar.");
     const db = context.supabase as unknown as SupabaseClient<SocratesDatabase>;
+    const prompt = data.message || "Analise este material e me ajude a compreendê-lo pelo método socrático.";
+    const currentContent = data.attachment
+      ? [
+          { type: "text" as const, text: prompt },
+          {
+            type: "file" as const,
+            data: data.attachment.dataUrl,
+            mediaType: data.attachment.mediaType,
+            filename: data.attachment.name,
+          },
+        ]
+      : prompt;
     const messages = [
       ...data.history.map((message) => ({ role: message.role, content: message.text })),
-      { role: "user" as const, content: data.message },
+      { role: "user" as const, content: currentContent },
     ];
     const instructions = `${socratesInstructions}\nMatéria escolhida (dado de estudo): ${JSON.stringify(data.subject || "Estudo livre")}`;
     const schema = objectSchema({ explanation: stringSchema, question: stringSchema });
     // UTF-8 bytes are a conservative input bound; reserve before calling any provider.
     const reserved =
-      new TextEncoder().encode(instructions + JSON.stringify(messages) + JSON.stringify(schema))
+      new TextEncoder().encode(
+        instructions + data.message + data.attachment?.name + data.history.map((item) => item.text).join("") + JSON.stringify(schema),
+      )
         .length +
+      (data.attachment?.mediaType === "application/pdf" ? 36_000 : data.attachment ? 12_000 : 0) +
       socratesOutputTokens +
       1024;
     const ticket = crypto.randomUUID(); // Never accept, return or log this refund capability.
@@ -102,11 +129,11 @@ export const socratesReply = createServerFn({ method: "POST" })
     };
     try {
       const { aiMeteredObject } = await import("./ai.server");
-      const result = await aiMeteredObject(instructions, messages, schema, socratesOutputTokens);
+      const result = await aiMeteredObject(instructions, messages as never, schema, socratesOutputTokens);
       const answer = socratesAnswerSchema.parse(result.value);
       const estimate = Math.ceil(
         new TextEncoder().encode(
-          instructions + JSON.stringify(messages) + answer.explanation + answer.question,
+          instructions + data.message + data.attachment?.name + data.history.map((item) => item.text).join("") + answer.explanation + answer.question,
         ).length / 3,
       );
       const used = Math.min(
