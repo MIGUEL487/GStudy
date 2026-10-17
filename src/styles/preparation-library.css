@@ -263,6 +263,10 @@
   margin-top: 35px;
   padding-top: 7px;
 }
+.library-books-refresh {
+  margin: 0 0 20px 39px;
+  min-height: 44px;
+}
 .library-official {
   margin-top: 23px;
   border: 1px solid var(--border);

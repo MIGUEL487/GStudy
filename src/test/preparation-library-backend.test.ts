@@ -25,7 +25,11 @@ import {
   resolveLibrarySources,
   selectVideoClip,
 } from "@/lib/preparation-library.functions";
-import { bookLicenseEvidence, checkOfficialBook } from "@/lib/book-rights.server";
+import {
+  bookLicenseEvidence,
+  checkOfficialBook,
+  searchOfficialBooks,
+} from "@/lib/book-rights.server";
 import {
   youtubeChapters,
   youtubeDuration,
@@ -197,7 +201,11 @@ describe("Curadoria oficial de aulas e livros", () => {
     expect(result.videoNotice).toContain("ainda não está configurada");
     expect(result.mode).toBe("unavailable");
     expect(result.videos).toEqual([]);
-    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(
+      mocks.fetch.mock.calls.every(
+        ([url]) => new URL(String(url)).hostname === "educapes.capes.gov.br",
+      ),
+    ).toBe(true);
   });
   it.each([
     ["SERVICE_DISABLED", "não está habilitada"],
@@ -246,7 +254,8 @@ describe("Curadoria oficial de aulas e livros", () => {
     const result = await call();
     expect(result.videos[0].title).toBe(libraryVideo.title);
     expect(result.videos[0].clip).toBeUndefined();
-    expect(result.books[0].access).toBe("paid");
+    expect(result.books[0]).toMatchObject({ title, access: "open" });
+    expect(result.books[1].access).toBe("paid");
   });
   it("mantém um vídeo não incorporável como link externo, sem contornar o bloqueio", async () => {
     const base = mocks.fetch.getMockImplementation()!;
@@ -358,7 +367,14 @@ describe("Licença do material, não apenas o rodapé do governo", () => {
         title,
       ),
     ).toBeNull();
-    expect(bookLicenseEvidence(html() + '<a href="/outro.pdf">Outro</a>', page, title)).toBeNull();
+    expect(
+      bookLicenseEvidence(
+        html().replace('<meta name="citation_pdf_url" content="/livro.pdf">', "") +
+          '<a href="/outro.pdf">Outro</a>',
+        page,
+        title,
+      ),
+    ).toBeNull();
   });
   it("aceita JSON-LD de um livro específico, mas não a licença genérica do site", () => {
     const metadata = {
@@ -409,5 +425,180 @@ describe("Trechos de uma aula de doze horas", () => {
     const candidate: VideoCandidate = { ...libraryVideo, description: "" };
     expect(selectVideoClip(candidate, 500, 501).clip).toBeUndefined();
     expect(selectVideoClip({ ...candidate, chapters: [] }, 0, 1).clip).toBeUndefined();
+  });
+});
+
+describe("Catálogos públicos e formatos de repositórios", () => {
+  it("busca só livros sem refazer chamadas, capítulos ou avatares do YouTube", async () => {
+    const result = await call({ ...data, scope: "books" });
+    expect(result.books[0].access).toBe("open");
+    expect(result.bookSearchVersion).toBe(2);
+    expect(result.videos).toEqual([]);
+    expect(
+      mocks.fetch.mock.calls.every(
+        ([url]) => new URL(String(url)).hostname === "biblioteca.exemplo.edu.br",
+      ),
+    ).toBe(true);
+    expect(mocks.research.mock.calls[0]?.[0]).toContain("dedicada a LIVROS");
+  });
+  it.each(["CC BY 4.0", "CC BY-SA 4.0", "CC BY-ND 3.0"])(
+    "lê o rótulo versionado %s no dc.rights da obra",
+    (rights) => {
+      expect(bookLicenseEvidence(html(rights), page, title)?.licenseUrl).toMatch(
+        /^https:\/\/creativecommons.org\/licenses\/(by|by-sa|by-nd)\/[34]\.0\/$/,
+      );
+    },
+  );
+  it.each([
+    "CC BY-NC 4.0",
+    "CC BY NC SA 4.0",
+    "Uso não comercial. CC BY 4.0",
+    "Todos os direitos reservados. CC BY 4.0",
+    "CC BY",
+    "Download gratuito",
+  ])("não transforma %s em autorização comercial", (rights) => {
+    expect(bookLicenseEvidence(html(rights), page, title)).toBeNull();
+  });
+  it("usa o PDF identificado no metadado, mesmo havendo anexos ou livros relacionados", () => {
+    expect(
+      bookLicenseEvidence(
+        html() + '<a href="/anexo.pdf">Anexo</a><a href="/relacionado.pdf">Outra obra</a>',
+        page,
+        title,
+      )?.url,
+    ).toBe("https://biblioteca.exemplo.edu.br/livro.pdf");
+    expect(
+      bookLicenseEvidence(
+        html() + '<meta name="citation_pdf_url" content="/outra-edicao.pdf">',
+        page,
+        title,
+      ),
+    ).toBeNull();
+  });
+  it("confirma o tipo PDF de um download institucional sem extensão", async () => {
+    const base = mocks.fetch.getMockImplementation()!;
+    mocks.fetch.mockImplementation((input, init) =>
+      String(input) === page
+        ? new Response(html().replaceAll("/livro.pdf", "/bitstreams/123/download"), {
+            headers: { "content-type": "text/html" },
+          })
+        : String(input).endsWith("/bitstreams/123/download")
+          ? new Response(null, { headers: { "content-type": "application/pdf" } })
+          : base(input, init),
+    );
+    expect((await checkOfficialBook(page, title)).pdf?.url).toBe(
+      "https://biblioteca.exemplo.edu.br/bitstreams/123/download",
+    );
+  });
+  it("lê um Book em @graph, com múltiplos tipos e licença em @id", () => {
+    const graph = {
+      "@graph": [
+        { "@type": "WebSite", license: "https://creativecommons.org/licenses/by/4.0/" },
+        {
+          "@type": ["Book", "LearningResource"],
+          name: title,
+          author: { name: "Equipe de Matemática" },
+          license: { "@id": "https://creativecommons.org/licenses/by-sa/4.0/" },
+          encoding: { contentUrl: "/livro.pdf" },
+        },
+      ],
+    };
+    const evidence = bookLicenseEvidence(
+      '<script type="application/ld+json">' + JSON.stringify(graph) + "</script>",
+      page,
+      title,
+    );
+    expect(evidence?.license).toBe("CC BY-SA");
+    // Conflicting work-level rights cannot be overridden by another metadata block.
+    expect(
+      bookLicenseEvidence(
+        html("CC BY-NC 4.0") +
+          '<script type="application/ld+json">' +
+          JSON.stringify(graph) +
+          "</script>",
+        page,
+        title,
+      ),
+    ).toBeNull();
+  });
+  it("segue a página canônica e conserva sua URL como evidência", async () => {
+    const base = mocks.fetch.getMockImplementation()!;
+    const canonical = page + "/item";
+    mocks.fetch.mockImplementation((input, init) =>
+      String(input) === page
+        ? new Response(null, { status: 302, headers: { location: canonical } })
+        : String(input) === canonical
+          ? new Response(html(), { headers: { "content-type": "text/html" } })
+          : base(input, init),
+    );
+    expect(await checkOfficialBook(page, title)).toMatchObject({
+      landing: true,
+      url: canonical,
+      pdf: { evidenceUrl: canonical },
+    });
+  });
+  it("bloqueia redirecionamento para IP privado antes de acessá-lo", async () => {
+    mocks.fetch.mockResolvedValueOnce(
+      new Response(null, { status: 302, headers: { location: "https://127.0.0.1/livro" } }),
+    );
+    expect((await checkOfficialBook(page, title)).landing).toBe(false);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+  it("usa GET limitado quando o repositório não aceita HEAD", async () => {
+    const base = mocks.fetch.getMockImplementation()!;
+    mocks.fetch.mockImplementation((input, init) =>
+      String(input).endsWith("/livro.pdf")
+        ? init?.method === "HEAD"
+          ? new Response(null, { status: 405 })
+          : new Response("%PDF-fixture", {
+              status: 206,
+              headers: { "content-type": "application/pdf", "x-frame-options": "SAMEORIGIN" },
+            })
+        : base(input, init),
+    );
+    expect((await checkOfficialBook(page, title)).pdf).toMatchObject({
+      license: "CC BY",
+      embeddable: false,
+    });
+    expect(
+      mocks.fetch.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith("/livro.pdf") && init?.headers?.Range === "bytes=0-1023",
+      ),
+    ).toBe(true);
+  });
+  it("preserva o catálogo quando só o servidor do PDF falha", async () => {
+    const base = mocks.fetch.getMockImplementation()!;
+    mocks.fetch.mockImplementation((input, init) =>
+      String(input).endsWith("/livro.pdf")
+        ? Promise.reject(new Error("offline"))
+        : base(input, init),
+    );
+    expect(await checkOfficialBook(page, title)).toMatchObject({
+      landing: true,
+      url: page,
+      pdf: null,
+    });
+  });
+  it("pesquisa no eduCAPES quando não há grounding e só aceita links reais de obras", async () => {
+    mocks.research.mockResolvedValue({ text: "Sem busca web.", sources: [] });
+    mocks.object.mockRejectedValue(new Error("Sem classificação"));
+    const base = mocks.fetch.getMockImplementation()!;
+    mocks.fetch.mockImplementation((input, init) => {
+      const url = new URL(String(input));
+      if (url.hostname === "educapes.capes.gov.br" && url.pathname === "/simple-search")
+        return new Response(
+          '<a href="/handle/capes/12345">Matem&aacute;tica B&aacute;sica Aberta</a><a href="https://drive.google.com/handle/capes/3">Livro externo</a><a href="/bitstream/123/livro.pdf">Arquivo sem catálogo</a>',
+          { headers: { "content-type": "text/html" } },
+        );
+      if (url.hostname === "educapes.capes.gov.br" && url.pathname === "/handle/capes/12345")
+        return new Response(html("CC BY 4.0"), { headers: { "content-type": "text/html" } });
+      return base(input, init);
+    });
+    const sources = await searchOfficialBooks(["Matemática Equações", "Matemática Porcentagem"]);
+    expect(sources).toEqual([{ title, url: "https://educapes.capes.gov.br/handle/capes/12345" }]);
+    const result = await call({ ...data, scope: "books" });
+    expect(result.books[0]).toMatchObject({ access: "open", title, pdf: { license: "CC BY" } });
+    expect(JSON.stringify(result)).not.toContain("drive.google.com");
   });
 });

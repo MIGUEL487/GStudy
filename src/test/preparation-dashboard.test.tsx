@@ -189,6 +189,61 @@ describe("Rumo à prova com progresso próprio", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
     expect(mocks.status).toHaveBeenCalledTimes(1);
   });
+  it("recupera uma biblioteca pública vazia sem substituir as aulas salvas", async () => {
+    const existing = { ...libraryFixture, books: [] };
+    mocks.library.mockResolvedValue({
+      ...libraryFixture,
+      mode: "unavailable",
+      videos: [],
+      bookSearchVersion: 2,
+    });
+    const view = open(false, existing);
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    await screen.findByRole("button", { name: "Ler no GStudy" });
+    expect(mocks.library).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ scope: "books" }) }),
+    );
+    const saved = readLearning(localStorage.getItem(key)).plans[0]!.preparation!.guide!.library!;
+    expect(saved.videos).toEqual(existing.videos);
+    expect(saved.mode).toBe(existing.mode);
+    expect(saved.bookSearchVersion).toBe(2);
+    expect(saved.books).toEqual(libraryFixture.books);
+    expect(mocks.status).not.toHaveBeenCalled();
+    view.unmount();
+    render(
+      <LearningProvider>
+        <Workspace />
+      </LearningProvider>,
+    );
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+  });
+  it("permite pesquisar somente livros novamente, preservando vídeo e progresso", async () => {
+    mocks.library.mockResolvedValue({
+      ...libraryFixture,
+      mode: "unavailable",
+      videos: [],
+      bookSearchVersion: 2,
+    });
+    open(false, libraryFixture);
+    await screen.findByRole("heading", { name: "Uma sessão de cada vez." });
+    fireEvent.click(screen.getByRole("tab", { name: "Vídeos & livros" }));
+    expect(mocks.library).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Buscar livros novamente" }));
+    await waitFor(() =>
+      expect(
+        readLearning(localStorage.getItem(key)).plans[0]!.preparation!.guide!.library!
+          .bookSearchVersion,
+      ).toBe(2),
+    );
+    expect(screen.getByTitle(libraryFixture.videos[0]!.title)).toBeInTheDocument();
+    expect(
+      readLearning(localStorage.getItem(key)).plans[0]!.completed["topic-0:explain"],
+    ).toBeDefined();
+    expect(mocks.library).toHaveBeenCalledTimes(1);
+  });
   it("reaproveita a curadoria pronta quando o armazenamento falha", async () => {
     mocks.library.mockResolvedValue(libraryFixture);
     open();

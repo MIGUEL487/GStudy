@@ -29,9 +29,18 @@ type Props = {
   busy: boolean;
   error: string;
   refresh: () => Promise<void>;
+  refreshBooks?: () => Promise<void>;
   unsaved: boolean;
 };
-export function PreparationLibraryPanel({ plan, library, busy, error, refresh, unsaved }: Props) {
+export function PreparationLibraryPanel({
+  plan,
+  library,
+  busy,
+  error,
+  refresh,
+  refreshBooks,
+  unsaved,
+}: Props) {
   const resources = plan.preparation!.guide!.resources;
   const open = library?.books.filter((book) => book.access === "open") ?? [],
     official = library?.books.filter((book) => book.access === "official") ?? [];
@@ -144,6 +153,16 @@ export function PreparationLibraryPanel({ plan, library, busy, error, refresh, u
             </p>
           </div>
         </div>
+        {refreshBooks && library && !unsaved && (
+          <button
+            className="text-action library-books-refresh"
+            disabled={busy}
+            onClick={() => void refreshBooks()}
+          >
+            <RefreshCw size={14} className={busy ? "library-spin" : ""} />
+            Buscar livros novamente
+          </button>
+        )}
         {open.length ? (
           <div className="prep-resource-grid">
             {open.map((book, index) => (
@@ -164,7 +183,7 @@ export function PreparationLibraryPanel({ plan, library, busy, error, refresh, u
           </div>
         )}
         {!!official.length && (
-          <details className="library-official">
+          <details className="library-official" open={!open.length}>
             <summary>
               <FileText size={16} /> Outros catálogos oficiais para consultar{" "}
               <span>{official.length}</span>

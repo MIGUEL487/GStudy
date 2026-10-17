@@ -19,7 +19,7 @@ import {
   type LibraryBook,
   type LibraryVideo,
 } from "./preparation-library-model";
-import { checkOfficialBook } from "./book-rights.server";
+import { checkOfficialBook, searchOfficialBooks } from "./book-rights.server";
 import {
   searchYouTube,
   youtubeFromSources,
@@ -29,6 +29,7 @@ import {
 } from "./youtube-library.server";
 
 const input = preparationDetailsSchema.extend({
+  scope: z.enum(["all", "books"]).default("all"),
   topics: z
     .array(z.object({ title: z.string().trim().min(1).max(200), goal: z.string().max(1000) }))
     .min(1)
@@ -66,12 +67,17 @@ export async function resolveLibrarySources(sources: PublicSource[]) {
         url.pathname.startsWith("/grounding-api-redirect/");
         hop++
       ) {
-        const response = await fetch(url, {
+        let response = await fetch(url, {
           method: "HEAD",
           redirect: "manual",
           signal: AbortSignal.timeout(4500),
         });
+        if ([200, 405, 501].includes(response.status) && !response.headers.get("location")) {
+          await response.body?.cancel();
+          response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(4500) });
+        }
         const location = response.headers.get("location");
+        await response.body?.cancel();
         if (![301, 302, 303, 307, 308].includes(response.status) || !location) return null;
         const next = new URL(location, url);
         if (!sourceUrl.safeParse(next.href).success || next.port) return null;
@@ -152,7 +158,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
   .inputValidator((value: unknown) => input.parse(value))
   .handler(async ({ data }) => {
     const { aiResearch, aiObject } = await import("./ai.server");
-    const key = process.env["YOUTUBE_API_KEY"]?.trim();
+    const key = data.scope === "books" ? undefined : process.env["YOUTUBE_API_KEY"]?.trim();
     const preferred = preferredChannels(
       data.subject,
       data.kind === "prova" ? "" : data.exam,
@@ -180,7 +186,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
       aiResearch(
         [
           learningLanguage,
-          "Pesquise referências públicas para estes tópicos e etapa escolar. Priorize aulas relevantes, claras e completas dos canais preferidos, sem sacrificar a adequação ao assunto. Para concursos militares priorize Universo Narrado Militares; em matemática e física, Universo Narrado e Pedro Asaad. Um vídeo longo pode servir a vários tópicos, mas nunca invente seus timestamps. Busque também livros e materiais de órgãos públicos e instituições de ensino brasileiras, priorizando obras com licença comercial explícita CC BY, CC BY-SA, CC BY-ND, CC0 ou domínio público; uma publicação no governo não concede essa licença por si só. Prefira páginas de catálogo com metadados da licença, não PDFs soltos. Para livros comerciais, busque a página do produto na Amazon Brasil. Não use pastas particulares, cópias piratas, apostilas vazadas ou livros pagos disponibilizados sem permissão. Não afirme ter visto o vídeo ou lido o livro. Retorne recomendações descritivas e fontes reais da busca; sem busca, deixe a limitação clara.",
+          "Faça uma pesquisa web dedicada a LIVROS e materiais didáticos públicos para estes tópicos e etapa escolar. As videoaulas são buscadas separadamente: não gaste as fontes da pesquisa com vídeos. Priorize obras relevantes de órgãos públicos e instituições de ensino brasileiras com licença comercial explícita CC BY, CC BY-SA, CC BY-ND, CC0 ou domínio público. Pesquise nos catálogos educapes.capes.gov.br, repositorio.ufsc.br e outras editoras e repositórios de universidades públicas (inclusive usp.br, unesp.br, ufmg.br, ufrgs.br), além de portais gov.br e edu.br. Use termos do assunto junto de licença Creative Commons CC BY; não indique uma obra só por ser gratuita. Retorne preferencialmente 3 a 6 páginas de catálogo de OBRAS ESPECÍFICAS com título, autoria e metadados de direitos; não páginas iniciais, listas genéricas nem PDFs soltos. Uma publicação no governo não concede licença comercial por si só. Inclua complementarmente páginas de produto de livros comerciais na Amazon Brasil. Não use pastas particulares, cópias piratas, apostilas vazadas ou livros pagos disponibilizados sem permissão. Não invente URLs, direitos nem que leu o livro. Retorne recomendações descritivas e fontes reais da busca; sem busca, deixe a limitação clara.",
         ].join("\n"),
         [{ role: "user", content: JSON.stringify(publicContext) }],
       ),
@@ -194,6 +200,12 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
             sources: [],
           };
     const sources = await resolveLibrarySources(research.sources);
+    if (!sources.some((source) => officialBookUrl(source.url))) {
+      const catalogueResults = await searchOfficialBooks(
+        data.topics.slice(0, 2).map((topic) => [data.subject, topic.title].join(" ")),
+      );
+      sources.push(...catalogueResults);
+    }
     let candidates: VideoCandidate[] = [],
       mode: "youtube-api" | "sources" | "unavailable" = "unavailable";
     let videoNotice: string | undefined;
@@ -227,13 +239,13 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
         status: cause instanceof YouTubeUnavailable ? (cause.status ?? null) : null,
       });
     }
-    if (!candidates.length) {
+    if (!candidates.length && data.scope !== "books") {
       candidates = await youtubeFromSources(sources.map((source) => source.url));
       if (candidates.length) mode = "sources";
     }
     if (!key && mode !== "sources") videoNotice = youtubeMissingNotice;
-    const indexFor = (candidate: VideoCandidate) => {
-      const content = normalize([candidate.title, candidate.description].join(" "));
+    const topicIndexFor = (text: string) => {
+      const content = normalize(text);
       const ranked = data.topics
         .map((topic, index) => ({
           index,
@@ -252,20 +264,38 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
     let chosen: z.infer<typeof selection> = {
       videos: ranked.slice(0, Math.min(8, data.topics.length + 1)).map((candidate) => ({
         index: candidates.indexOf(candidate),
-        topicIndex: indexFor(candidate),
+        topicIndex: topicIndexFor([candidate.title, candidate.description].join(" ")),
         reason: "Aula encontrada para este conteúdo. Registre as ideias e pratique no caderno.",
         firstChapter: null,
         lastChapter: null,
       })),
-      books: data.recommendations
-        .filter((resource) => resource.kind === "book")
-        .map((resource) => ({
-          title: resource.title,
-          author: resource.creator,
-          topicIndex: Math.min(resource.topicIndex, data.topics.length - 1),
-          reason: "Referência sugerida para complementar o estudo. Confira a edição na Amazon.",
-          sourceIndex: null,
-        })),
+      books: [
+        ...sources
+          .flatMap((source, sourceIndex) =>
+            officialBookUrl(source.url)
+              ? [
+                  {
+                    title: source.title.slice(0, 250),
+                    author: "",
+                    topicIndex: topicIndexFor(source.title),
+                    reason:
+                      "Referência encontrada no catálogo oficial. Consulte o índice e relacione a leitura ao seu tópico de estudo.",
+                    sourceIndex,
+                  },
+                ]
+              : [],
+          )
+          .slice(0, 6),
+        ...data.recommendations
+          .filter((resource) => resource.kind === "book")
+          .map((resource) => ({
+            title: resource.title,
+            author: resource.creator,
+            topicIndex: Math.min(resource.topicIndex, data.topics.length - 1),
+            reason: "Referência sugerida para complementar o estudo. Confira a edição na Amazon.",
+            sourceIndex: null,
+          })),
+      ].slice(0, 10),
     };
     try {
       const generated = await aiObject(
@@ -273,7 +303,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
           learningLanguage,
           "Faça uma curadoria pedagógica a partir SOMENTE dos vídeos verificados e das fontes recebidas. Priorize relevância e adequação à etapa escolar; dê preferência aos canais indicados, incluindo Universo Narrado Militares para provas militares e Universo Narrado/Pedro Asaad em matemática/física. Não chame esta seleção de um ranking objetivo de todos os vídeos do YouTube. Não invente títulos, autores, canais, logos, vídeo IDs ou links.",
           "Selecione até oito vídeos pelo index, com topicIndex e reason específica. Para um vídeo longo, escolha firstChapter e lastChapter (inclusivo) SOMENTE entre os capítulos publicados nos metadados, com seus índices. Se não houver capítulos, ou não der para localizar o assunto com confiança, ambos devem ser null e o player abre a aula completa. Nunca estime um horário pelo tamanho do vídeo. Uma aula de 12 horas não é uma sessão de estudo de 12 horas. Não afirme ter assistido ao conteúdo.",
-          "Indique livros reais relevantes, priorizando referências gratuitas oficiais. sourceIndex aponta para a fonte fornecida, ou null se não houver fonte correspondente. Não infira permissão comercial, não gere URLs de PDF, não use Drive particular. O aplicativo verificará a licença do próprio livro na fonte oficial antes de disponibilizar um PDF; o selo gov.br não basta. Inclua também uma seleção complementar de livros pagos disponíveis para procurar na Amazon Brasil, sem inventar preço, ISBN, ASIN ou gratuidade. Não invente que leu um livro só por ver o catálogo.",
+          "Indique livros reais relevantes, priorizando referências gratuitas oficiais. Quando houver catálogos institucionais relevantes nas fontes, inclua essas obras na seleção; não substitua toda a biblioteca pública por livros comerciais. Copie o título completo da obra, pois a licença será conferida com esse título. sourceIndex aponta para a fonte fornecida, ou null se não houver fonte correspondente. Não infira permissão comercial, não gere URLs de PDF, não use Drive particular. O aplicativo verificará a licença do próprio livro na fonte oficial antes de disponibilizar um PDF; o selo gov.br não basta. Inclua também uma seleção complementar de livros pagos disponíveis para procurar na Amazon Brasil, sem inventar preço, ISBN, ASIN ou gratuidade. Não invente que leu um livro só por ver o catálogo.",
         ].join("\n"),
         [
           {
@@ -358,9 +388,11 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
           const checked = await checkOfficialBook(source.url, item.title);
           return {
             ...base,
-            ...(checked.landing ? { officialUrl: source.url } : {}),
+            ...(checked.landing ? { officialUrl: checked.url || source.url } : {}),
             access: checked.pdf ? ("open" as const) : ("official" as const),
-            ...(checked.pdf ? { pdf: checked.pdf, author: checked.pdf.attribution } : {}),
+            ...(checked.pdf
+              ? { pdf: checked.pdf, author: checked.pdf.attribution.slice(0, 200) }
+              : {}),
           };
         }
         const product =
@@ -376,11 +408,15 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
       mode,
       videos,
       books,
+      bookSearchVersion: 2,
       ...(videoNotice ? { videoNotice } : {}),
       ...(!books.some((book) => book.access === "open")
         ? {
-            bookNotice:
-              "Nenhum PDF com licença comercial explícita foi confirmado nesta seleção. Fontes oficiais sem essa autorização abrem apenas a página do catálogo.",
+            bookNotice: !sources.some((source) => officialBookUrl(source.url))
+              ? "A pesquisa não retornou catálogos públicos verificáveis para este assunto. Tente buscar livros novamente; os vídeos já escolhidos serão mantidos."
+              : books.some((book) => book.access === "official" && book.officialUrl)
+                ? "Os catálogos encontrados ainda não permitiram confirmar um PDF com licença comercial explícita. Consulte as referências oficiais abaixo ou tente buscar livros novamente."
+                : "Ainda não foi possível confirmar uma referência pública acessível para este assunto. Tente buscar livros novamente; as aulas salvas serão mantidas.",
           }
         : {}),
     });

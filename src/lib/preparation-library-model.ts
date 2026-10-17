@@ -64,6 +64,23 @@ export const youtubeAvatar = (value: string) => {
     return false;
   }
 };
+// Brazilian public universities do not all use edu.br. Keep an explicit list;
+// an arbitrary .org.br domain must never become a trusted PDF publisher.
+const educationalPublishers = [
+  "usp.br",
+  "unicamp.br",
+  "unesp.br",
+  "ufrgs.br",
+  "ufmg.br",
+  "ufsc.br",
+  "ufpr.br",
+  "ufrj.br",
+  "unb.br",
+  "uerj.br",
+  "impa.br",
+  "obmep.org.br",
+  "scielo.br",
+];
 export const officialBookUrl = (value: string) => {
   try {
     const url = new URL(value);
@@ -72,7 +89,10 @@ export const officialBookUrl = (value: string) => {
       !url.username &&
       !url.password &&
       !url.port &&
-      /(?:^|\.)(?:gov|edu)\.br$/.test(url.hostname)
+      (/(?:^|\.)(?:gov|edu)\.br$/.test(url.hostname) ||
+        educationalPublishers.some(
+          (host) => url.hostname === host || url.hostname.endsWith("." + host),
+        ))
     );
   } catch {
     return false;
@@ -170,6 +190,7 @@ export const preparationLibrarySchema = z.object({
   books: z.array(libraryBookSchema).max(12),
   videoNotice: z.string().max(500).optional(),
   bookNotice: z.string().max(500).optional(),
+  bookSearchVersion: z.literal(2).optional(),
 });
 export type PreparationLibrary = z.infer<typeof preparationLibrarySchema>;
 export type LibraryVideo = PreparationLibrary["videos"][number];

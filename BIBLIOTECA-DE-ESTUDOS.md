@@ -24,15 +24,17 @@ Referência oficial do player: [parâmetros do YouTube](https://developers.googl
 
 ## Biblioteca gratuita e direitos
 
-A IA procura referências oficiais de órgãos públicos e instituições de ensino brasileiros. Um arquivo gratuito ou hospedado em `.gov.br`/`.edu.br` **não recebe autorização comercial automaticamente**.
+A IA faz uma pesquisa dedicada a livros, separada da busca de vídeos. Prioriza referências oficiais de órgãos públicos e instituições de ensino brasileiros. Além de `.gov.br`/`.edu.br`, há uma lista explícita de universidades e publicadores educacionais como USP, UFSC e SciELO; outros domínios `.org.br` não são aceitos automaticamente. Sem fontes institucionais na pesquisa da IA, o servidor tenta a busca pública do eduCAPES e só utiliza links de obras que vierem realmente no resultado. Um arquivo gratuito ou hospedado nesses portais **não recebe autorização comercial automaticamente**.
 
-Um PDF só entra como leitura disponível quando a fonte oficial declara a licença do próprio material em metadados de obra: Dublin Core/citação ou JSON-LD de Book/LearningResource/CreativeWork. O título precisa corresponder ao livro e os créditos precisam estar informados pela fonte, sem depender de autoria inventada pela IA; o arquivo precisa ser um PDF único vinculado à mesma origem oficial. A fonte e o cabeçalho do arquivo são verificados no servidor.
+Um PDF só entra como leitura disponível quando a fonte oficial declara a licença do próprio material em metadados de obra: Dublin Core/citação ou JSON-LD de Book/LearningResource/CreativeWork. O título precisa corresponder ao livro e os créditos precisam estar informados pela fonte, sem depender de autoria inventada pela IA. São lidos URLs Creative Commons e rótulos versionados como `CC BY 4.0`, além de JSON-LD em `@graph`, tipos em lista e licença em `@id`. O PDF explicitamente identificado por `citation_pdf_url` tem prioridade sobre anexos e obras relacionadas; dois arquivos principais distintos continuam sendo ambíguos. Downloads institucionais sem extensão precisam ter vínculo explícito nos metadados e tipo `application/pdf` confirmado.
+
+Redirecionamentos são limitados e cada destino precisa continuar em uma fonte institucional permitida. Se o servidor não aceitar HEAD, é usado um GET com intervalo limitado, cancelando o corpo após ler os cabeçalhos. Se o download falhar, o catálogo HTML já verificado continua disponível, sem publicar seu PDF. Os créditos completos da evidência não são truncados para autorizar um arquivo.
 
 São aceitas declarações explícitas **CC BY**, **CC BY-SA**, **CC BY-ND**, **CC0** e marcação de **domínio público**. Licenças com **NC/NãoComercial**, direitos reservados, arquivos ambíguos, documentos sem licença da obra e permissões genéricas no rodapé não liberam o PDF. Uma licença de Website não equivale à de um livro. Essa verificação é uma regra conservadora de publicação, não uma garantia jurídica universal sobre qualquer obra na internet.
 
 O leitor abre o documento original na origem, sem hospedá-lo ou modificá-lo. A tela mantém título, autoria, link da licença e evidência dos direitos. Se o servidor oficial bloquear iframe, o site oferece a fonte externa apenas para o arquivo autorizado. Um catálogo confirmado como HTML pode ser listado para pesquisa sem disponibilizar seu PDF; uma URL que devolva um PDF sem autorização não é publicada como se fosse catálogo. Pastas pessoais do Google Drive não são consultadas nem divulgadas nesta curadoria.
 
-A busca pode não encontrar um PDF com direitos confirmados. Nesse caso, a seção explica a ausência; o aplicativo não libera automaticamente um arquivo para preencher a biblioteca.
+A busca pode não encontrar um PDF com direitos confirmados. Nesse caso, a seção explica a ausência; o aplicativo não libera automaticamente um arquivo para preencher a biblioteca. Catálogos sem licença confirmada ficam expandidos quando não houver leitura aberta. **Buscar livros novamente** pesquisa apenas a parte de livros, preservando vídeos, capítulos e progresso. Bibliotecas vazias salvas pela busca anterior tentam essa recuperação uma vez ao abrir a aba; o resultado marca a versão da busca para não repetir a pesquisa a cada visita.
 
 ## Livros na Amazon
 
@@ -44,7 +46,7 @@ A curadoria recebe apenas tópicos e contexto público do desafio; nomes de prov
 
 Testes com HTTP simulado verificam API e credenciais separadas, player, capítulos, bloqueios de iframe, licença da obra, recusa de NC e rodapés genéricos, Amazon, fontes privadas, cache e salvamento. A reprodução real e as cotas dependem da configuração do serviço externo na hospedagem.
 
-Validação desta atualização: 284 testes passaram, além da checagem TypeScript e do build Vercel. A interface foi exercitada em 1512 px e 390 px com autenticação, metadados, player e respostas de IA simulados: trecho por capítulo, aula completa, logo/nome do canal, PDF autorizado, Amazon, persistência e ausência de pesquisa repetida ao recarregar. Não houve erros de JavaScript nem rolagem horizontal.
+Validação desta atualização: 313 testes passaram, além da checagem TypeScript e do build Vercel. A interface foi exercitada em 1512 px e 390 px com autenticação, metadados, player e respostas de IA simulados: recuperação de biblioteca vazia mantendo vídeos, busca só de livros, trecho por capítulo, aula completa, logo/nome do canal, PDF autorizado, Amazon, persistência e ausência de pesquisa repetida ao recarregar. Não houve erros de JavaScript nem rolagem horizontal. O acesso direto aos catálogos eduCAPES, UFSC e SciELO foi bloqueado pela rede deste ambiente (HTTP 403 no proxy); portanto a consulta real às obras e suas licenças precisa acontecer na hospedagem, e não foi comprovada por estes testes simulados.
 
 ## Recuperação após configurar a chave
 

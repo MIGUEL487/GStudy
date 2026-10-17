@@ -19,7 +19,9 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
   const requested = useRef(false),
     lock = useRef(false);
   const guide = plan.preparation?.guide;
-  const refresh = async () => {
+  const latestLibrary = useRef(guide?.library);
+  latestLibrary.current = guide?.library;
+  const refresh = async (scope: "all" | "books" = "all") => {
     if (lock.current || !plan.preparation || !guide) return;
     lock.current = true;
     requested.current = true;
@@ -27,10 +29,11 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
     setError("");
     setConfigurationMissing(false);
     try {
-      const library =
+      const result =
         draft ??
         (await curate({
           data: {
+            scope,
             kind: plan.preparation.kind,
             exam: plan.preparation.exam,
             edition: plan.preparation.edition,
@@ -46,6 +49,16 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
             })),
           },
         }));
+      const previous = latestLibrary.current;
+      const library =
+        scope === "books" && previous && !draft
+          ? {
+              ...previous,
+              books: result.books,
+              bookNotice: result.bookNotice,
+              bookSearchVersion: result.bookSearchVersion,
+            }
+          : result;
       setDraft(library);
       if (!savePreparationLibrary(plan.id, library))
         throw new Error(
@@ -67,6 +80,16 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
     if (!active || !guide || requested.current) return;
     if (!guide.library) {
       void refresh();
+      return;
+    }
+    // Retry libraries saved by the former combined search once, without paying
+    // for another YouTube search or replacing the student's selected videos.
+    if (
+      !guide.library.bookSearchVersion &&
+      !guide.library.books.some((book) => book.access === "open") &&
+      guide.library.videos.length
+    ) {
+      void refresh("books");
       return;
     }
     if (guide.library.videos.length || guide.library.mode !== "unavailable") return;
@@ -91,5 +114,12 @@ export function usePreparationLibrary(plan: LearningPlan, active: boolean) {
   const saved = draft ?? guide?.library;
   const library =
     configurationMissing && saved ? { ...saved, videoNotice: youtubeMissingNotice } : saved;
-  return { library, busy, error, refresh, unsaved: Boolean(draft) };
+  return {
+    library,
+    busy,
+    error,
+    refresh: () => refresh(),
+    refreshBooks: () => refresh("books"),
+    unsaved: Boolean(draft),
+  };
 }

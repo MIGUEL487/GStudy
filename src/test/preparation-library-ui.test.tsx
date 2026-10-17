@@ -137,6 +137,22 @@ describe("PDFs autorizados e Amazon separados", () => {
   });
 });
 describe("Destinos validados", () => {
+  it("aceita universidades públicas fora de edu.br, mantendo o bloqueio de domínios parecidos", () => {
+    for (const host of [
+      "repositorio.ufsc.br",
+      "livrosabertos.sibi.usp.br",
+      "books.scielo.br",
+      "repositorio.unesp.br",
+    ])
+      expect(officialBookUrl("https://" + host + "/catalogo/livro")).toBe(true);
+    for (const host of [
+      "usp.br.evil.example",
+      "fakeusp.br",
+      "livros.org.br",
+      "educapes.capes.gov.br.evil.example",
+    ])
+      expect(officialBookUrl("https://" + host + "/catalogo/livro")).toBe(false);
+  });
   it("não aceita domínios parecidos, chaves de vídeo falsas ou PDF do Drive", () => {
     expect(youtubeId("https://www.youtube.com.evil.example/watch?v=abcdefghijk")).toBeNull();
     expect(youtubeId("https://www.youtube.com/watch?v=abcdefghijk")).toBe("abcdefghijk");
