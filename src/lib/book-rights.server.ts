@@ -49,7 +49,7 @@ const restrictedRights = (value: string) =>
   /non.?commercial|nao.?comercial|by[\s-]*nc|todos os direitos reservados|all rights reserved/i.test(
     normalize(value),
   );
-function license(value: string): NonNullable<LibraryBook["pdf"]> | null {
+export function bookLicense(value: string): NonNullable<LibraryBook["pdf"]> | null {
   // Only explicit work-level rights can authorize a PDF.
   // Generic government footers and "free download" notices are insufficient.
   if (restrictedRights(value)) return null;
@@ -123,7 +123,7 @@ export function bookLicenseEvidence(
       /^(?:dc\.rights(?:\.uri)?|dc\.rights\.license|dcterms\.license|dcterms\.rights)$/i,
     ).join(" ");
     if (restrictedRights(workRights)) return null;
-    const rights = license(workRights);
+    const rights = bookLicense(workRights);
     const authors = content(/^(?:dc\.creator(?:\.author)?|citation_author|dc\.publisher)$/i)
       .map((value) => value.trim())
       .filter(Boolean);
@@ -164,7 +164,7 @@ export function bookLicenseEvidence(
         )
           continue;
         const licenseValue = object["license"];
-        const rights = license(
+        const rights = bookLicense(
           typeof licenseValue === "string"
             ? licenseValue
             : licenseValue && typeof licenseValue === "object"

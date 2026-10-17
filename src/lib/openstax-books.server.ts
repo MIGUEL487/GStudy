@@ -1,15 +1,18 @@
 import { z } from "zod";
 import { officialBookUrl, type LibraryBook } from "./preparation-library-model";
-import { bookLicenseEvidence, officialFetch } from "./book-rights.server";
+import { bookLicense, officialFetch } from "./book-rights.server";
 
 // Fields and routes: openstax/openstax-cms books/models.py and openstax/api.py.
 // Rights come from the individual published book, never the publisher's footer.
 const workSchema = z.object({
   id: z.number().int().positive(),
-  title: z.string().min(8).max(250),
-  slug: z.string().regex(/^[a-z0-9-]+$/),
-  meta: z.object({ type: z.literal("books.Book"), locale: z.string().optional() }),
-  book_state: z.literal("live"),
+  title: z.string().min(1).max(250),
+  meta: z.object({
+    type: z.literal("books.Book"),
+    slug: z.string().regex(/^[\p{L}\p{N}-]+$/u),
+    locale: z.string().optional(),
+  }),
+  book_state: z.enum(["live", "retired"]),
   license_url: z.string(),
   license_name: z.string().nullish(),
   license_text: z.string().nullish(),
@@ -32,27 +35,22 @@ export function openStaxApi(value: string) {
   }
 }
 function evidence(work: z.infer<typeof workSchema>, url: string) {
-  const data = {
-    "@type": "Book",
-    name: work.title,
-    author: work.authors.map((author) => ({ name: author.value.name })),
-    license: [work.license_url, work.license_name, work.license_text].filter(Boolean).join(" "),
-    encoding: { contentUrl: work.pdf_url },
-  };
-  return bookLicenseEvidence(
-    '<script type="application/ld+json">' +
-      JSON.stringify(data).replaceAll("<", "\\u003c") +
-      "</script>",
-    url,
-    work.title,
+  const rights = bookLicense(
+    [work.license_url, work.license_name, work.license_text].filter(Boolean).join(" "),
   );
+  const attribution = [...new Set(work.authors.map((author) => author.value.name.trim()))].join(
+    "; ",
+  );
+  return rights && attribution.length && attribution.length <= 600 && officialBookUrl(work.pdf_url)
+    ? { ...rights, attribution, url: work.pdf_url, evidenceUrl: url }
+    : null;
 }
 export async function searchOpenStaxBooks() {
   const url = new URL("https://openstax.org/apps/cms/api/v2/pages/");
   url.searchParams.set("type", "books.Book");
   url.searchParams.set(
     "fields",
-    "title,slug,book_state,license_url,license_name,license_text,pdf_url,authors",
+    "title,book_state,license_url,license_name,license_text,pdf_url,authors",
   );
   url.searchParams.set("limit", "100");
   try {
@@ -108,6 +106,7 @@ export async function checkOpenStaxBook(
   landing: boolean;
   url?: string;
   language?: string;
+  editionStatus?: "current" | "previous";
   pdf: NonNullable<LibraryBook["pdf"]> | null;
 }> {
   if (!openStaxApi(source)) return { landing: false, pdf: null };
@@ -137,18 +136,28 @@ export async function checkOpenStaxBook(
       new URL(url).pathname !== `/apps/cms/api/v2/pages/${work.id}/`
     )
       return { landing: false, pdf: null };
-    const page = await officialFetch("https://openstax.org/details/books/" + work.slug);
-    await page.response.body?.cancel();
-    if (!page.response.ok || !page.response.headers.get("content-type")?.includes("text/html"))
-      return { landing: false, pdf: null };
+    // Old catalogue pages redirect to newer editions with different licences.
+    // For an earlier CC edition, cite its exact API record and original PDF;
+    // never attach that permission to the newer, NC edition.
+    let catalogueUrl = url;
+    if (work.book_state === "live") {
+      const page = await officialFetch(
+        "https://openstax.org/details/books/" + encodeURIComponent(work.meta.slug),
+      );
+      await page.response.body?.cancel();
+      if (!page.response.ok || !page.response.headers.get("content-type")?.includes("text/html"))
+        return { landing: false, pdf: null };
+      catalogueUrl = page.url;
+    }
     const landing = {
       landing: true,
-      url: page.url,
+      url: catalogueUrl,
+      editionStatus: work.book_state === "retired" ? ("previous" as const) : ("current" as const),
       ...(work.meta.locale ? { language: work.meta.locale } : {}),
       pdf: null,
     };
     const rights = evidence(work, url);
-    if (!rights) return landing;
+    if (!rights) return work.book_state === "retired" ? { landing: false, pdf: null } : landing;
     try {
       let pdf = await officialFetch(rights.url, { method: "HEAD" });
       if ([405, 501].includes(pdf.response.status)) {
@@ -160,7 +169,7 @@ export async function checkOpenStaxBook(
         !pdf.response.ok ||
         !pdf.response.headers.get("content-type")?.includes("application/pdf")
       )
-        return landing;
+        return work.book_state === "retired" ? { landing: false, pdf: null } : landing;
       return {
         ...landing,
         pdf: {
@@ -172,7 +181,7 @@ export async function checkOpenStaxBook(
         },
       };
     } catch {
-      return landing;
+      return work.book_state === "retired" ? { landing: false, pdf: null } : landing;
     }
   } catch {
     return { landing: false, pdf: null };

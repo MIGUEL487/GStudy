@@ -389,6 +389,11 @@ function PaidBook({ book, topic }: { book: LibraryBook; topic: string }) {
       <small className="prep-resource-topic">{topic}</small>
       <h3>{book.title}</h3>
       {book.author && <p className="prep-resource-creator">{book.author}</p>}
+      {book.editionStatus === "previous" && (
+        <p className="prep-caption library-edition-note">
+          Edição anterior · confira dados e conteúdos atuais no programa da sua prova.
+        </p>
+      )}
       {book.language && (
         <small className="prep-caption">
           Idioma:{" "}
@@ -429,6 +434,11 @@ export function OpenBook({ book, topic }: { book: LibraryBook; topic: string }) 
       <small className="prep-resource-topic">{topic}</small>
       <h3>{book.title}</h3>
       {book.author && <p className="prep-resource-creator">{book.author}</p>}
+      {book.editionStatus === "previous" && (
+        <p className="prep-caption library-edition-note">
+          Edição anterior · confira dados e conteúdos atuais no programa da sua prova.
+        </p>
+      )}
       {book.language && (
         <small className="prep-caption">
           Idioma:{" "}

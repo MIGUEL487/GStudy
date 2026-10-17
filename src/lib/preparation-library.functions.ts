@@ -431,6 +431,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
             landing: boolean;
             url?: string;
             language?: string;
+            editionStatus?: "current" | "previous";
             pdf: LibraryBook["pdf"] | null;
           } = openStaxApi(source.url)
             ? await checkOpenStaxBook(source.url, item.title)
@@ -439,6 +440,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
             ...base,
             ...(checked.landing ? { officialUrl: checked.url || source.url } : {}),
             ...(checked.language ? { language: checked.language } : {}),
+            ...(checked.editionStatus ? { editionStatus: checked.editionStatus } : {}),
             access: checked.pdf ? ("open" as const) : ("official" as const),
             ...(checked.pdf
               ? { pdf: checked.pdf, author: checked.pdf.attribution.slice(0, 200) }
@@ -479,6 +481,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
                 officialUrl: checked.url,
                 pdf: checked.pdf,
                 ...(checked.language ? { language: checked.language } : {}),
+                ...(checked.editionStatus ? { editionStatus: checked.editionStatus } : {}),
               }
             : null;
         }),
@@ -493,7 +496,7 @@ export const curatePreparationLibrary = createServerFn({ method: "POST" })
       mode,
       videos,
       books,
-      bookSearchVersion: 3,
+      bookSearchVersion: 4,
       bookSearchStatus: books.some((book) => book.access === "open")
         ? "verified"
         : books.some((book) => book.officialUrl)

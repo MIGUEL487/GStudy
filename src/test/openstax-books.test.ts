@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { searchOpenStaxBooks, checkOpenStaxBook } from "@/lib/openstax-books.server";
+import actualRecords from "./fixtures/openstax-real-records.json";
 const fetchMock = vi.fn();
 const source = "https://openstax.org/apps/cms/api/v2/pages/123/";
 const work = {
   id: 123,
   title: "World History, Volume 2",
-  slug: "world-history-volume-2",
-  meta: { type: "books.Book", locale: "en" },
+  meta: { type: "books.Book", slug: "world-history-volume-2", locale: "en" },
   book_state: "live",
   license_url: "https://creativecommons.org/licenses/by/4.0/",
   license_name: "Creative Commons Attribution License",
@@ -36,6 +36,42 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("Licença por obra da API educacional", () => {
+  it("lê registros reais com meta.slug, mantém a edição CC BY exata e recusa a edição atual NC", async () => {
+    const work = actualRecords.items[0]!;
+    expect(Object.hasOwn(work, "slug")).toBe(false);
+    const url = `https://openstax.org/apps/cms/api/v2/pages/${work.id}/`;
+    fetchMock.mockImplementation(async (input) => {
+      const target = new URL(String(input));
+      if (target.pathname === "/apps/cms/api/v2/pages/")
+        return json({ items: actualRecords.items });
+      if (String(input) === url) return json(work);
+      if (target.hostname === "assets.openstax.org")
+        return new Response(null, { headers: { "content-type": "application/pdf" } });
+      throw new Error(
+        "A permissão da edição anterior não deve acompanhar o redirect da edição atual",
+      );
+    });
+    expect((await searchOpenStaxBooks()).books).toEqual([
+      { title: work.title, url, language: "en" },
+    ]);
+    expect(await checkOpenStaxBook(url, work.title)).toMatchObject({
+      landing: true,
+      url,
+      editionStatus: "previous",
+      pdf: { url: work.pdf_url, license: "CC BY", evidenceUrl: url },
+    });
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/details/books/"))).toBe(
+      false,
+    );
+  });
+  it("aceita títulos curtos e slugs com acento sem alterar os metadados oficiais", async () => {
+    serve({ ...work, title: "Física", meta: { ...work.meta, slug: "física" } });
+    expect((await searchOpenStaxBooks()).books[0]?.title).toBe("Física");
+    expect((await checkOpenStaxBook(source, "Física")).pdf?.license).toBe("CC BY");
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes("/details/books/f%C3%ADsica")),
+    ).toBe(true);
+  });
   it("encontra o livro sem pesquisa de IA, pagina sem duplicar e verifica a origem e a licença", async () => {
     expect(await searchOpenStaxBooks()).toEqual({
       available: true,
@@ -62,7 +98,7 @@ describe("Licença por obra da API educacional", () => {
   it.each([
     { ...work, license_url: "https://creativecommons.org/licenses/by-nc-sa/4.0/" },
     { ...work, license_text: "NonCommercial use only" },
-    { ...work, book_state: "retired" },
+    { ...work, book_state: "unlisted" },
     { ...work, authors: [] },
     { ...work, meta: { type: "pages.HomePage" } },
     { ...work, pdf_url: "https://drive.google.com/file/123" },

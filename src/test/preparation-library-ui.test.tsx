@@ -62,6 +62,25 @@ describe("Player oficial e identidade do canal", () => {
   });
 });
 describe("PDFs autorizados e Amazon separados", () => {
+  it("identifica a edição anterior e seu idioma antes de abrir o PDF", () => {
+    render(
+      <OpenBook
+        book={{
+          ...libraryBook,
+          title: "Principles of Macroeconomics 2e",
+          language: "en",
+          editionStatus: "previous",
+        }}
+        topic="Economia"
+      />,
+    );
+    expect(screen.getByText(/Edição anterior/)).toBeInTheDocument();
+    expect(screen.getByText(/Idioma: inglês/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PDF na fonte oficial" })).toHaveAttribute(
+      "href",
+      libraryBook.pdf!.url,
+    );
+  });
   it("abre o documento original autorizado, com autoria, licença e origem visíveis", () => {
     const view = render(<OpenBook book={libraryBook} topic="Equações" />);
     expect(view.container.querySelector("iframe")).toBeNull();

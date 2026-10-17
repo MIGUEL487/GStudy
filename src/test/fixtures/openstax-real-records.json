@@ -1,0 +1,409 @@
+{
+  "source": "https://openstax.org/apps/cms/api/v2/pages/",
+  "checkedOn": "2026-10-17",
+  "items": [
+    {
+      "id": 178,
+      "title": "Principles of Macroeconomics 2e",
+      "book_state": "retired",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "license_name": "Creative Commons Attribution License",
+      "license_text": "",
+      "pdf_url": "https://assets.openstax.org/oscms-prodcms/media/documents/Macroeconomics2e-OP_WRQqkIv.pdf",
+      "authors": [
+        {
+          "type": "author",
+          "value": {
+            "name": "Eric Dodge",
+            "university": "Hanover College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "c9dc6146-ab0b-4eef-8dd8-34ed97c232e8"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Cynthia Gamez",
+            "university": "University of Texas at El Paso",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "9548a737-dc0c-4dfc-a36d-a8ba7c43be13"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Andres Jauregui",
+            "university": "Columbus State University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "165e3d6a-b84a-44f8-9114-2de3720af12b"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Diane Keenan",
+            "university": "Cerritos College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "2e339b71-24a7-4fd9-adde-93bbef817e61"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Steven A. Greenlaw",
+            "university": "University of Mary Washington",
+            "country": "",
+            "senior_author": true,
+            "display_at_top": true
+          },
+          "id": "cc18c811-465e-4451-a11b-eeec15ef29f4"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "David Shapiro",
+            "university": "Pennsylvania State University",
+            "country": "",
+            "senior_author": true,
+            "display_at_top": true
+          },
+          "id": "3a7bbe66-4b20-4dad-9712-e8a7201384ed"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Dan MacDonald",
+            "university": "California State University, San Bernadino",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "5e6dfbb7-d156-425d-bd68-50307ed9dc72"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Amyaz Moledina",
+            "university": "The College of Wooster",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "52ad6cbe-80f4-4c1b-9b48-4097f753979e"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Craig Richardson",
+            "university": "Winston-Salem State University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "280e2a80-8dce-4502-b267-0cab532285c3"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Ralph Sonenshine",
+            "university": "American University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "2f10d9a8-6d06-437b-b84f-2aceed544b5b"
+        }
+      ],
+      "meta": {
+        "slug": "principles-macroeconomics-2e",
+        "seo_title": "Free Principles of Macroeconomics 2e Book for Download",
+        "search_description": "Study macroeconomics online free by downloading OpenStax's Principles of Macroecnomics 2e textbook and using our accompanying online resources.",
+        "type": "books.Book",
+        "detail_url": "https://openstax.org/apps/cms/api/v2/pages/178/",
+        "html_url": "https://openstax.org/details/books/principles-macroeconomics-2e",
+        "show_in_menus": false,
+        "first_published_at": "2017-11-08T12:14:11.093682-06:00",
+        "alias_of": null,
+        "parent": {
+          "id": 30,
+          "meta": {
+            "type": "books.BookIndex",
+            "detail_url": "https://openstax.org/apps/cms/api/v2/pages/30/",
+            "html_url": "https://openstax.org/subjects/"
+          },
+          "title": "Books"
+        },
+        "locale": "en"
+      }
+    },
+    {
+      "id": 623,
+      "meta": {
+        "slug": "world-history-volume-2",
+        "type": "books.Book",
+        "detail_url": "https://openstax.org/apps/cms/api/v2/pages/623/",
+        "html_url": "https://openstax.org/details/books/world-history-volume-2",
+        "first_published_at": "2022-12-02T12:13:13.241000-06:00",
+        "locale": "en"
+      },
+      "title": "World History, Volume 2: from 1400",
+      "book_state": "live",
+      "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "license_name": "Creative Commons Attribution-NonCommercial-ShareAlike License",
+      "license_text": "",
+      "pdf_url": "https://assets.openstax.org/oscms-prodcms/media/documents/World_History_Volume_2-WEB.pdf",
+      "authors": [
+        {
+          "type": "author",
+          "value": {
+            "name": "Ann Kordas",
+            "university": "Johnson & Wales University",
+            "country": "",
+            "senior_author": true,
+            "display_at_top": true
+          },
+          "id": "e9908a16-2a07-4dd5-8141-cd03f938a126"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Ryan J. Lynch",
+            "university": "Columbus State University",
+            "country": "",
+            "senior_author": true,
+            "display_at_top": false
+          },
+          "id": "e049fd82-ea1e-4479-ad0c-829c86f408b8"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Brooke Nelson",
+            "university": "formerly California State University",
+            "country": "",
+            "senior_author": true,
+            "display_at_top": false
+          },
+          "id": "1cf54533-17f5-4ca2-884e-79ce63d400f3"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Julie Tatlock",
+            "university": "Mount Mary University",
+            "country": "",
+            "senior_author": true,
+            "display_at_top": false
+          },
+          "id": "9a6d1203-45f5-4623-b797-c88632d9f74c"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Chris Bingley",
+            "university": "UCLA",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "0ae9ff6f-0190-4aac-a5d2-50af7b7d7678"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Celeste Chamberland",
+            "university": "Roosevelt University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "8ed39521-bc07-4633-8a41-26a5ee7be5b4"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Scott Corbett",
+            "university": "Ventura College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "88bb8e7e-f5f2-4b4e-984c-e9ea188ec9fa"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Rick Gianni",
+            "university": "Grand Canyon University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "1ebf6929-a1d3-431c-be9c-bf41d6a62930"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Jennifer Lawrence",
+            "university": "Tarrant County College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "f44dae37-4050-4b90-a147-c6f9fac424c3"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Jamie McCandless",
+            "university": "Kennesaw State University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "611ab850-daec-4f74-bb78-3cdf33372d3e"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Cristina Mehrtens",
+            "university": "University of Massachusetts Dartmouth",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "18dc2fe3-883c-456c-a2a0-fafcb856db8c"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Anthony Miller",
+            "university": "Hanover College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "96b079b5-0866-4a10-8fc5-d1ae7815aadf"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Abigail Owen",
+            "university": "Carnegie Mellon University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "1c7298ca-6dde-46b6-a9f8-97b025d712df"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "David Price",
+            "university": "Santa Fe College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "e553fab4-857e-4d3e-8a37-a3b38135ae7c"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Kim Richardson",
+            "university": "University of South Carolina Lancaster",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "2fd57b6e-7f53-462b-a63a-013581729faa"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Christopher S Rose",
+            "university": "Our Lady of the Lake University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "8fe12b97-e4fa-4768-8775-c8b22b6e511f"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Joseph Snyder",
+            "university": "Southeast Missouri State University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "b05ea264-6491-47ef-8b5a-f0c6f14500d5"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Christopher Thrasher",
+            "university": "National Park College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "a842a2c2-55e7-4d81-a17b-20573612a176"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "David Toye",
+            "university": "Northeast State Community College",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "6347f845-d1e3-4057-a921-d519913eadb6"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Alexander Wathen",
+            "university": "University of Houston-Downtown",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "4f9c3258-96c1-44c9-a498-336436edb5f8"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Grace Hunt Watkinson",
+            "university": "Kennesaw State University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "8f0fa98d-5603-4337-857e-f843a0da5537"
+        },
+        {
+          "type": "author",
+          "value": {
+            "name": "Joel Webb",
+            "university": "Auburn University",
+            "country": "",
+            "senior_author": false,
+            "display_at_top": false
+          },
+          "id": "7c183643-8453-40fd-9197-b4298dcdea96"
+        }
+      ]
+    }
+  ]
+}

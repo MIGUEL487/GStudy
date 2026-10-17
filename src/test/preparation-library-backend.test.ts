@@ -164,8 +164,7 @@ describe("Curadoria oficial de aulas e livros", () => {
     const work = {
       id: 123,
       title: "World History, Volume 2",
-      slug: "world-history-volume-2",
-      meta: { type: "books.Book", locale: "en" },
+      meta: { type: "books.Book", slug: "world-history-volume-2", locale: "en" },
       book_state: "live",
       license_url: "https://creativecommons.org/licenses/by/4.0/",
       authors: [{ type: "author", value: { name: "Autora de teste" } }],
@@ -491,7 +490,7 @@ describe("Catálogos públicos e formatos de repositórios", () => {
   it("busca só livros sem refazer chamadas, capítulos ou avatares do YouTube", async () => {
     const result = await call({ ...data, scope: "books" });
     expect(result.books[0].access).toBe("open");
-    expect(result.bookSearchVersion).toBe(3);
+    expect(result.bookSearchVersion).toBe(4);
     expect(result.videos).toEqual([]);
     expect(
       mocks.fetch.mock.calls.every(([url]) =>

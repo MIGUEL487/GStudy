@@ -161,6 +161,7 @@ export const libraryBookSchema = z
     reason: z.string().min(1).max(1500),
     access: z.enum(["open", "official", "paid"]),
     language: z.string().max(80).optional(),
+    editionStatus: z.enum(["current", "previous"]).optional(),
     officialUrl: httpsUrl.refine(officialBookUrl).optional(),
     amazonUrl: httpsUrl.refine((value) => amazonProduct(value) === value).optional(),
     pdf: z
@@ -192,7 +193,7 @@ export const preparationLibrarySchema = z.object({
   books: z.array(libraryBookSchema).max(12),
   videoNotice: z.string().max(500).optional(),
   bookNotice: z.string().max(500).optional(),
-  bookSearchVersion: z.union([z.literal(2), z.literal(3)]).optional(),
+  bookSearchVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
   bookSearchStatus: z.enum(["verified", "catalogues", "no-results", "unavailable"]).optional(),
 });
 export type PreparationLibrary = z.infer<typeof preparationLibrarySchema>;
