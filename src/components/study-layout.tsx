@@ -30,10 +30,11 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     if (!page.current?.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const transition = page.current.animate(
       [
-        { opacity: .45, transform: 'translateY(16px) scale(.992)' },
+        { opacity: 0, transform: 'translateY(42px) scale(.97)' },
+        { opacity: 1, transform: 'translateY(-3px) scale(1.003)', offset: .76 },
         { opacity: 1, transform: 'translateY(0) scale(1)' },
       ],
-      { duration: 470, easing: 'cubic-bezier(.22,1,.36,1)' },
+      { duration: 720, easing: 'cubic-bezier(.2,.8,.2,1)' },
     );
     return () => transition.cancel();
   }, [path]);

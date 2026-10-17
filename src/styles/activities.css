@@ -11,8 +11,8 @@
 .activity-lesson .lesson-hearts { display:flex;align-items:center;gap:6px; }
 .activity-lesson .lesson-body { gap:20px; }
 .activity-lesson .lesson-body,
-.activity-lesson .lesson-thinking { animation:study-content-in .5s var(--ease) both; }
-@keyframes study-content-in { from { opacity:0;transform:translateY(15px) scale(.99); } to { opacity:1;transform:translateY(0) scale(1); } }
+.activity-lesson .lesson-thinking { animation:study-content-in .65s var(--ease) both; }
+@keyframes study-content-in { from { opacity:0;transform:translateY(32px) scale(.965); } to { opacity:1;transform:translateY(0) scale(1); } }
 .activity-lesson .lesson-q { font-size:clamp(27px,3vw,39px);line-height:1.25;text-wrap:pretty; }
 .activity-intro { display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted-foreground); }
 .activity-intro>svg { flex:none;color:var(--primary); }
@@ -31,15 +31,16 @@
 .dots i,.bubble.typing i { width:7px;height:7px;border-radius:50%;opacity:1;animation:activity-dot-wave 1.2s ease-in-out infinite; }
 .dots i:nth-child(2),.bubble.typing i:nth-child(2) { animation-delay:.16s; }
 .dots i:nth-child(3),.bubble.typing i:nth-child(3) { animation-delay:.32s; }
-@keyframes activity-dot-wave { 0%,65%,100% { transform:translateY(3px); } 32% { transform:translateY(-5px); } }
+@keyframes activity-dot-wave { 0%,65%,100% { transform:translateY(4px); } 32% { transform:translateY(-7px); } }
 @keyframes activity-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-5px); } }
-@keyframes activity-face-in { from { opacity:0;transform:translateY(9px); } to { opacity:1;transform:translateY(0); } }
-.activity-flashcard { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;position:relative;width:100%;min-height:330px;height:auto;padding:35px clamp(22px,5vw,48px);border:1px solid var(--border);border-radius:22px;background:var(--card);box-shadow:0 12px 36px -26px #523b2780;text-align:center;cursor:pointer;transition:background .3s,border-color .3s; }
+@keyframes activity-face-in { from { opacity:0;transform:translateY(22px) scale(.96); } to { opacity:1;transform:translateY(0) scale(1); } }
+.activity-flashcard { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;position:relative;width:100%;min-height:330px;height:auto;padding:35px clamp(22px,5vw,48px);border:1px solid var(--border);border-radius:22px;background:var(--card);box-shadow:0 12px 36px -26px #523b2780;text-align:center;cursor:pointer;transition:background .3s,border-color .3s;animation:study-card-in .6s var(--ease) both; }
+@keyframes study-card-in { from { opacity:0;transform:translateX(38px) rotate(1.5deg) scale(.95); } to { opacity:1;transform:translateX(0) rotate(0) scale(1); } }
 .activity-flashcard[data-face=answer] { background:var(--secondary); }
 .activity-flashcard:hover { border-color:var(--primary); }
 .activity-flashcard:focus-visible { outline:2px solid var(--primary);outline-offset:4px; }
 .activity-flashcard .flashcard-side { display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted-foreground);font-size:10px;letter-spacing:.13em;text-transform:uppercase; }
-.flashcard-copy { display:block;width:100%;min-width:0;font:500 clamp(24px,3vw,34px)/1.45 var(--font-serif);overflow-wrap:anywhere;white-space:pre-wrap;animation:activity-face-in .32s var(--ease) both; }
+.flashcard-copy { display:block;width:100%;min-width:0;font:500 clamp(24px,3vw,34px)/1.45 var(--font-serif);overflow-wrap:anywhere;white-space:pre-wrap;animation:activity-face-in .5s var(--ease) both; }
 .activity-flashcard[data-face=answer] .flashcard-copy { font:400 clamp(17px,2vw,20px)/1.7 var(--font-sans); }
 .flashcard-copy p { margin:0; }
 .flashcard-copy p+p { margin-top:.8em; }
@@ -47,17 +48,20 @@
 .activity-card-hint { margin:0;color:var(--muted-foreground);font-size:11px;line-height:1.5;text-align:center; }
 .activity-card-count { margin-left:auto;font-size:11px;white-space:nowrap; }
 .activity-lesson .choices { gap:12px; }
-.activity-lesson .choices .choice { animation:study-option-in .36s var(--ease) both; }
-.activity-lesson .choices .choice:nth-child(2) { animation-delay:.045s; }
-.activity-lesson .choices .choice:nth-child(3) { animation-delay:.09s; }
-.activity-lesson .choices .choice:nth-child(4) { animation-delay:.135s; }
-@keyframes study-option-in { from { opacity:0;transform:translateY(8px); } to { opacity:1;transform:translateY(0); } }
+.activity-lesson .choices .choice { animation:study-option-in .5s var(--ease) backwards;animation-delay:.1s; }
+.activity-lesson .choices .choice:nth-child(2) { animation-delay:.2s; }
+.activity-lesson .choices .choice:nth-child(3) { animation-delay:.3s; }
+.activity-lesson .choices .choice:nth-child(4) { animation-delay:.4s; }
+@keyframes study-option-in { from { opacity:0;transform:translateX(-32px) scale(.96); } to { opacity:1;transform:translateX(0) scale(1); } }
 .activity-lesson .choice { align-items:flex-start;gap:14px;border-width:1px;border-radius:14px;padding:17px 18px;box-shadow:none;line-height:1.6;transition:background .25s,border-color .25s,transform .25s; }
 .activity-lesson .choice>kbd { margin-top:1px; }
 .activity-lesson .choice>span { flex:1;overflow-wrap:anywhere; }
 .activity-lesson .choice:hover:not(:disabled) { transform:translateX(3px); }
 .activity-lesson .choice.picked { box-shadow:inset 0 0 0 1px var(--primary); }
-.activity-lesson .choice.right,.activity-lesson .choice.wrong { animation:none; }
+.activity-lesson .choices .choice.right { animation:study-answer-confirm .48s var(--ease); }
+.activity-lesson .choices .choice.wrong { animation:study-answer-reconsider .38s ease; }
+@keyframes study-answer-confirm { 0%,100% { transform:scale(1); } 40% { transform:scale(1.025); } }
+@keyframes study-answer-reconsider { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-5px); } 65% { transform:translateX(5px); } }
 .activity-lesson .choice:disabled { opacity:1;cursor:default; }
 .activity-lesson .choice .choice-status { flex:none;align-self:center; }
 .activity-lesson .foot-msg { gap:8px;min-width:170px; }

@@ -654,11 +654,11 @@
 @keyframes prep-reveal {
   from {
     opacity: 0;
-    transform: translateY(7px);
+    transform: translateY(28px) scale(.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 @media (max-width: 1050px) {
@@ -909,7 +909,7 @@
   outline-offset: 2px;
 }
 .prep-dashboard-panel {
-  animation: prep-reveal 0.48s var(--ease) both;
+  animation: prep-reveal .65s var(--ease) both;
 }
 .prep-route-layout {
   display: grid;

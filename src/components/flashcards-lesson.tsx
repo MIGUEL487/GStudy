@@ -100,6 +100,7 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
         </div>
         <small className="lesson-kicker">{lesson.topic?.title ?? "MEMORIZE COM CALMA"}</small>
         <button
+          key={round}
           className="activity-flashcard"
           data-face={flip ? "answer" : "question"}
           onClick={() => setFlip((f) => !f)}
