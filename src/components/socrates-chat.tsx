@@ -157,7 +157,7 @@ export function SocratesChat({ userId }: { userId: string }) {
     >
       <header className="socrates-hero">
         <div className="eyebrow">
-          <SocratesIcon size={15} /> APRENDER A PERGUNTAR
+          <SocratesIcon size={22} /> APRENDER A PERGUNTAR
         </div>
         <h1>Uma boa pergunta abre caminhos.</h1>
         <p>
@@ -257,7 +257,7 @@ export function SocratesChat({ userId }: { userId: string }) {
       </div>
       <div className="socrates-dialogue">
         <div className="socrates-dialogue-heading">
-          <SocratesIcon size={21} />
+          <SocratesIcon size={29} />
           <span>
             Sócrates<small>Primeiro, vamos entender o porquê.</small>
           </span>

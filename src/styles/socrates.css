@@ -88,8 +88,8 @@
 .socrates-dialogue {
   display: flex;
   flex-direction: column;
-  height: clamp(500px, calc(100dvh - 370px), 900px);
-  min-height: 500px;
+  height: clamp(680px, calc(100dvh - 260px), 1200px);
+  min-height: 680px;
   border: 1px solid var(--border);
   border-radius: 22px;
   background: color-mix(in srgb, var(--background) 75%, white);
@@ -298,8 +298,8 @@
     padding: 15px;
   }
   .socrates-dialogue {
-    height: clamp(480px, calc(100dvh - 350px), 760px);
-    min-height: 480px;
+    height: clamp(570px, calc(100dvh - 240px), 900px);
+    min-height: 570px;
   }
   .socrates-dialogue-heading {
     padding: 12px 17px;
