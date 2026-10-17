@@ -192,3 +192,17 @@ describe("Importação revisada sem perda dos dados anteriores", () => {
     );
   });
 });
+
+describe("Limite de faltas na importação do boletim", () => {
+  it("recusa mais faltas que aulas no período sem alterar os dados existentes", () => {
+    const data = initialData();
+    data.performance["subject-0"] = { ...emptyPerformance(), perWeek: "3" };
+    expect(() =>
+      applyReportDrafts(data, [draft({ absences: "37" })], {
+        includeAbsences: true,
+        overwrite: true,
+      }),
+    ).toThrow("entre 0 e 36");
+    expect(data.performance["subject-0"].grades[0]?.absences).toBe("");
+  });
+});

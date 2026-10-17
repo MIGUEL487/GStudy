@@ -6,6 +6,10 @@ import {
   emptyPerformance,
   absenceBudget,
   calendarAbsences,
+  maxWeeklyClasses,
+  maxPeriodAbsences,
+  performanceWeeklyClasses,
+  validatePerformanceCounts,
   type Performance,
 } from "@/lib/study-model";
 import { Button } from "@/components/ui/button";
@@ -35,10 +39,17 @@ function PerformancePage() {
       ...d,
       performance: {
         ...d.performance,
-        [subjectId]: fn(d.performance[subjectId] || emptyPerformance()),
+        [subjectId]: validatePerformanceCounts(
+          d,
+          subjectId,
+          fn(d.performance[subjectId] || emptyPerformance()),
+        ),
       },
     }));
   if (!subject) return <h1>{ready ? "Matéria não encontrada" : "Carregando…"}</h1>;
+  const calendarTotal = calendarAbsences(data, subjectId);
+  const manualTotal = perf.grades.reduce((sum, grade) => sum + Number(grade.absences || 0), 0);
+  const weekly = performanceWeeklyClasses(data, subjectId);
   const scored = perf.grades.filter((g) => g.score !== "");
   const sum = scored.reduce((n, g) => n + Number(g.score), 0);
   const percent =
@@ -67,6 +78,9 @@ function PerformancePage() {
             <input
               type="number"
               min="0"
+              max={f.key === "perWeek" ? maxWeeklyClasses(data) : undefined}
+              step={f.key === "perWeek" ? "1" : "0.1"}
+              placeholder={f.key === "perWeek" && weekly ? String(weekly) : undefined}
               className="form-input"
               value={perf[f.key] ?? ""}
               onChange={(e) => change((p) => ({ ...p, [f.key]: e.target.value }))}
@@ -75,10 +89,8 @@ function PerformancePage() {
         ))}
       </div>
       {(() => {
-        const abs =
-          perf.grades.reduce((n, g) => n + Number(g.absences || 0), 0) +
-          calendarAbsences(data, subjectId);
-        const b = absenceBudget(Number(perf.perWeek || 0), abs);
+        const abs = manualTotal + calendarTotal;
+        const b = absenceBudget(weekly, abs);
         return (
           <div className={`absence-box ${b.over ? "danger" : ""}`}>
             <div>
@@ -108,6 +120,16 @@ function PerformancePage() {
         );
       })()}
       <h2>Bimestres</h2>
+      <p className="page-subtitle">
+        Nas faltas de cada bimestre, informe apenas as faltas adicionais que ainda não marcou no
+        calendário. As do calendário aparecem na linha própria e entram no total automaticamente,
+        conforme o Horário das aulas.
+      </p>
+      <p className="page-subtitle">
+        Até {maxWeeklyClasses(data)} aulas por semana (12 por dia letivo) e até{" "}
+        {maxPeriodAbsences(data, subjectId)} faltas por bimestre, com base em 12 semanas. Aulas já
+        cadastradas no Horário são usadas quando o campo semanal está vazio.
+      </p>
       <div className="grade-scroll">
         <table className="grade-table">
           <thead>
@@ -149,6 +171,7 @@ function PerformancePage() {
                         aria-label={`${key === "score" ? "Nota" : key === "absences" ? "Faltas" : "Advertências"} ${i + 1}º bimestre`}
                         type="number"
                         min="0"
+                        max={key === "absences" ? maxPeriodAbsences(data, subjectId) : undefined}
                         step={key === "score" ? "0.1" : "1"}
                         className="form-input"
                         value={g[key]}
@@ -167,6 +190,20 @@ function PerformancePage() {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={4}>
+                Calendário (conforme horário)
+              </th>
+              <td aria-label="Faltas pelo calendário">{calendarTotal}</td>
+            </tr>
+            <tr>
+              <th scope="row" colSpan={4}>
+                Total de faltas
+              </th>
+              <td aria-label="Total de faltas">{manualTotal + calendarTotal}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
       <section className="settings-section">
@@ -180,9 +217,8 @@ function PerformancePage() {
           </p>
         )}
         <p>
-          {perf.grades.reduce((n, g) => n + Number(g.absences || 0), 0) +
-            calendarAbsences(data, subjectId)}{" "}
-          faltas registradas ({calendarAbsences(data, subjectId)} pelo calendário)
+          {manualTotal + calendarTotal} faltas registradas ({calendarAbsences(data, subjectId)} pelo
+          calendário)
         </p>
       </section>
       <section className="settings-section">

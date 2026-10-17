@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, CalendarCheck, Table2 } from 'lucide-react';
 import { ScheduleTable } from '@/components/schedule-table';
 import { useStudy } from '@/components/study-provider';
 import { Button } from '@/components/ui/button';
-import { dayBudget, defaultSchoolDays } from '@/lib/study-model';
+import { dayBudget, defaultSchoolDays, scheduledWeeklyClasses } from '@/lib/study-model';
 
 export const Route = createFileRoute('/calendario')({ head: () => ({ meta: [{ title: 'GStudy · Calendário de presença' }, { name: 'description', content: 'Marque os dias em que foi ou faltou à aula e acompanhe sua frequência.' }, { property: 'og:title', content: 'GStudy · Calendário de presença' }, { property: 'og:description', content: 'Sua frequência, dia após dia.' }, { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary_large_image' }] }), component: CalendarPage });
 
@@ -43,6 +43,7 @@ function CalendarPage() {
           return <button key={key} disabled={!school && !st} onClick={() => toggle(key)} aria-label={`${d.toLocaleDateString('pt-BR')}: ${st === 'present' ? 'presente' : st === 'absent' ? 'falta' : 'sem registro'}`} className={`calendar-day ${st ?? ''} ${key === today ? 'today' : ''} ${school ? '' : 'off'}`}><span>{d.getDate()}</span><small>{st === 'present' ? 'Fui' : st === 'absent' ? 'Faltei' : ''}</small></button>; })}
       </div>
     </div>
+    {!data.subjects.some(subject => scheduledWeeklyClasses(data, subject.id) > 0) && <p role="status" className="page-subtitle mt-4">Para distribuir as faltas entre as matérias, preencha seu horário. <Button variant="link" onClick={() => setTab('horario')}>Configurar horário das aulas</Button></p>}
     <p className="page-subtitle mt-4">Quando você marca “Faltei”, as aulas daquele dia (do seu Horário) entram nas faltas de cada matéria. Os dias de aula podem ser ajustados em Configurações.</p>
     </div>}
     <NotionCalendar month={month} />

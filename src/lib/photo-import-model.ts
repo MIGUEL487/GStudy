@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { emptyPerformance, type StudyData, type Subject } from "./study-model";
+import {
+  emptyPerformance,
+  maxPeriodAbsences,
+  validateCountInput,
+  type StudyData,
+  type Subject,
+} from "./study-model";
 
 // Keep the request below the hosting limit; the browser compresses camera photos first.
 export const studyPhotoSchema = z
@@ -98,7 +104,11 @@ export function applyReportDrafts(
     const values: { score?: string; absences?: string } = {};
     if (row.score.trim()) values.score = numeric(row.score, "a nota");
     if (options.includeAbsences && row.absences.trim())
-      values.absences = numeric(row.absences, "as faltas", true);
+      values.absences = validateCountInput(
+        numeric(row.absences, "as faltas", true),
+        maxPeriodAbsences(data, row.subjectId),
+        "Faltas por bimestre",
+      );
     if (!Object.keys(values).length)
       throw new Error(`${subject.name}: preencha a nota ou habilite a importação de faltas.`);
     const current = performance[row.subjectId] ?? emptyPerformance();

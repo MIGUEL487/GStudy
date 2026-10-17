@@ -39,3 +39,60 @@ export function classesOn(schedule: Schedule | undefined, weekday: number, subje
 /** Faltas vindas do calendário: cada dia marcado como falta soma as aulas daquela matéria no dia. */
 export function calendarAbsences(data: Pick<StudyData,'attendance'|'schedule'>, subjectId: string) { return Object.entries(data.attendance ?? {}).filter(([,v]) => v === 'absent').reduce((n,[date]) => { const [y,m,d] = date.split('-').map(Number); return n + classesOn(data.schedule, new Date(y!, m!-1, d!).getDay(), subjectId); }, 0); }
 export function addSubject(data: StudyData, name: string): { data: StudyData; id: string } { const clean = cleanName(name); const id = uid(); return { id, data: { ...data, subjects: [...data.subjects, { id, name: clean, emoji: '📘', notebooks: [], courses: [] }] } }; }
+
+/** Upper bound for a full school day; not an attendance allowance. */
+export const maxClassesPerDay = 12;
+export function maxWeeklyClasses(data: Pick<StudyData, "schoolDays">) {
+  return new Set(data.schoolDays ?? defaultSchoolDays).size * maxClassesPerDay;
+}
+export function scheduledWeeklyClasses(
+  data: Pick<StudyData, "schedule" | "schoolDays">,
+  subjectId: string,
+) {
+  return [...new Set(data.schoolDays ?? defaultSchoolDays)].reduce(
+    (total, day) => total + classesOn(data.schedule, day, subjectId),
+    0,
+  );
+}
+export function performanceWeeklyClasses(
+  data: Pick<StudyData, "schedule" | "schoolDays" | "performance">,
+  subjectId: string,
+) {
+  const manual = data.performance[subjectId]?.perWeek;
+  return manual?.trim() && /^\d+$/.test(manual) && Number(manual) <= maxWeeklyClasses(data)
+    ? Number(manual)
+    : scheduledWeeklyClasses(data, subjectId);
+}
+export function maxPeriodAbsences(
+  data: Pick<StudyData, "schedule" | "schoolDays" | "performance">,
+  subjectId: string,
+) {
+  const weekly = performanceWeeklyClasses(data, subjectId);
+  return (
+    (Number.isInteger(weekly) && weekly > 0 && weekly <= maxWeeklyClasses(data)
+      ? weekly
+      : maxWeeklyClasses(data)) * 12
+  );
+}
+export function validateCountInput(value: string, max: number, label: string) {
+  if (value === "") return value;
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > max)
+    throw new Error(`${label}: use um número inteiro entre 0 e ${max}.`);
+  return String(Number(value));
+}
+export function validatePerformanceCounts(
+  data: Pick<StudyData, "schedule" | "schoolDays" | "performance">,
+  subjectId: string,
+  performance: Performance,
+) {
+  const previous = data.performance[subjectId];
+  const weeklyChanged = performance.perWeek !== previous?.perWeek;
+  if (weeklyChanged)
+    validateCountInput(performance.perWeek ?? "", maxWeeklyClasses(data), "Aulas por semana");
+  const next = { ...data, performance: { ...data.performance, [subjectId]: performance } };
+  performance.grades.forEach((grade, index) => {
+    if (weeklyChanged || grade.absences !== previous?.grades[index]?.absences)
+      validateCountInput(grade.absences, maxPeriodAbsences(next, subjectId), "Faltas por bimestre");
+  });
+  return performance;
+}

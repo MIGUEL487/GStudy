@@ -3,7 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useStudy } from './study-provider';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { addSubject, defaultSchoolDays, emptySchedule, type Schedule } from '@/lib/study-model';
+import { addSubject, defaultSchoolDays, emptySchedule, maxClassesPerDay, type Schedule } from '@/lib/study-model';
 
 const names = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const NEW = '__new__';
@@ -28,7 +28,7 @@ export function ScheduleTable() {
   };
 
   return <div className="page-enter">
-    <p className="page-subtitle">Monte seu horário: em cada dia, escolha a matéria de cada aula. Cada linha é uma aula.</p>
+    <p className="page-subtitle">Monte seu horário: em cada dia, escolha a matéria de cada aula. Cada linha é uma aula. Limite de 12 aulas por dia.</p>
     <div className="schedule-scroll"><table className="schedule-table">
       <thead><tr><th>Aula</th>{days.map(d => <th key={d}>{names[d]}</th>)}<th /></tr></thead>
       <tbody>{Array.from({ length: sch.rows }, (_, row) => <tr key={row} className="schedule-row">
@@ -42,7 +42,7 @@ export function ScheduleTable() {
         <td>{sch.rows > 1 && <Button variant="ghost" size="icon" aria-label={`Remover ${row + 1}ª aula`} onClick={() => removeRow(row)}><Trash2 /></Button>}</td>
       </tr>)}</tbody>
     </table></div>
-    <Button variant="outline" className="mt-3" onClick={() => save(s => ({ ...s, rows: s.rows + 1 }))}><Plus />Adicionar aula</Button>
+    <Button variant="outline" className="mt-3" disabled={sch.rows >= maxClassesPerDay} onClick={() => save(s => ({ ...s, rows: Math.min(maxClassesPerDay, s.rows + 1) }))}><Plus />Adicionar aula</Button>
     <Dialog open={!!pending} onOpenChange={v => !v && close()}><DialogContent>
       <DialogHeader><DialogTitle className="font-serif text-3xl">{confirm ? 'Criar essa matéria?' : 'Nova matéria'}</DialogTitle>
         <DialogDescription>{confirm ? `“${name.trim()}” ainda não está nas suas matérias. Quer criar agora e colocar no horário?` : 'Escreva o nome da matéria, por exemplo História ou Ciências.'}</DialogDescription></DialogHeader>
