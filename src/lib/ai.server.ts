@@ -12,18 +12,18 @@ import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
 import { fallbackMessages, hasImages } from "./ai-fallback-media.server";
 import { hasPdf, validateOpenRouterFiles } from "./openrouter-media.server";
 
-type Provider = "gemini" | "groq" | "openrouter" | "omniroute" | "deepseek";
+type Provider = "gemini" | "socrates-gemini" | "groq" | "openrouter" | "omniroute" | "deepseek";
 const groqTimeoutMs = 25000;
 type GenerationMeter = { maxOutputTokens: number; onUsage: (total: number | undefined) => void };
 async function provider(name: Provider, vision: boolean, research = false, document = false) {
   const context = {
     whiteboard: vision,
-    google: name === "gemini",
+    google: name === "gemini" || name === "socrates-gemini",
     groq: name === "groq",
     openrouter: name === "openrouter",
     omniroute: name === "omniroute",
     deepseek: name === "deepseek",
-    ...(name === "omniroute" || name === "deepseek" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
+    ...(name === "omniroute" || name === "deepseek" || name === "socrates-gemini" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
     document,
   };
   const providerFetch: typeof fetch = async (input, init) => {
@@ -50,6 +50,16 @@ async function provider(name: Provider, vision: boolean, research = false, docum
   };
   if (name === "gemini") {
     const config = aiConfig(process.env);
+    const google = createGoogleGenerativeAI({
+      apiKey: config.key,
+      baseURL: config.baseURL,
+      fetch: providerFetch,
+    });
+    return google(config.model);
+  }
+  if (name === "socrates-gemini") {
+    const config = socratesAiConfig(process.env);
+    if (!config) throw new AiSetupError("Configure SOCRATES_AI_API_KEY para ativar a IA exclusiva do Sócrates.");
     const google = createGoogleGenerativeAI({
       apiKey: config.key,
       baseURL: config.baseURL,
@@ -102,12 +112,12 @@ async function provider(name: Provider, vision: boolean, research = false, docum
 function logFailure(error: unknown, name: Provider, vision: boolean) {
   const failure = safeAiFailure(error, {
     whiteboard: vision,
-    google: name === "gemini",
+    google: name === "gemini" || name === "socrates-gemini",
     groq: name === "groq",
     openrouter: name === "openrouter",
     omniroute: name === "omniroute",
     deepseek: name === "deepseek",
-    ...(name === "omniroute" || name === "deepseek" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
+    ...(name === "omniroute" || name === "deepseek" || name === "socrates-gemini" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
   });
   // SDK exceptions may contain keys, photos, notes or request bodies. Log only safe fields.
   console.error("[GStudy AI] Falha na geração:", {
@@ -134,11 +144,12 @@ async function generate(
 ): Promise<unknown> {
   if (name === "openrouter") await validateOpenRouterFiles(messages);
   const model = await provider(name, hasImages(messages), research, hasPdf(messages));
+  const isGoogle = name === "gemini" || name === "socrates-gemini";
   const request = () =>
     generateText({
       model,
       system:
-        name !== "gemini" && schema
+        !isGoogle && schema
           ? `${instructions}\n\nResponda somente com um objeto JSON válido que cumpra este esquema, sem cercas de código e sem texto fora do JSON:\n${JSON.stringify(schema)}`
           : instructions,
       messages,
@@ -147,7 +158,7 @@ async function generate(
       ...(name === "openrouter" || name === "omniroute" || name === "deepseek"
         ? { abortSignal: AbortSignal.timeout(45000) }
         : {}),
-      ...(research && name === "gemini"
+      ...(research && isGoogle
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
         : {}),
       // Do not interrupt a healthy Gemini generation just to switch providers.
@@ -166,7 +177,7 @@ async function generate(
   } catch (error) {
     if (
       research &&
-      name === "gemini" &&
+      isGoogle &&
       (error as { searchUnavailable?: boolean })?.searchUnavailable
     ) {
       const text = await generate(
@@ -199,7 +210,7 @@ async function generate(
     );
   if (research) {
     const sources =
-      name === "gemini"
+      isGoogle
         ? result.sources.flatMap((source) =>
             source.sourceType === "url"
               ? [{ title: source.title || "Fonte consultada", url: source.url }]
@@ -220,15 +231,29 @@ async function withFallback(
   socrates = false,
 ) {
   const vision = whiteboard || hasImages(messages);
+  const socratesConfig = socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() ? socratesAiConfig(process.env) : null;
+  const socratesProvider: Provider | null = socratesConfig
+    ? socratesConfig.provider === "gemini"
+      ? "socrates-gemini"
+      : !vision
+        ? (socratesConfig.provider as Provider)
+        : null
+    : null;
+
   const providers: Provider[] = [
-    ...(socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() && !vision
-      ? [socratesAiConfig(process.env)?.provider ?? "deepseek"]
-      : []),
+    ...(socratesProvider ? [socratesProvider] : []),
     "gemini",
     ...(process.env["GROQ_API_KEY"]?.trim() ? ["groq" as const] : []),
     ...(process.env["OPENROUTER_API_KEY"]?.trim() ? ["openrouter" as const] : []),
   ];
-  const labels = { gemini: "Gemini", groq: "Groq", openrouter: "OpenRouter", omniroute: "OmniRoute", deepseek: "DeepSeek" };
+  const labels: Record<Provider, string> = {
+    gemini: "Gemini",
+    "socrates-gemini": "Sócrates (Gemini)",
+    groq: "Groq",
+    openrouter: "OpenRouter",
+    omniroute: "OmniRoute",
+    deepseek: "DeepSeek",
+  };
   const failed: string[] = [];
   for (const [index, name] of providers.entries()) {
     try {
@@ -242,8 +267,9 @@ async function withFallback(
         prepared.convertedPdf || parsedPdf
           ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente ilustrações, diagramas ou imagens ausentes."
           : "";
+      const isGoogle = name === "gemini" || name === "socrates-gemini";
       const noSearch =
-        name !== "gemini" && research
+        !isGoogle && research
           ? "\nVocê não tem busca web nesta resposta. Não afirme ter consultado páginas nem confirmado o edital atual."
           : "";
       const value = await generate(

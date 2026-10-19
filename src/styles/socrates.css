@@ -95,7 +95,7 @@
   background: var(--card);
   backdrop-filter: blur(12px);
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0,0,0,.4), 0 0 30px rgba(66,133,244,.05);
+  box-shadow: 0 16px 40px rgba(0,0,0,.4), 0 0 30px rgba(255,255,255,.03);
 }
 .socrates-dialogue-heading {
   display: flex;
@@ -133,7 +133,7 @@
 .socrates-empty > svg {
   margin: 0 auto 14px;
   color: var(--primary);
-  filter: drop-shadow(0 0 12px rgba(66,133,244,.4));
+  filter: drop-shadow(0 0 12px rgba(255,255,255,.25));
 }
 .socrates-empty h2 {
   margin: 8px 0;
@@ -167,8 +167,8 @@
 }
 .socrates-empty button:hover,
 .socrates-quick-replies button:hover {
-  background: rgba(66,133,244,.1);
-  border-color: rgba(66,133,244,.3);
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.25);
   transform: translateY(-2px);
 }
 .socrates-message {
@@ -185,8 +185,8 @@
 }
 .socrates-message.is-user {
   margin-left: auto;
-  background: linear-gradient(135deg, rgba(66,133,244,.18), rgba(136,57,239,.12));
-  border-color: rgba(66,133,244,.25);
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.15);
   border-bottom-right-radius: 4px;
   box-shadow: 0 4px 20px rgba(0,0,0,.2);
 }

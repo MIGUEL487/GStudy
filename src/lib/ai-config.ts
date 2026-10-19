@@ -7,11 +7,20 @@ export function socratesAiConfig(env: Record<string, string | undefined>) {
   if (!key) return null;
   const configuredProvider = env["SOCRATES_AI_PROVIDER"]?.trim().toLowerCase();
   const provider = configuredProvider ||
-    (env["SOCRATES_AI_MODEL"]?.trim() === "auto" || /omniroute|localhost:20128/i.test(env["SOCRATES_AI_BASE_URL"] ?? "")
-      ? "omniroute"
-      : "deepseek");
-  if (provider !== "deepseek" && provider !== "omniroute")
-    throw new AiSetupError("SOCRATES_AI_PROVIDER deve ser deepseek ou omniroute.");
+    (key.startsWith("AIza") || env["SOCRATES_AI_MODEL"]?.includes("gemini")
+      ? "gemini"
+      : env["SOCRATES_AI_MODEL"]?.trim() === "auto" || /omniroute|localhost:20128/i.test(env["SOCRATES_AI_BASE_URL"] ?? "")
+        ? "omniroute"
+        : "deepseek");
+  if (provider !== "deepseek" && provider !== "omniroute" && provider !== "gemini")
+    throw new AiSetupError("SOCRATES_AI_PROVIDER deve ser gemini, deepseek ou omniroute.");
+  if (provider === "gemini") {
+    const baseURL = (
+      env["SOCRATES_AI_BASE_URL"]?.trim() || "https://generativelanguage.googleapis.com/v1beta"
+    ).replace(/\/+$/, "");
+    const model = env["SOCRATES_AI_MODEL"]?.trim() || "gemini-2.5-flash";
+    return { key, baseURL, model, provider: "gemini" as const };
+  }
   if (key.startsWith("oma_live_"))
     throw new AiSetupError("SOCRATES_AI_API_KEY precisa ser uma chave de inferência OmniRoute, não um token de administração oma_live_.");
   const baseURL = (env["SOCRATES_AI_BASE_URL"]?.trim() ||
@@ -32,7 +41,7 @@ export function socratesAiConfig(env: Record<string, string | undefined>) {
     throw new AiSetupError("SOCRATES_AI_BASE_URL deve ser a base da API, sem /chat/completions ou /responses.");
   if (model.length > 180 || /^https?:\/\//i.test(model) || /\s/.test(model))
     throw new AiSetupError("SOCRATES_AI_MODEL deve ser um identificador de modelo, não uma URL.");
-  return { key, baseURL, model, provider: provider as "deepseek" | "omniroute" };
+  return { key, baseURL, model, provider: provider as "deepseek" | "omniroute" | "gemini" };
 }
 
 // One server-side configuration serves conversations, images and activities.
