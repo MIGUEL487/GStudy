@@ -1,27 +1,27 @@
 /* Shared workspace surfaces: quiet colors, transparent subject illustrations. */
 .subject-icon-frame { color:var(--subject-color,var(--primary));background:transparent;border:1px solid currentColor;border-radius:12px; }
 .subject-card--colored>.subject-icon-frame { margin:23px 0 0 22px; }
-.subject-card--colored { border-top:2px solid var(--subject-color,var(--border));border-radius:12px; }
+.subject-card--colored { border-top:2px solid var(--subject-color,var(--border));border-radius:14px; }
 .subject-card--colored:hover { border-color:var(--subject-color,var(--border)); }
 .subject-card--colored .card-footer svg { color:var(--subject-color,var(--primary)); }
-.subject-grid>.subject-card,.resource-grid>.subject-card { animation:workspace-card-arrive .65s var(--ease) backwards; }
-.subject-grid>.subject-card:nth-child(2),.resource-grid>.subject-card:nth-child(2) { animation-delay:.08s; }
-.subject-grid>.subject-card:nth-child(3),.resource-grid>.subject-card:nth-child(3) { animation-delay:.16s; }
-.subject-grid>.subject-card:nth-child(4),.resource-grid>.subject-card:nth-child(4) { animation-delay:.24s; }
-.subject-grid>.subject-card:nth-child(n+5),.resource-grid>.subject-card:nth-child(n+5) { animation-delay:.3s; }
-@keyframes workspace-card-arrive { from { opacity:0;transform:translateY(34px) scale(.94); } to { opacity:1;transform:translateY(0) scale(1); } }
+.subject-grid>.subject-card,.resource-grid>.subject-card { animation:workspace-card-arrive .4s var(--ease) backwards; }
+.subject-grid>.subject-card:nth-child(2),.resource-grid>.subject-card:nth-child(2) { animation-delay:.05s; }
+.subject-grid>.subject-card:nth-child(3),.resource-grid>.subject-card:nth-child(3) { animation-delay:.1s; }
+.subject-grid>.subject-card:nth-child(4),.resource-grid>.subject-card:nth-child(4) { animation-delay:.15s; }
+.subject-grid>.subject-card:nth-child(n+5),.resource-grid>.subject-card:nth-child(n+5) { animation-delay:.2s; }
+@keyframes workspace-card-arrive { from { opacity:0;transform:translateY(20px) scale(.98); } to { opacity:1;transform:translateY(0) scale(1); } }
 .side-subjects .side-nav svg { flex-shrink:0; }
 .side-nav .socrates-nav-icon { width:18px;height:18px;flex:0 0 18px;display:grid;place-items:center; }
-.sidebar .side-subjects .side-nav svg { filter:brightness(1.55); }
+.sidebar .side-subjects .side-nav svg { filter:brightness(1.2); }
 .cover-icon:not(.subject-icon-frame),.stat-icon { background:transparent;border:1px solid currentColor; }
 .mobile-bottom-nav { display:none; }
 .mobile-bottom-nav .socrates-nav-icon { width:21px;height:21px;display:grid;place-items:center; }
 .sidebar>.side-nav a { position:relative; }
-.sidebar>.side-nav a::before { content:"";position:absolute;left:1px;top:50%;width:3px;height:21px;border-radius:3px;background:currentColor;opacity:0;transform:translateY(-50%) scaleY(.35);transition:opacity .3s,transform .38s var(--ease); }
-.sidebar>.side-nav a.active::before { opacity:.8;transform:translateY(-50%) scaleY(1); }
-.sidebar>.side-nav a.active { animation:workspace-nav-pop .5s var(--ease); }
-@keyframes workspace-nav-pop { from { transform:translateX(-8px) scale(.94); } to { transform:translateX(0) scale(1); } }
-.sidebar>.side-nav a>svg,.sidebar>.side-nav a>.socrates-nav-icon { transition:transform .32s var(--ease); }
+.sidebar>.side-nav a::before { content:"";position:absolute;left:2px;top:50%;width:3px;height:18px;border-radius:3px;background:var(--primary);opacity:0;transform:translateY(-50%) scaleY(.3);transition:opacity .25s,transform .3s var(--ease);box-shadow:0 0 8px var(--primary); }
+.sidebar>.side-nav a.active::before { opacity:1;transform:translateY(-50%) scaleY(1); }
+.sidebar>.side-nav a.active { animation:workspace-nav-pop .35s var(--ease); }
+@keyframes workspace-nav-pop { from { transform:translateX(-4px) scale(.98); } to { transform:translateX(0) scale(1); } }
+.sidebar>.side-nav a>svg,.sidebar>.side-nav a>.socrates-nav-icon { transition:transform .25s var(--ease); }
 .sidebar>.side-nav a:hover>svg,.sidebar>.side-nav a:hover>.socrates-nav-icon { transform:translateX(2px); }
 
 .settings-tabs { max-width:820px; }

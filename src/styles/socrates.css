@@ -91,10 +91,11 @@
   height: clamp(680px, calc(100dvh - 260px), 1200px);
   min-height: 680px;
   border: 1px solid var(--border);
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--background) 75%, white);
+  border-radius: 20px;
+  background: var(--card);
+  backdrop-filter: blur(12px);
   overflow: hidden;
-  box-shadow: 0 12px 40px #49372907;
+  box-shadow: 0 16px 40px rgba(0,0,0,.4), 0 0 30px rgba(66,133,244,.05);
 }
 .socrates-dialogue-heading {
   display: flex;
@@ -102,7 +103,8 @@
   gap: 12px;
   border-bottom: 1px solid var(--border);
   padding: 17px 24px;
-  color: var(--primary);
+  color: var(--foreground);
+  background: rgba(255,255,255,.01);
 }
 .socrates-dialogue-heading > span {
   font-family: var(--font-serif);
@@ -126,10 +128,12 @@
   text-align: center;
   max-width: 570px;
   margin: 15px auto;
-  color: var(--primary);
+  color: var(--foreground);
 }
 .socrates-empty > svg {
   margin: 0 auto 14px;
+  color: var(--primary);
+  filter: drop-shadow(0 0 12px rgba(66,133,244,.4));
 }
 .socrates-empty h2 {
   margin: 8px 0;
@@ -151,42 +155,50 @@
 .socrates-quick-replies button {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 9px 12px;
+  padding: 9px 14px;
   font-size: 11px;
   text-align: left;
+  background: var(--secondary);
+  color: var(--foreground);
   transition:
     background 0.2s,
-    transform 0.2s;
+    border-color 0.2s,
+    transform 0.2s var(--ease);
 }
 .socrates-empty button:hover,
 .socrates-quick-replies button:hover {
-  background: var(--secondary);
-  transform: translateY(-1px);
+  background: rgba(66,133,244,.1);
+  border-color: rgba(66,133,244,.3);
+  transform: translateY(-2px);
 }
 .socrates-message {
   max-width: 88%;
-  padding: 15px 19px;
+  padding: 16px 20px;
   margin: 0 0 18px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  animation: socrates-message-in .55s var(--ease) both;
+  border-radius: 18px;
+  animation: socrates-message-in .38s var(--ease) both;
 }
 @keyframes socrates-message-in {
-  from { opacity: 0; transform: translateX(32px) translateY(16px) scale(.96); }
-  to { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .socrates-message.is-user {
   margin-left: auto;
-  background: var(--secondary);
+  background: linear-gradient(135deg, rgba(66,133,244,.18), rgba(136,57,239,.12));
+  border-color: rgba(66,133,244,.25);
   border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2);
 }
 .socrates-message.is-assistant {
   border-bottom-left-radius: 4px;
-  animation: socrates-reply-in .7s var(--ease) both;
+  background: var(--secondary);
+  border-color: var(--border);
+  animation: socrates-reply-in .4s var(--ease) both;
 }
 @keyframes socrates-reply-in {
-  from { opacity: 0; transform: translateX(-38px) translateY(22px) scale(.95); }
-  to { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .socrates-message > small {
   font-size: 10px;
