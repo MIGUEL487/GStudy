@@ -27,7 +27,7 @@ const replyInput = z
       .object({
         name: z.string().trim().min(1).max(200),
         mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
-        dataUrl: z.string().max(6_000_000),
+        dataUrl: z.string().max(4_500_000),
       })
       .optional(),
     history: z
@@ -172,10 +172,16 @@ export const socratesReply = createServerFn({ method: "POST" })
       };
     } catch (cause) {
       const refunded = await settle(0);
+      const isSafeMessage =
+        cause instanceof Error &&
+        !cause.message.includes("http") &&
+        !cause.message.includes("api.") &&
+        !cause.message.includes("key") &&
+        !cause.message.includes("AI_");
       const message =
         cause instanceof z.ZodError
           ? "Sócrates não completou a explicação e a pergunta final. Tente novamente."
-          : cause instanceof Error
+          : isSafeMessage && cause instanceof Error
             ? cause.message
             : "Não foi possível responder agora. Tente novamente.";
       return {

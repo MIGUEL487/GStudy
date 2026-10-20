@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireStudyAuth } from "./study-auth-middleware";
+import { enforceServerAiQuota } from "./server-ai-quota";
 import {
   arraySchema,
   cleanLearningText,
@@ -190,7 +191,10 @@ export const getPreparationYouTubeStatus = createServerFn({ method: "GET" })
 export const curatePreparationLibrary = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
   .validator((value: unknown) => input.parse(value))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    if (context?.supabase && context?.userId) {
+      await enforceServerAiQuota(context.supabase, context.userId, "library");
+    }
     const { aiResearch, aiObject } = await import("./ai.server");
     const key = data.scope === "books" ? undefined : process.env["YOUTUBE_API_KEY"]?.trim();
     const preferred = preferredChannels(

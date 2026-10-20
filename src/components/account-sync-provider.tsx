@@ -20,6 +20,23 @@ import {
   type Namespace,
 } from "@/lib/account-sync-model";
 
+function safeAnySignal(signals: (AbortSignal | undefined)[]): AbortSignal | undefined {
+  const active = signals.filter(Boolean) as AbortSignal[];
+  if (!active.length) return undefined;
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.any === "function") {
+    return AbortSignal.any(active);
+  }
+  const controller = new AbortController();
+  for (const s of active) {
+    if (s.aborted) {
+      controller.abort(s.reason);
+      return controller.signal;
+    }
+    s.addEventListener("abort", () => controller.abort(s.reason), { once: true });
+  }
+  return controller.signal;
+}
+
 type Status = "loading" | "syncing" | "synced" | "offline" | "setup" | "error";
 type SyncValue = { status: Status; message: string; retry: () => void };
 const Context = createContext<SyncValue>({
@@ -109,7 +126,7 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
         const { data: rows, error } = await db
           .from("account_documents")
           .select("namespace,revision,document")
-          .abortSignal(AbortSignal.any([cancellation.signal, AbortSignal.timeout(10000)]));
+          .abortSignal(safeAnySignal([cancellation.signal, AbortSignal.timeout(10000)]));
         if (error) throw error;
         if (!alive) return;
         let socratesSetup = false;
@@ -141,7 +158,7 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
                 p_revision: revision,
                 p_document: proposal.document as Json,
               })
-              .abortSignal(AbortSignal.any([cancellation.signal, AbortSignal.timeout(10000)]));
+              .abortSignal(safeAnySignal([cancellation.signal, AbortSignal.timeout(10000)]));
             if (writeError) {
               if (
                 ns === "socrates" &&

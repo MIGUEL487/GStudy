@@ -401,8 +401,8 @@ export function SocratesChat({ userId }: { userId: string }) {
               setPreparingFile(true);
               try {
                 if (file.type === "application/pdf") {
-                  if (!file.size || file.size > 4 * 1024 * 1024)
-                    throw new Error("Escolha um PDF de até 4 MB e 40 páginas.");
+                  if (!file.size || file.size > 3 * 1024 * 1024)
+                    throw new Error("Escolha um PDF de até 3 MB e 40 páginas.");
                   setAttachment({
                     name: file.name,
                     mediaType: "application/pdf",

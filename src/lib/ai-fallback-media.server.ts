@@ -15,10 +15,10 @@ async function pdfText(data: unknown) {
   if (
     typeof data !== "string" ||
     !/^data:application\/pdf;base64,[A-Za-z0-9+/]+={0,2}$/.test(data) ||
-    data.length > 6_000_000
+    data.length > 4_500_000
   )
     throw new AiSetupError(
-      "A alternativa de IA precisa de um PDF enviado como arquivo de até 4 MB. Envie o conteúdo como texto ou fotos das páginas.",
+      "A alternativa de IA precisa de um PDF enviado como arquivo de até 3 MB. Envie o conteúdo como texto ou fotos das páginas.",
     );
   const { extractText, getDocumentProxy } = await import("unpdf");
   let pdf: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
