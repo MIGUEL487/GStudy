@@ -8,6 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarCheck, Table2 } from "lucide-react";
 import { ScheduleTable } from "@/components/schedule-table";
+import { AnimatedNumber } from "@/components/animated-number";
 import { useStudy } from "@/components/study-provider";
 import { Button } from "@/components/ui/button";
 import { dayBudget, defaultSchoolDays, scheduledWeeklyClasses } from "@/lib/study-model";
@@ -102,11 +103,15 @@ function CalendarPage() {
           <div className={`absence-box ${b.over ? "danger" : ""}`}>
             <div>
               <small>Dias presentes</small>
-              <strong>{present}</strong>
+              <strong>
+                <AnimatedNumber value={present} />
+              </strong>
             </div>
             <div>
               <small>Faltas</small>
-              <strong>{absent}</strong>
+              <strong>
+                <AnimatedNumber value={absent} />
+              </strong>
             </div>
             <div>
               <small>Limite no ano</small>

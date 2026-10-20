@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MotionConfig } from "motion/react";
 import {
   Outlet,
   Link,
@@ -142,15 +143,17 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <AuthGate>
-        <AccountWorkspace>
-          <StudyLayout>
-            <Outlet />
-          </StudyLayout>
-        </AccountWorkspace>
-      </AuthGate>
-      <Toaster position="bottom-center" />
+      <MotionConfig reducedMotion="user">
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <AuthGate>
+          <AccountWorkspace>
+            <StudyLayout>
+              <Outlet />
+            </StudyLayout>
+          </AccountWorkspace>
+        </AuthGate>
+        <Toaster position="bottom-center" />
+      </MotionConfig>
     </QueryClientProvider>
   );
 }

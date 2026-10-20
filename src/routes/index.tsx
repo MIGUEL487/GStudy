@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type CSSProperties } from "react";
+import { motion } from "motion/react";
 import {
   BookOpen,
   NotebookPen,
@@ -17,6 +18,7 @@ import { CreateDialog } from "@/components/create-dialog";
 import { addSubject, removeSubject, type Subject } from "@/lib/study-model";
 import { studyImage } from "@/lib/images";
 import { SubjectIcon, subjectColor } from "@/components/subject-icon";
+import { AnimatedNumber } from "@/components/animated-number";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,7 +121,12 @@ function Index() {
               <s.icon size={19} />
             </div>
             <div>
-              <strong>{String(s.count).padStart(2, "0")}</strong>
+              <strong>
+                <AnimatedNumber
+                  value={s.count}
+                  format={(n) => String(Math.round(n)).padStart(2, "0")}
+                />
+              </strong>
               <small>{s.label}</small>
             </div>
           </div>
@@ -140,10 +147,12 @@ function Index() {
       <div className="subject-grid">
         {data.subjects.map((s) => {
           return (
-            <article
+            <motion.article
               className="subject-card subject-card--colored"
               key={s.id}
               style={{ "--subject-color": subjectColor(s.name) } as CSSProperties}
+              whileHover={{ y: -3, transition: { type: "spring", stiffness: 300, damping: 25 } }}
+              whileTap={{ scale: 0.985 }}
             >
               <div className="cover-icon subject-icon-frame" title={`Matéria: ${s.name}`}>
                 <SubjectIcon name={s.name} size={23} />
@@ -174,7 +183,7 @@ function Index() {
               >
                 <Trash2 size={13} />
               </Button>
-            </article>
+            </motion.article>
           );
         })}
         <Button

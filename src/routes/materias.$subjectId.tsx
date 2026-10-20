@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { motion } from "motion/react";
 import { NotebookPen, Play, Plus, ArrowLeft, ArrowUpRight, Trash2, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -148,7 +149,15 @@ function SubjectPage() {
         <div className="subject-grid">
           {tab === "caderno"
             ? subject.notebooks.map((n) => (
-                <article className="subject-card" key={n.id}>
+                <motion.article
+                  className="subject-card"
+                  key={n.id}
+                  whileHover={{
+                    y: -3,
+                    transition: { type: "spring", stiffness: 300, damping: 25 },
+                  }}
+                  whileTap={{ scale: 0.985 }}
+                >
                   <Link
                     to="/cadernos/$notebookId"
                     params={{ notebookId: n.id }}
@@ -176,10 +185,18 @@ function SubjectPage() {
                   >
                     <Trash2 />
                   </Button>
-                </article>
+                </motion.article>
               ))
             : subject.courses.map((c) => (
-                <article className="subject-card" key={c.id}>
+                <motion.article
+                  className="subject-card"
+                  key={c.id}
+                  whileHover={{
+                    y: -3,
+                    transition: { type: "spring", stiffness: 300, damping: 25 },
+                  }}
+                  whileTap={{ scale: 0.985 }}
+                >
                   <a href={c.url} target="_blank" rel="noopener noreferrer" className="card-link">
                     <div className="cover-icon tone-green">
                       <Play size={22} />
@@ -201,7 +218,7 @@ function SubjectPage() {
                   >
                     <Trash2 />
                   </Button>
-                </article>
+                </motion.article>
               ))}
           <Button variant="ghost" className="add-card" onClick={() => setCreating(true)}>
             <span className="add-symbol">

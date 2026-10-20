@@ -43,10 +43,10 @@ export function StudyLayout({ children }: { children: ReactNode }) {
       return;
     const transition = page.current.animate(
       [
-        { opacity: 0, transform: "translateY(16px) scale(.99)" },
+        { opacity: 0, transform: "translateY(10px)" },
         { opacity: 1, transform: "translateY(0) scale(1)" },
       ],
-      { duration: 320, easing: "cubic-bezier(.22, 1, .36, 1)", fill: "both" },
+      { duration: 250, easing: "cubic-bezier(.22, 1, .36, 1)", fill: "both" },
     );
     return () => transition.cancel();
   }, [path]);
