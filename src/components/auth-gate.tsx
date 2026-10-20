@@ -28,6 +28,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
     let active = true,
       revision = 0;
     let unsubscribe = () => {};
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      const devSession = localStorage.getItem("gstudy-dev-session");
+      if (devSession) {
+        try {
+          const parsed = JSON.parse(devSession);
+          setUser(parsed);
+          setChecking(false);
+          return () => {
+            active = false;
+          };
+        } catch {
+          // dev session ignored
+        }
+      }
+    }
     const url = new URL(window.location.href);
     const hash = new URLSearchParams(url.hash.slice(1));
     sessionStorage.removeItem("gstudy-password-recovery");
