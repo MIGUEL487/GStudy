@@ -142,11 +142,13 @@ export function cleanLearningText(value: string) {
     "Â ": " ",
   };
   for (const [broken, correct] of Object.entries(mojibake)) text = text.split(broken).join(correct);
-  return text
-    .normalize("NFC")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
-    .trim();
+  return (
+    text
+      .normalize("NFC")
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
+      .trim()
+  );
 }
 
 export const outputText = (max: number, min = 1) =>

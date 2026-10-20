@@ -7,6 +7,17 @@ import { useStudy } from "@/components/study-provider";
 import { CreateDialog } from "@/components/create-dialog";
 import { addNotebook, addCourse } from "@/lib/study-model";
 import { SubjectIcon, subjectColor } from "@/components/subject-icon";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 export const Route = createFileRoute("/materias/$subjectId")({
   head: () => ({
     meta: [
@@ -20,13 +31,20 @@ export const Route = createFileRoute("/materias/$subjectId")({
   }),
   component: SubjectPage,
 });
+
 function SubjectPage() {
   const { subjectId } = Route.useParams();
   const { data, ready, update } = useStudy();
   const subject = data.subjects.find((s) => s.id === subjectId);
   const [tab, setTab] = useState<"caderno" | "curso">("caderno");
   const [creating, setCreating] = useState(false);
-  if (!subject)
+  const [itemToDelete, setItemToDelete] = useState<{
+    id: string;
+    title: string;
+    kind: "caderno" | "curso";
+  } | null>(null);
+
+  if (!subject) {
     return (
       <>
         <h1>{ready ? "Matéria não encontrada" : "Carregando…"}</h1>
@@ -35,71 +53,99 @@ function SubjectPage() {
         </Link>
       </>
     );
-  const remove = (id: string, kind: "caderno" | "curso") => {
-    if (!confirm(`Excluir este ${kind}?`)) return;
-    if (
-      update((d) => ({
-        ...d,
-        subjects: d.subjects.map((s) =>
-          s.id === subjectId
-            ? {
-                ...s,
-                notebooks:
-                  kind === "caderno" ? s.notebooks.filter((n) => n.id !== id) : s.notebooks,
-                courses: kind === "curso" ? s.courses.filter((c) => c.id !== id) : s.courses,
-              }
-            : s,
-        ),
-      }))
-    )
-      toast.success(`${kind === "caderno" ? "Caderno" : "Curso"} excluído.`);
+  }
+
+  const handleConfirmDelete = () => {
+    if (!itemToDelete) return;
+    const { id, title, kind } = itemToDelete;
+    const backupData = data;
+    const ok = update((d) => ({
+      ...d,
+      subjects: d.subjects.map((s) =>
+        s.id === subjectId
+          ? {
+              ...s,
+              notebooks: kind === "caderno" ? s.notebooks.filter((n) => n.id !== id) : s.notebooks,
+              courses: kind === "curso" ? s.courses.filter((c) => c.id !== id) : s.courses,
+            }
+          : s,
+      ),
+    }));
+
+    if (ok) {
+      toast.success(`${kind === "caderno" ? "Caderno" : "Curso"} excluído.`, {
+        action: {
+          label: "Desfazer",
+          onClick: () => {
+            update(() => backupData);
+            toast.success(`Exclusão de “${title}” desfeita.`);
+          },
+        },
+        duration: 5000,
+      });
+    }
+    setItemToDelete(null);
   };
+
   return (
     <>
       <Link to="/" className="back-link">
         <ArrowLeft size={14} />
-        Suas matérias
+        Todas as matérias
       </Link>
-      <div className="subject-title">
+      <div className="subject-header">
         <div
           className="cover-icon subject-icon-frame"
-          style={{ color: subjectColor(subject.name) }}
+          style={{ background: subjectColor(subject.name) }}
         >
-          <SubjectIcon name={subject.name} size={26} />
+          <SubjectIcon name={subject.name} size={28} />
         </div>
         <div>
-          <div className="eyebrow">SEU UNIVERSO DE CONHECIMENTO</div>
+          <div className="eyebrow">MATÉRIA EM FOCO</div>
           <h1>{subject.name}</h1>
+          <p>
+            {subject.notebooks.length}{" "}
+            {subject.notebooks.length === 1 ? "caderno de ideias" : "cadernos de ideias"} ·{" "}
+            {subject.courses.length}{" "}
+            {subject.courses.length === 1 ? "curso salvo" : "cursos salvos"}
+          </p>
         </div>
       </div>
-      <p className="page-subtitle">Um lugar para suas ideias, descobertas e próximos passos.</p>
+
       <div className="tabs">
-        <Button
-          variant="ghost"
-          className={tab === "caderno" ? "selected" : ""}
+        <button
+          className={`tab ${tab === "caderno" ? "active" : ""}`}
           onClick={() => setTab("caderno")}
         >
-          <NotebookPen />
-          Cadernos<span className="tab-count">{subject.notebooks.length}</span>
-        </Button>
-        <Button
-          variant="ghost"
-          className={tab === "curso" ? "selected" : ""}
+          <NotebookPen size={16} />
+          Cadernos ({subject.notebooks.length})
+        </button>
+        <button
+          className={`tab ${tab === "curso" ? "active" : ""}`}
           onClick={() => setTab("curso")}
         >
-          <Play />
-          Cursos<span className="tab-count">{subject.courses.length}</span>
-        </Button>
+          <Play size={16} />
+          Cursos ({subject.courses.length})
+        </button>
       </div>
-      <div key={tab} className="page-enter">
+
+      <div className="tab-content">
         <div className="section-heading">
-          <h2>{tab === "caderno" ? "Seus cadernos" : "Seus cursos"}</h2>
+          <div>
+            <h2>{tab === "caderno" ? "Seus cadernos" : "Cursos recomendados"}</h2>
+            <p>
+              {tab === "caderno"
+                ? "Um espaço em branco para registrar pensamentos e descobertas."
+                : "Aulas e materiais que enriquecem o seu aprendizado."}
+            </p>
+          </div>
           <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
             <Plus />
-            {tab === "caderno" ? "Novo caderno" : "Adicionar curso"}
+            {tab === "caderno" ? "Novo caderno" : "Novo curso"}
           </Button>
         </div>
-        <div className="resource-grid">
+
+        <div className="subject-grid">
           {tab === "caderno"
             ? subject.notebooks.map((n) => (
                 <article className="subject-card" key={n.id}>
@@ -108,14 +154,12 @@ function SubjectPage() {
                     params={{ notebookId: n.id }}
                     className="card-link"
                   >
-                    <div className="cover-icon">
+                    <div className="cover-icon tone-warm">
                       <NotebookPen size={22} />
                     </div>
                     <h3>{n.title}</h3>
                     <div className="card-meta">
-                      {n.text.trim()
-                        ? `${n.text.trim().split(/\s+/).length} palavras`
-                        : "Uma página em branco"}
+                      {n.text.trim() ? n.text.trim().split(/\s+/).length : 0} palavras
                     </div>
                     <div className="card-footer">
                       <span>Abrir caderno</span>
@@ -128,7 +172,7 @@ function SubjectPage() {
                     size="icon"
                     title={`Excluir ${n.title}`}
                     aria-label={`Excluir ${n.title}`}
-                    onClick={() => remove(n.id, "caderno")}
+                    onClick={() => setItemToDelete({ id: n.id, title: n.title, kind: "caderno" })}
                   >
                     <Trash2 />
                   </Button>
@@ -153,7 +197,7 @@ function SubjectPage() {
                     size="icon"
                     title={`Excluir ${c.title}`}
                     aria-label={`Excluir ${c.title}`}
-                    onClick={() => remove(c.id, "curso")}
+                    onClick={() => setItemToDelete({ id: c.id, title: c.title, kind: "curso" })}
                   >
                     <Trash2 />
                   </Button>
@@ -167,6 +211,7 @@ function SubjectPage() {
           </Button>
         </div>
       </div>
+
       <div className="performance-link">
         <div className="stat-icon">
           <BarChart3 size={20} />
@@ -178,25 +223,49 @@ function SubjectPage() {
         <Button variant="outline" size="sm" asChild>
           <Link to="/desempenho/$subjectId" params={{ subjectId }}>
             Abrir
-            <ArrowUpRight />
           </Link>
         </Button>
       </div>
+
+      <AlertDialog
+        open={Boolean(itemToDelete)}
+        onOpenChange={(open) => !open && setItemToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir {itemToDelete?.kind === "caderno" ? "caderno" : "curso"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir “{itemToDelete?.title}”? Você terá alguns segundos para
+              desfazer a ação.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleConfirmDelete}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CreateDialog
         kind={tab}
         open={creating}
         onOpenChange={setCreating}
-        onCreate={(name, url) => {
+        onCreate={(title, url) => {
           const ok = update((d) =>
             tab === "caderno"
-              ? addNotebook(d, subjectId, name)
-              : addCourse(d, subjectId, name, url),
+              ? addNotebook(d, subjectId, title)
+              : addCourse(d, subjectId, title, url ?? ""),
           );
           if (ok)
             toast.success(
-              tab === "caderno"
-                ? "Caderno criado. Suas ideias têm um novo lugar."
-                : "Curso adicionado à sua jornada.",
+              `${tab === "caderno" ? "Caderno criado" : "Curso adicionado"}. Boas ideias te esperam!`,
             );
           return ok;
         }}

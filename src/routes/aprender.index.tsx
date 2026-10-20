@@ -29,6 +29,17 @@ import { useLearning } from "@/components/learning-provider";
 import { SubjectIcon, subjectColor } from "@/components/subject-icon";
 import { AddMaterial, MaterialCard } from "@/components/learning-materials";
 import { Thinking } from "@/components/lesson";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { createLearningPath } from "@/lib/learning.functions";
 import { useMaterials, useStats, levelOf } from "@/lib/learn-client";
 import {
@@ -86,6 +97,10 @@ export function LearnHub() {
   const [notebooks, setNotebooks] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [planToDelete, setPlanToDelete] = useState<{ id: string; topic: string } | null>(null);
+  const [materialToDelete, setMaterialToDelete] = useState<{ id: string; title: string } | null>(
+    null,
+  );
   const createPath = useServerFn(createLearningPath);
   const subject = data.subjects.find((s) => s.id === subjectId);
   const plan = plans.find((p) => p.id === search.p);
@@ -194,15 +209,7 @@ export function LearnHub() {
             </Link>
             <button
               className="text-action"
-              onClick={() => {
-                if (
-                  confirm(
-                    `Excluir a trilha “${plan.topic}”? Seus cadernos e materiais serão mantidos.`,
-                  ) &&
-                  removePlan(plan.id)
-                )
-                  void navigate({ to: "/aprender", search: {} });
-              }}
+              onClick={() => setPlanToDelete({ id: plan.id, topic: plan.topic })}
             >
               <Trash2 size={14} /> Excluir trilha
             </button>
@@ -359,7 +366,7 @@ export function LearnHub() {
                       on={picked.includes(item.id)}
                       toggle={() => !busy && toggle(item.id, picked, setPicked)}
                       remove={() => {
-                        if (!busy && confirm(`Apagar “${item.title}”?`)) void remove(item.id);
+                        if (!busy) setMaterialToDelete({ id: item.id, title: item.title });
                       }}
                     />
                   ))
@@ -459,6 +466,65 @@ export function LearnHub() {
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={Boolean(planToDelete)}
+        onOpenChange={(open) => !open && setPlanToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir trilha de estudo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja excluir a trilha “{planToDelete?.topic}”? Seus cadernos e materiais serão
+              mantidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (planToDelete && removePlan(planToDelete.id)) {
+                  toast.success("Trilha excluída.");
+                  void navigate({ to: "/aprender", search: {} });
+                }
+                setPlanToDelete(null);
+              }}
+            >
+              Excluir trilha
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(materialToDelete)}
+        onOpenChange={(open) => !open && setMaterialToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir material?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja apagar o material “{materialToDelete?.title}”?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (materialToDelete) {
+                  void remove(materialToDelete.id);
+                  toast.success("Material excluído.");
+                }
+                setMaterialToDelete(null);
+              }}
+            >
+              Excluir material
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
