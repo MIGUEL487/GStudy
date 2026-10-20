@@ -120,7 +120,7 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
           let remote = row ? parseAccountDocument(ns, row.document) : undefined;
           let revision = row?.revision ?? 0;
           if (!local && !remote) continue;
-          let base = baselines[ns]?.nodes;
+          const base = baselines[ns]?.nodes;
           if (!local && remote) {
             apply(ns, remote);
             baselines[ns] = { revision, nodes: fingerprint(remote) };

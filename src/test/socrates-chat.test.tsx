@@ -106,10 +106,17 @@ describe("Aba Sócrates", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enviar para Sócrates" }));
     await waitFor(() => expect(mocks.reply).toHaveBeenCalledTimes(1));
     expect(mocks.reply.mock.calls[0]![0].data).toMatchObject({
-      attachment: { name: "caderno.png", mediaType: "image/jpeg", dataUrl: "data:image/jpeg;base64,AA==" },
+      attachment: {
+        name: "caderno.png",
+        mediaType: "image/jpeg",
+        dataUrl: "data:image/jpeg;base64,AA==",
+      },
     });
-    expect(within(screen.getByRole("log", { name: "Conversa com Sócrates" }))
-      .getByText("[Imagem: caderno.png]")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("log", { name: "Conversa com Sócrates" })).getByText(
+        "[Imagem: caderno.png]",
+      ),
+    ).toBeInTheDocument();
   });
   it("bloqueia novos gastos sem cota e explica a renovação", async () => {
     mocks.quota.mockResolvedValue({ ok: true, quota: { ...quota, used: 50000, remaining: 0 } });

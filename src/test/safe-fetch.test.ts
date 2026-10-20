@@ -45,21 +45,31 @@ describe("validateSafeUrl", () => {
   });
 
   it("rejeita localhost e domínios internos", async () => {
-    await expect(validateSafeUrl("http://localhost/secret")).rejects.toThrow("Acesso a endereços locais ou internos");
-    await expect(validateSafeUrl("http://app.internal")).rejects.toThrow("Acesso a endereços locais ou internos");
-    await expect(validateSafeUrl("http://server.local")).rejects.toThrow("Acesso a endereços locais ou internos");
+    await expect(validateSafeUrl("http://localhost/secret")).rejects.toThrow(
+      "Acesso a endereços locais ou internos",
+    );
+    await expect(validateSafeUrl("http://app.internal")).rejects.toThrow(
+      "Acesso a endereços locais ou internos",
+    );
+    await expect(validateSafeUrl("http://server.local")).rejects.toThrow(
+      "Acesso a endereços locais ou internos",
+    );
   });
 
   it("rejeita URLs com IPs privados diretos", async () => {
     await expect(validateSafeUrl("http://127.0.0.1:8080")).rejects.toThrow("segurança");
-    await expect(validateSafeUrl("http://169.254.169.254/latest/meta-data")).rejects.toThrow("segurança");
+    await expect(validateSafeUrl("http://169.254.169.254/latest/meta-data")).rejects.toThrow(
+      "segurança",
+    );
     await expect(validateSafeUrl("http://10.0.0.1/admin")).rejects.toThrow("segurança");
     await expect(validateSafeUrl("http://192.168.1.1/router")).rejects.toThrow("segurança");
   });
 
   it("rejeita domínios que resolvem para IPs privados", async () => {
     const mockLookup = vi.fn().mockResolvedValue(["127.0.0.1"]);
-    await expect(validateSafeUrl("http://evil-domain.com", mockLookup)).rejects.toThrow("segurança");
+    await expect(validateSafeUrl("http://evil-domain.com", mockLookup)).rejects.toThrow(
+      "segurança",
+    );
   });
 
   it("aceita domínios públicos", async () => {
@@ -77,13 +87,11 @@ describe("safeFetch", () => {
   });
 
   it("bloqueia redirecionamento para IP privado", async () => {
-    const mockLookup = vi
-      .fn()
-      .mockImplementation(async (host: string) => {
-        if (host === "public.com") return ["93.184.216.34"];
-        if (host === "internal.net") return ["192.168.1.5"];
-        return ["127.0.0.1"];
-      });
+    const mockLookup = vi.fn().mockImplementation(async (host: string) => {
+      if (host === "public.com") return ["93.184.216.34"];
+      if (host === "internal.net") return ["192.168.1.5"];
+      return ["127.0.0.1"];
+    });
 
     const mockFetch = vi.fn().mockImplementation(async (url: string) => {
       if (url === "https://public.com/redirect") {
@@ -141,7 +149,8 @@ describe("safeFetch", () => {
 
   it("lê com sucesso uma página HTML válida e limita stream a ~1 MB", async () => {
     const mockLookup = vi.fn().mockResolvedValue(["93.184.216.34"]);
-    const htmlBody = "<html><body><h1>Página de Estudos</h1><p>Conteúdo relevante</p></body></html>";
+    const htmlBody =
+      "<html><body><h1>Página de Estudos</h1><p>Conteúdo relevante</p></body></html>";
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(htmlBody, {
         status: 200,

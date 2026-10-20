@@ -135,8 +135,8 @@ function PerformancePage() {
         mesmas faltas outra vez.
       </p>
       <p className="page-subtitle">
-        {undatedSubjectAbsences(data, subjectId)} falta(s) de aula ainda sem data confirmada.
-        No calendário, elas aparecem como sugestões em ordem cronológica até você confirmar os dias.
+        {undatedSubjectAbsences(data, subjectId)} falta(s) de aula ainda sem data confirmada. No
+        calendário, elas aparecem como sugestões em ordem cronológica até você confirmar os dias.
       </p>
       <div className="grade-scroll">
         <table className="grade-table">
@@ -152,9 +152,7 @@ function PerformancePage() {
           <tbody>
             {perf.grades.map((g, i) => (
               <tr key={i}>
-                <td>
-                  {i + 1}º
-                </td>
+                <td>{i + 1}º</td>
                 {(["score", "behavior", "warnings", "absences"] as const).map((key) => (
                   <td key={key}>
                     {key === "behavior" ? (

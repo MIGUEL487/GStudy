@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Check, NotebookPen } from "lucide-react";
+import { ArrowLeft, Check, NotebookPen, AlertCircle, RefreshCw } from "lucide-react";
 import { useStudy } from "@/components/study-provider";
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { NotebookPhotoImport } from "@/components/photo-imports";
 import { appendTranscription } from "@/lib/photo-import-model";
+
 export const Route = createFileRoute("/cadernos/$notebookId")({
   head: () => ({
     meta: [
@@ -20,43 +22,117 @@ export const Route = createFileRoute("/cadernos/$notebookId")({
   }),
   component: NotebookPage,
 });
+
 function NotebookPage() {
   const { notebookId } = Route.useParams();
   const { data, ready, update } = useStudy();
   const subject = data.subjects.find((s) => s.notebooks.some((n) => n.id === notebookId));
   const notebook = subject?.notebooks.find((n) => n.id === notebookId);
-  // Persisted text comes directly from the account, including remote updates.
-  // Keep a separate draft only if writing to this device failed.
-  const [draft, setDraft] = useState<{ id: string; text: string } | null>(null);
-  if (!notebook || !subject)
+
+  const [text, setText] = useState<string>(notebook?.text ?? "");
+  const [saveStatus, setSaveStatus] = useState<"saved" | "pending" | "error">("saved");
+
+  const textRef = useRef(text);
+  textRef.current = text;
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveErrorToastShownRef = useRef<boolean>(false);
+  const subjectIdRef = useRef(subject?.id);
+  subjectIdRef.current = subject?.id;
+
+  // Sync from external / account updates if not dirty
+  const prevRemoteTextRef = useRef(notebook?.text);
+  useEffect(() => {
+    if (notebook?.text !== undefined && notebook.text !== prevRemoteTextRef.current) {
+      prevRemoteTextRef.current = notebook.text;
+      if (saveStatus === "saved") {
+        setText(notebook.text);
+      }
+    }
+  }, [notebook?.text, saveStatus]);
+
+  const flushSave = useCallback(
+    (valueToSave?: string) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      const val = valueToSave !== undefined ? valueToSave : textRef.current;
+      const sId = subjectIdRef.current;
+      if (!sId) return;
+
+      const ok = update((d) => ({
+        ...d,
+        subjects: d.subjects.map((s) =>
+          s.id === sId
+            ? {
+                ...s,
+                notebooks: s.notebooks.map((n) =>
+                  n.id === notebookId
+                    ? { ...n, text: val, updatedAt: new Date().toISOString() }
+                    : n,
+                ),
+              }
+            : s,
+        ),
+      }));
+
+      if (ok) {
+        setSaveStatus("saved");
+        saveErrorToastShownRef.current = false;
+      } else {
+        setSaveStatus("error");
+        if (!saveErrorToastShownRef.current) {
+          saveErrorToastShownRef.current = true;
+          toast.error("Não foi possível salvar o caderno no armazenamento.", {
+            id: "notebook-save-error",
+          });
+        }
+      }
+    },
+    [notebookId, update],
+  );
+
+  const handleChange = (newText: string) => {
+    setText(newText);
+    setSaveStatus("pending");
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      flushSave(newText);
+    }, 500);
+  };
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushSave();
+      }
+    };
+    const handleBeforeUnload = () => {
+      flushSave();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      flushSave();
+    };
+  }, [flushSave]);
+
+  if (!notebook || !subject) {
     return (
       <>
         <h1>{ready ? "Caderno não encontrado" : "Carregando…"}</h1>
         <Link to="/">Voltar ao início</Link>
       </>
     );
-  const unsaved = draft?.id === notebookId,
-    text = unsaved ? draft.text : notebook.text;
-  const save = (value: string, retainDraft = true) => {
-    const ok = update((d) => ({
-      ...d,
-      subjects: d.subjects.map((s) =>
-        s.id === subject.id
-          ? {
-              ...s,
-              notebooks: s.notebooks.map((n) =>
-                n.id === notebookId
-                  ? { ...n, text: value, updatedAt: new Date().toISOString() }
-                  : n,
-              ),
-            }
-          : s,
-      ),
-    }));
-    if (ok) setDraft(null);
-    else if (retainDraft) setDraft({ id: notebookId, text: value });
-    return ok;
-  };
+  }
+
   return (
     <>
       <Link to="/materias/$subjectId" params={{ subjectId: subject.id }} className="back-link">
@@ -67,10 +143,20 @@ function NotebookPage() {
       <div className="editor-header">
         <h1>{notebook.title}</h1>
         <span className="save-status">
-          {unsaved ? (
-            <button type="button" className="text-action" onClick={() => save(text)}>
-              Salvar novamente
+          {saveStatus === "error" ? (
+            <button
+              type="button"
+              className="text-action text-destructive flex items-center gap-1"
+              onClick={() => flushSave()}
+            >
+              <AlertCircle size={14} />
+              Erro ao salvar. Tentar novamente
             </button>
+          ) : saveStatus === "pending" ? (
+            <span className="text-muted-foreground flex items-center gap-1">
+              <RefreshCw size={13} className="animate-spin" />
+              Salvando…
+            </span>
           ) : (
             <>
               <Check size={14} />
@@ -81,14 +167,18 @@ function NotebookPage() {
       </div>
       <NotebookPhotoImport
         key={notebookId}
-        onInsert={(transcription) => save(appendTranscription(text, transcription), false)}
+        onInsert={(transcription) => {
+          const merged = appendTranscription(textRef.current, transcription);
+          setText(merged);
+          flushSave(merged);
+        }}
       />
       <textarea
         aria-label="Anotações do caderno"
         className="notebook-editor"
         placeholder="Toda descoberta começa com uma ideia…"
         value={text}
-        onChange={(event) => save(event.target.value)}
+        onChange={(event) => handleChange(event.target.value)}
       />
       <div className="editor-bottom flex items-center gap-2">
         <NotebookPen size={13} />

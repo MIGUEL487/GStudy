@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   enforceServerAiQuota,
   SERVER_AI_LIMITS,
@@ -14,7 +15,7 @@ describe("Server AI Quota", () => {
 
     const mockSupabase = {
       rpc: mockRpc,
-    } as any;
+    } as unknown as SupabaseClient;
 
     const result = await enforceServerAiQuota(mockSupabase, "user-123", "quiz");
     expect(result.allowed).toBe(true);
@@ -34,7 +35,7 @@ describe("Server AI Quota", () => {
 
     const mockSupabase = {
       rpc: mockRpc,
-    } as any;
+    } as unknown as SupabaseClient;
 
     await expect(enforceServerAiQuota(mockSupabase, "user-123", "quiz")).rejects.toThrow(
       ServerAiQuotaExceededError,
@@ -65,9 +66,9 @@ describe("Server AI Quota", () => {
             upsert: mockUpsert,
           };
         }
-        return {} as any;
+        return {} as unknown;
       }),
-    } as any;
+    } as unknown as SupabaseClient;
 
     const result = await enforceServerAiQuota(mockSupabase, "user-123", "flashcards");
     expect(result.allowed).toBe(true);
@@ -92,7 +93,7 @@ describe("Server AI Quota", () => {
       from: vi.fn().mockReturnValue({
         select: mockSelect,
       }),
-    } as any;
+    } as unknown as SupabaseClient;
 
     await expect(enforceServerAiQuota(mockSupabase, "user-123", "quiz")).rejects.toThrow(
       ServerAiQuotaExceededError,

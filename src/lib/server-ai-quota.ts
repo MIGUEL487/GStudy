@@ -44,7 +44,7 @@ export class ServerAiQuotaExceededError extends Error {
  * Se a cota for excedida, lança ServerAiQuotaExceededError com mensagem amigável em pt-BR.
  */
 export async function enforceServerAiQuota(
-  supabase: SupabaseClient<any, any, any>,
+  supabase: SupabaseClient,
   userId: string,
   action: AiQuotaAction,
   customLimit?: number,

@@ -13,10 +13,10 @@ O Gemini continua como primeira opção. Quando há limite de uso/cota, indispon
 
 O único campo novo obrigatório para ativar a alternativa é `GROQ_API_KEY`. Os modelos têm padrões no código e podem ser personalizados:
 
-| Variável opcional | Padrão | Uso |
-| --- | --- | --- |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Conversas de texto, resumos e atividades |
-| `GROQ_VISION_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Lousa, fotos do caderno e do boletim |
+| Variável opcional   | Padrão                                      | Uso                                      |
+| ------------------- | ------------------------------------------- | ---------------------------------------- |
+| `GROQ_MODEL`        | `llama-3.3-70b-versatile`                   | Conversas de texto, resumos e atividades |
+| `GROQ_VISION_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Lousa, fotos do caderno e do boletim     |
 
 A base é fixa: `https://api.groq.com/openai/v1`. Não precisa criar `GROQ_BASE_URL`. Se um modelo estiver indisponível para sua conta, escolha outro identificador ativo no [catálogo Groq](https://console.groq.com/docs/models); para `GROQ_VISION_MODEL`, escolha um modelo que aceite imagens. A disponibilidade, a cota gratuita e os limites dependem da conta Groq. O aplicativo não muda cobrança ou plano.
 

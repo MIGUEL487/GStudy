@@ -189,7 +189,7 @@ export const getPreparationYouTubeStatus = createServerFn({ method: "GET" })
 
 export const curatePreparationLibrary = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
-  .inputValidator((value: unknown) => input.parse(value))
+  .validator((value: unknown) => input.parse(value))
   .handler(async ({ data }) => {
     const { aiResearch, aiObject } = await import("./ai.server");
     const key = data.scope === "books" ? undefined : process.env["YOUTUBE_API_KEY"]?.trim();

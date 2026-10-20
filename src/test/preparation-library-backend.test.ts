@@ -7,6 +7,10 @@ vi.mock("@tanstack/react-start", () => ({
     let parse = (input: unknown): unknown => input;
     const builder = {
       middleware: () => builder,
+      validator: (validator: typeof parse) => {
+        parse = validator;
+        return builder;
+      },
       inputValidator: (validator: typeof parse) => {
         parse = validator;
         return builder;
@@ -60,7 +64,7 @@ const data = {
   ],
 };
 const call = (input: unknown = data) =>
-  (curatePreparationLibrary as unknown as (args: { data: unknown }) => Promise<any>)({
+  (curatePreparationLibrary as unknown as (args: { data: unknown }) => Promise<unknown>)({
     data: input,
   });
 beforeEach(() => {

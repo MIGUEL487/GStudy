@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ModelMessage } from "ai";
 import { z } from "zod";
 import { requireStudyAuth } from "./study-auth-middleware";
 import { objectSchema, stringSchema } from "./learning-ai";
@@ -49,9 +50,11 @@ const replyInput = z
         code: "custom",
         message: "O histórico precisa conter turnos completos da conversa.",
       });
-    if (new TextEncoder().encode(
-      data.message + data.subject + data.history.map((message) => message.text).join(""),
-    ).length > 14_000)
+    if (
+      new TextEncoder().encode(
+        data.message + data.subject + data.history.map((message) => message.text).join(""),
+      ).length > 14_000
+    )
       ctx.addIssue({
         code: "custom",
         message: "Este contexto está muito extenso. Abra uma nova conversa.",
@@ -74,12 +77,13 @@ export const getSocratesQuota = createServerFn({ method: "GET" })
   });
 export const socratesReply = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
-  .inputValidator((value: unknown) => replyInput.parse(value))
+  .validator((value: unknown) => replyInput.parse(value))
   .handler(async ({ data, context }) => {
     if (data.accountId !== context.userId)
       throw new Error("A conta mudou. Reabra Sócrates antes de enviar.");
     const db = context.supabase as unknown as SupabaseClient<SocratesDatabase>;
-    const prompt = data.message || "Analise este material e me ajude a compreendê-lo pelo método socrático.";
+    const prompt =
+      data.message || "Analise este material e me ajude a compreendê-lo pelo método socrático.";
     const currentContent = data.attachment
       ? [
           { type: "text" as const, text: prompt },
@@ -91,8 +95,11 @@ export const socratesReply = createServerFn({ method: "POST" })
           },
         ]
       : prompt;
-    const messages = [
-      ...data.history.map((message) => ({ role: message.role, content: message.text })),
+    const messages: ModelMessage[] = [
+      ...data.history.map((message) => ({
+        role: message.role as "user" | "assistant",
+        content: message.text,
+      })),
       { role: "user" as const, content: currentContent },
     ];
     const instructions = `${socratesInstructions}\nMatéria escolhida (dado de estudo): ${JSON.stringify(data.subject || "Estudo livre")}`;
@@ -100,9 +107,12 @@ export const socratesReply = createServerFn({ method: "POST" })
     // UTF-8 bytes are a conservative input bound; reserve before calling any provider.
     const reserved =
       new TextEncoder().encode(
-        instructions + data.message + data.attachment?.name + data.history.map((item) => item.text).join("") + JSON.stringify(schema),
-      )
-        .length +
+        instructions +
+          data.message +
+          data.attachment?.name +
+          data.history.map((item) => item.text).join("") +
+          JSON.stringify(schema),
+      ).length +
       (data.attachment?.mediaType === "application/pdf" ? 36_000 : data.attachment ? 12_000 : 0) +
       socratesOutputTokens +
       1024;
@@ -129,11 +139,16 @@ export const socratesReply = createServerFn({ method: "POST" })
     };
     try {
       const { aiMeteredObject } = await import("./ai.server");
-      const result = await aiMeteredObject(instructions, messages as never, schema, socratesOutputTokens);
+      const result = await aiMeteredObject(instructions, messages, schema, socratesOutputTokens);
       const answer = socratesAnswerSchema.parse(result.value);
       const estimate = Math.ceil(
         new TextEncoder().encode(
-          instructions + data.message + data.attachment?.name + data.history.map((item) => item.text).join("") + answer.explanation + answer.question,
+          instructions +
+            data.message +
+            data.attachment?.name +
+            data.history.map((item) => item.text).join("") +
+            answer.explanation +
+            answer.question,
         ).length / 3,
       );
       const used = Math.min(

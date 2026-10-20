@@ -654,7 +654,7 @@
 @keyframes prep-reveal {
   from {
     opacity: 0;
-    transform: translateY(28px) scale(.97);
+    transform: translateY(28px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -900,16 +900,21 @@
   border-radius: 2px;
   background: currentColor;
   opacity: 0;
-  transform: scaleX(.35);
-  transition: opacity .25s, transform .38s var(--ease);
+  transform: scaleX(0.35);
+  transition:
+    opacity 0.25s,
+    transform 0.38s var(--ease);
 }
-.prep-tabs button[aria-selected="true"]::after { opacity: .65; transform: scaleX(1); }
+.prep-tabs button[aria-selected="true"]::after {
+  opacity: 0.65;
+  transform: scaleX(1);
+}
 .prep-tabs button:focus-visible {
   outline: 2px solid var(--prep-accent);
   outline-offset: 2px;
 }
 .prep-dashboard-panel {
-  animation: prep-reveal .65s var(--ease) both;
+  animation: prep-reveal 0.65s var(--ease) both;
 }
 .prep-route-layout {
   display: grid;

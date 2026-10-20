@@ -16,6 +16,10 @@ vi.mock("@tanstack/react-start", () => ({
     let parse = (input: unknown): unknown => input;
     const builder = {
       middleware: () => builder,
+      validator: (validator: typeof parse) => {
+        parse = validator;
+        return builder;
+      },
       inputValidator: (validator: typeof parse) => {
         parse = validator;
         return builder;

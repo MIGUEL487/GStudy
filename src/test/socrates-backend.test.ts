@@ -8,6 +8,10 @@ vi.mock("@tanstack/react-start", () => ({
     let parse = (value: unknown) => value;
     const builder = {
       middleware: () => builder,
+      validator: (validator: typeof parse) => {
+        parse = validator;
+        return builder;
+      },
       inputValidator: (validator: typeof parse) => {
         parse = validator;
         return builder;
@@ -42,7 +46,7 @@ const input = {
   history: [],
 };
 const call = (data: unknown = input) =>
-  (socratesReply as unknown as (args: { data: unknown }) => Promise<any>)({ data });
+  (socratesReply as unknown as (args: { data: unknown }) => Promise<unknown>)({ data });
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.ai.mockResolvedValue({ value: answer, totalTokens: 1234 });
@@ -86,9 +90,11 @@ describe("Sócrates: didática e cota no servidor", () => {
     };
     expect(await call({ ...input, message: "", attachment })).toMatchObject({ ok: true });
     const sent = mocks.ai.mock.calls[0]![1];
-    expect(sent.at(-1).content).toEqual(expect.arrayContaining([
-      expect.objectContaining({ type: "file", mediaType: "image/jpeg", filename: "pagina.jpg" }),
-    ]));
+    expect(sent.at(-1).content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "file", mediaType: "image/jpeg", filename: "pagina.jpg" }),
+      ]),
+    );
     expect(JSON.stringify(sent.slice(0, -1))).not.toContain(attachment.dataUrl);
   });
   it.each([
@@ -121,7 +127,7 @@ describe("Sócrates: didática e cota no servidor", () => {
     mocks.ai.mockRejectedValue(new Error("Provedor temporariamente indisponível."));
     expect(await call()).toMatchObject({ ok: false, quota: quota(0) });
     mocks.rpc.mockResolvedValue({ data: null, error: { code: "PGRST202" } });
-    const status = await (getSocratesQuota as unknown as () => Promise<any>)();
+    const status = await (getSocratesQuota as unknown as () => Promise<unknown>)();
     expect(status).toMatchObject({
       ok: false,
       error: expect.stringContaining("0003_socrates.sql"),

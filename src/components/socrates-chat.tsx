@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUp, BookOpen, FileText, Image, MessageCircleQuestion, Paperclip, Plus, RefreshCw, Sparkles, X } from "lucide-react";
+import {
+  ArrowUp,
+  BookOpen,
+  FileText,
+  Image,
+  MessageCircleQuestion,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useStudy } from "./study-provider";
 import { Button } from "./ui/button";
 import { useSocratesConversations } from "@/hooks/use-socrates-conversations";
@@ -15,13 +26,18 @@ import "@/styles/socrates.css";
 import { SocratesIcon } from "./socrates-icon";
 import { prepareStudyPhoto } from "@/lib/study-photo";
 const number = (value: number) => value.toLocaleString("pt-BR");
-type SocratesAttachment = { name: string; mediaType: "image/jpeg" | "application/pdf"; dataUrl: string };
-const readPdf = (file: File) => new Promise<string>((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(String(reader.result));
-  reader.onerror = () => reject(new Error("Não foi possível ler este PDF."));
-  reader.readAsDataURL(file);
-});
+type SocratesAttachment = {
+  name: string;
+  mediaType: "image/jpeg" | "application/pdf";
+  dataUrl: string;
+};
+const readPdf = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Não foi possível ler este PDF."));
+    reader.readAsDataURL(file);
+  });
 export function SocratesChat({ userId }: { userId: string }) {
   const { data } = useStudy();
   const history = useSocratesConversations(userId);
@@ -99,13 +115,20 @@ export function SocratesChat({ userId }: { userId: string }) {
     }
   };
   const send = async () => {
-    if (lock.current || unsaved || !quota || !quota.remaining || (!draft.trim() && !attachment)) return;
+    if (lock.current || unsaved || !quota || !quota.remaining || (!draft.trim() && !attachment))
+      return;
     lock.current = true;
     setBusy(true);
     setError("");
     setWarning("");
-    const visibleText = [draft.trim(), attachment ? `[${attachment.mediaType === "application/pdf" ? "PDF" : "Imagem"}: ${attachment.name}]` : ""]
-      .filter(Boolean).join("\n");
+    const visibleText = [
+      draft.trim(),
+      attachment
+        ? `[${attachment.mediaType === "application/pdf" ? "PDF" : "Imagem"}: ${attachment.name}]`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const userMessage: SocratesMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -348,9 +371,18 @@ export function SocratesChat({ userId }: { userId: string }) {
         >
           {attachment && (
             <div className="socrates-attachment" role="status">
-              {attachment.mediaType === "application/pdf" ? <FileText size={16} /> : <Image size={16} />}
+              {attachment.mediaType === "application/pdf" ? (
+                <FileText size={16} />
+              ) : (
+                <Image size={16} />
+              )}
               <span>{attachment.name}</span>
-              <button type="button" aria-label="Remover anexo" disabled={busy} onClick={() => setAttachment(null)}>
+              <button
+                type="button"
+                aria-label="Remover anexo"
+                disabled={busy}
+                onClick={() => setAttachment(null)}
+              >
                 <X size={15} />
               </button>
             </div>
@@ -371,14 +403,24 @@ export function SocratesChat({ userId }: { userId: string }) {
                 if (file.type === "application/pdf") {
                   if (!file.size || file.size > 4 * 1024 * 1024)
                     throw new Error("Escolha um PDF de até 4 MB e 40 páginas.");
-                  setAttachment({ name: file.name, mediaType: "application/pdf", dataUrl: await readPdf(file) });
+                  setAttachment({
+                    name: file.name,
+                    mediaType: "application/pdf",
+                    dataUrl: await readPdf(file),
+                  });
                 } else {
                   const photo = await prepareStudyPhoto(file);
-                  setAttachment({ name: file.name, mediaType: "image/jpeg", dataUrl: photo.dataUrl });
+                  setAttachment({
+                    name: file.name,
+                    mediaType: "image/jpeg",
+                    dataUrl: photo.dataUrl,
+                  });
                 }
               } catch (cause) {
                 setAttachment(null);
-                setError(cause instanceof Error ? cause.message : "Não foi possível preparar o anexo.");
+                setError(
+                  cause instanceof Error ? cause.message : "Não foi possível preparar o anexo.",
+                );
               } finally {
                 setPreparingFile(false);
               }
@@ -404,7 +446,9 @@ export function SocratesChat({ userId }: { userId: string }) {
             value={draft}
             disabled={busy || !!unsaved || full}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder={preparingFile ? "Preparando anexo…" : "Pergunte, tente explicar, pense em voz alta…"}
+            placeholder={
+              preparingFile ? "Preparando anexo…" : "Pergunte, tente explicar, pense em voz alta…"
+            }
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();

@@ -39,7 +39,7 @@ const addInput = z.object({
   url: str(500).optional(),
   file: z
     .object({
-      dataUrl: str(4_500_000), // Limite reduzido para respeitar payload serverless
+      dataUrl: str(4_200_000), // Limite reduzido para respeitar payload serverless
       mediaType: str(100),
       name: str(200),
     })
@@ -62,9 +62,7 @@ export const addMaterial = createServerFn({ method: "POST" })
 
     if (data.kind === "link") {
       const { safeFetch } = await import("./safe-fetch.server");
-      const targetUrl = /^https?:\/\//i.test(data.url ?? "")
-        ? data.url!
-        : `https://${data.url}`;
+      const targetUrl = /^https?:\/\//i.test(data.url ?? "") ? data.url! : `https://${data.url}`;
       let page = "";
       let finalUrl = targetUrl;
       try {
@@ -129,7 +127,7 @@ export const addMaterial = createServerFn({ method: "POST" })
         role: "user",
         content: [
           { type: "text", text: `Material: "${data.title}"` },
-          ...(parts as any),
+          ...(parts as unknown as Array<{ type: "text"; text: string }>),
         ],
       },
     ];
@@ -189,9 +187,7 @@ const quizOutput = z.object({
 });
 
 const cardsOutput = z.object({
-  cards: z
-    .array(z.object({ front: outputText(800, 2), back: outputText(1600, 2) }))
-    .length(10),
+  cards: z.array(z.object({ front: outputText(800, 2), back: outputText(1600, 2) })).length(10),
 });
 
 const explainOutput = z.object({

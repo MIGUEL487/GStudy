@@ -7,7 +7,13 @@ import {
   type ModelMessage,
   type ToolSet,
 } from "ai";
-import { aiConfig, AiSetupError, groqConfig, openRouterConfig, socratesAiConfig } from "./ai-config";
+import {
+  aiConfig,
+  AiSetupError,
+  groqConfig,
+  openRouterConfig,
+  socratesAiConfig,
+} from "./ai-config";
 import { canFallback, providerFailure, safeAiFailure } from "./ai-errors";
 import { fallbackMessages, hasImages } from "./ai-fallback-media.server";
 import { hasPdf, validateOpenRouterFiles } from "./openrouter-media.server";
@@ -23,7 +29,9 @@ async function provider(name: Provider, vision: boolean, research = false, docum
     openrouter: name === "openrouter",
     omniroute: name === "omniroute",
     deepseek: name === "deepseek",
-    ...(name === "omniroute" || name === "deepseek" || name === "socrates-gemini" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
+    ...(name === "omniroute" || name === "deepseek" || name === "socrates-gemini"
+      ? { keyVariable: "SOCRATES_AI_API_KEY" }
+      : {}),
     document,
   };
   const providerFetch: typeof fetch = async (input, init) => {
@@ -59,7 +67,10 @@ async function provider(name: Provider, vision: boolean, research = false, docum
   }
   if (name === "socrates-gemini") {
     const config = socratesAiConfig(process.env);
-    if (!config) throw new AiSetupError("Configure SOCRATES_AI_API_KEY para ativar a IA exclusiva do Sócrates.");
+    if (!config)
+      throw new AiSetupError(
+        "Configure SOCRATES_AI_API_KEY para ativar a IA exclusiva do Sócrates.",
+      );
     const google = createGoogleGenerativeAI({
       apiKey: config.key,
       baseURL: config.baseURL,
@@ -69,7 +80,10 @@ async function provider(name: Provider, vision: boolean, research = false, docum
   }
   if (name === "omniroute" || name === "deepseek") {
     const config = socratesAiConfig(process.env);
-    if (!config) throw new AiSetupError("Configure SOCRATES_AI_API_KEY para ativar a IA exclusiva do Sócrates.");
+    if (!config)
+      throw new AiSetupError(
+        "Configure SOCRATES_AI_API_KEY para ativar a IA exclusiva do Sócrates.",
+      );
     const { createOpenAICompatible } = await import("@ai-sdk/openai-compatible");
     const dedicated = createOpenAICompatible({
       name,
@@ -117,7 +131,9 @@ function logFailure(error: unknown, name: Provider, vision: boolean) {
     openrouter: name === "openrouter",
     omniroute: name === "omniroute",
     deepseek: name === "deepseek",
-    ...(name === "omniroute" || name === "deepseek" || name === "socrates-gemini" ? { keyVariable: "SOCRATES_AI_API_KEY" } : {}),
+    ...(name === "omniroute" || name === "deepseek" || name === "socrates-gemini"
+      ? { keyVariable: "SOCRATES_AI_API_KEY" }
+      : {}),
   });
   // SDK exceptions may contain keys, photos, notes or request bodies. Log only safe fields.
   console.error("[GStudy AI] Falha na geração:", {
@@ -155,18 +171,21 @@ async function generate(
       messages,
       maxRetries: 0,
       ...(meter ? { maxOutputTokens: meter.maxOutputTokens } : {}),
-      ...(name === "openrouter" || name === "omniroute" || name === "deepseek"
-        ? { abortSignal: AbortSignal.timeout(45000) }
-        : {}),
+      abortSignal: AbortSignal.timeout(name === "groq" ? groqTimeoutMs : 45000),
       ...(research && isGoogle
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
         : {}),
       // Do not interrupt a healthy Gemini generation just to switch providers.
-      ...(schema ? { output: Output.object({ schema: jsonSchema(schema as never) }) } : {}),
+      ...(schema
+        ? {
+            output: Output.object({
+              schema: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
+            }),
+          }
+        : {}),
       // Llama text/vision models support JSON mode, but not all support strict JSON Schema.
       ...(name === "groq"
         ? {
-            abortSignal: AbortSignal.timeout(groqTimeoutMs),
             providerOptions: { groq: { structuredOutputs: false } },
           }
         : {}),
@@ -175,11 +194,7 @@ async function generate(
   try {
     result = await request();
   } catch (error) {
-    if (
-      research &&
-      isGoogle &&
-      (error as { searchUnavailable?: boolean })?.searchUnavailable
-    ) {
+    if (research && isGoogle && (error as { searchUnavailable?: boolean })?.searchUnavailable) {
       const text = await generate(
         instructions +
           "\nA pesquisa web está indisponível. Não afirme ter consultado fontes nem confirmado o edital atual.",
@@ -209,14 +224,13 @@ async function generate(
       "O provedor de IA não retornou uma resposta de texto. Tente novamente ou confira se o modelo escolhido gera texto.",
     );
   if (research) {
-    const sources =
-      isGoogle
-        ? result.sources.flatMap((source) =>
-            source.sourceType === "url"
-              ? [{ title: source.title || "Fonte consultada", url: source.url }]
-              : [],
-          )
-        : [];
+    const sources = isGoogle
+      ? result.sources.flatMap((source) =>
+          source.sourceType === "url"
+            ? [{ title: source.title || "Fonte consultada", url: source.url }]
+            : [],
+        )
+      : [];
     return { text, sources };
   }
   return text;
@@ -231,7 +245,8 @@ async function withFallback(
   socrates = false,
 ) {
   const vision = whiteboard || hasImages(messages);
-  const socratesConfig = socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() ? socratesAiConfig(process.env) : null;
+  const socratesConfig =
+    socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() ? socratesAiConfig(process.env) : null;
   const socratesProvider: Provider | null = socratesConfig
     ? socratesConfig.provider === "gemini"
       ? "socrates-gemini"
@@ -325,12 +340,20 @@ export async function aiMeteredObject(
   // switch to the site's shared credential.
   if (process.env["SOCRATES_AI_API_KEY"]?.trim()) socratesAiConfig(process.env);
   let totalTokens: number | undefined;
-  const result = await withFallback(instructions, messages, false, schema, false, {
-    maxOutputTokens,
-    onUsage: (total) => {
-      totalTokens = total;
+  const result = await withFallback(
+    instructions,
+    messages,
+    false,
+    schema,
+    false,
+    {
+      maxOutputTokens,
+      onUsage: (total) => {
+        totalTokens = total;
+      },
     },
-  }, true);
+    true,
+  );
   return { value: result.value, totalTokens };
 }
 

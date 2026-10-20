@@ -79,11 +79,7 @@ const valueSchema = z
 function numeric(value: string, field: string) {
   const raw = valueSchema.safeParse(value);
   const number = raw.success ? Number(raw.data.replace(",", ".")) : NaN;
-  if (
-    !Number.isFinite(number) ||
-    number < 0 ||
-    number > 1000
-  )
+  if (!Number.isFinite(number) || number < 0 || number > 1000)
     throw new Error(`Confira ${field}: use um número entre 0 e 1000.`);
   return String(number);
 }

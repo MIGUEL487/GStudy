@@ -15,6 +15,10 @@ vi.mock("@tanstack/react-start", () => ({
     let parse: (value: unknown) => unknown = (value) => value;
     const builder = {
       middleware: () => builder,
+      validator: (fn: typeof parse) => {
+        parse = fn;
+        return builder;
+      },
       inputValidator: (fn: typeof parse) => {
         parse = fn;
         return builder;

@@ -60,18 +60,31 @@ export function providerFailure(status: number, payload: unknown, context: Conte
       : context.groq
         ? "GROQ_API_KEY"
         : "BOARD_AI_API_KEY");
-  const model = context.omniroute || context.deepseek ? "SOCRATES_AI_MODEL" : context.groq
-    ? context.whiteboard
-      ? "GROQ_VISION_MODEL"
-      : "GROQ_MODEL"
-    : context.openrouter
-      ? context.whiteboard
-        ? "OPENROUTER_VISION_MODEL"
-        : "OPENROUTER_MODEL"
-      : "BOARD_AI_MODEL";
-  const service = context.deepseek ? "DeepSeek" : context.omniroute ? "OmniRoute" : context.openrouter ? "OpenRouter" : "Groq";
+  const model =
+    context.omniroute || context.deepseek
+      ? "SOCRATES_AI_MODEL"
+      : context.groq
+        ? context.whiteboard
+          ? "GROQ_VISION_MODEL"
+          : "GROQ_MODEL"
+        : context.openrouter
+          ? context.whiteboard
+            ? "OPENROUTER_VISION_MODEL"
+            : "OPENROUTER_MODEL"
+          : "BOARD_AI_MODEL";
+  const service = context.deepseek
+    ? "DeepSeek"
+    : context.omniroute
+      ? "OmniRoute"
+      : context.openrouter
+        ? "OpenRouter"
+        : "Groq";
   const url =
-    context.omniroute || context.deepseek ? "SOCRATES_AI_BASE_URL" : context.groq || context.openrouter ? "o acesso à API " + service : "BOARD_AI_BASE_URL";
+    context.omniroute || context.deepseek
+      ? "SOCRATES_AI_BASE_URL"
+      : context.groq || context.openrouter
+        ? "o acesso à API " + service
+        : "BOARD_AI_BASE_URL";
   const provider =
     context.groq || context.openrouter || context.omniroute || context.deepseek
       ? "O " + service
@@ -116,7 +129,10 @@ export function providerFailure(status: number, payload: unknown, context: Conte
     return failure(
       `O modelo ou endereço da IA não está disponível (HTTP 404). Confira ${model} e ${url} na hospedagem.`,
     );
-  if ((context.groq || context.openrouter || context.omniroute || context.deepseek) && (status === 400 || status === 422)) {
+  if (
+    (context.groq || context.openrouter || context.omniroute || context.deepseek) &&
+    (status === 400 || status === 422)
+  ) {
     const prefix = provider + " recusou a solicitação (HTTP " + status + "). ";
     if (
       /(?:coding|code[- ]only|programming).*(?:key|plan|only|restrict)|(?:key|plan).*(?:only.*(?:coding|code)|restricted.*(?:coding|code))/i.test(
@@ -148,7 +164,11 @@ export function providerFailure(status: number, payload: unknown, context: Conte
       return failure(
         prefix +
           "O modelo selecionado não aceita imagens nesta API. Configure " +
-          (context.omniroute || context.deepseek ? "SOCRATES_AI_MODEL" : context.openrouter ? "OPENROUTER_VISION_MODEL" : "GROQ_VISION_MODEL") +
+          (context.omniroute || context.deepseek
+            ? "SOCRATES_AI_MODEL"
+            : context.openrouter
+              ? "OPENROUTER_VISION_MODEL"
+              : "GROQ_VISION_MODEL") +
           " com um modelo de visão autorizado para sua chave. Para usar lousa e fotos com esta conta, é necessário esse suporte ou outro provedor compatível.",
         "vision",
       );

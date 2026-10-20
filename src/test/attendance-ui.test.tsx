@@ -89,8 +89,16 @@ describe("Faltas do calendário e tabela", () => {
     fireEvent.click(screen.getByText("Ver tabela"));
     fireEvent.change(screen.getByLabelText("Faltas 4º bimestre"), { target: { value: "3" } });
     fireEvent.click(screen.getByText("Ver calendário"));
-    expect(screen.getByRole("button", { name: /05\/10\/2026: sem registro; 2 falta\(s\) de aula a localizar/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /12\/10\/2026: sem registro; 1 falta\(s\) de aula a localizar/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /05\/10\/2026: sem registro; 2 falta\(s\) de aula a localizar/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /12\/10\/2026: sem registro; 1 falta\(s\) de aula a localizar/,
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/3 falta\(s\) de aula lançadas na tabela/)).toBeInTheDocument();
   });
   it("limita o horário a 12 aulas por dia", () => {

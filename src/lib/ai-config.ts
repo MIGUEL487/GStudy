@@ -6,10 +6,12 @@ export function socratesAiConfig(env: Record<string, string | undefined>) {
   const key = env["SOCRATES_AI_API_KEY"]?.trim();
   if (!key) return null;
   const configuredProvider = env["SOCRATES_AI_PROVIDER"]?.trim().toLowerCase();
-  const provider = configuredProvider ||
+  const provider =
+    configuredProvider ||
     (key.startsWith("AIza") || env["SOCRATES_AI_MODEL"]?.includes("gemini")
       ? "gemini"
-      : env["SOCRATES_AI_MODEL"]?.trim() === "auto" || /omniroute|localhost:20128/i.test(env["SOCRATES_AI_BASE_URL"] ?? "")
+      : env["SOCRATES_AI_MODEL"]?.trim() === "auto" ||
+          /omniroute|localhost:20128/i.test(env["SOCRATES_AI_BASE_URL"] ?? "")
         ? "omniroute"
         : "deepseek");
   if (provider !== "deepseek" && provider !== "omniroute" && provider !== "gemini")
@@ -22,10 +24,15 @@ export function socratesAiConfig(env: Record<string, string | undefined>) {
     return { key, baseURL, model, provider: "gemini" as const };
   }
   if (key.startsWith("oma_live_"))
-    throw new AiSetupError("SOCRATES_AI_API_KEY precisa ser uma chave de inferência OmniRoute, não um token de administração oma_live_.");
-  const baseURL = (env["SOCRATES_AI_BASE_URL"]?.trim() ||
-    (provider === "deepseek" ? "https://api.deepseek.com" : "")).replace(/\/+$/, "");
-  const model = env["SOCRATES_AI_MODEL"]?.trim() || (provider === "deepseek" ? "deepseek-chat" : "auto");
+    throw new AiSetupError(
+      "SOCRATES_AI_API_KEY precisa ser uma chave de inferência OmniRoute, não um token de administração oma_live_.",
+    );
+  const baseURL = (
+    env["SOCRATES_AI_BASE_URL"]?.trim() ||
+    (provider === "deepseek" ? "https://api.deepseek.com" : "")
+  ).replace(/\/+$/, "");
+  const model =
+    env["SOCRATES_AI_MODEL"]?.trim() || (provider === "deepseek" ? "deepseek-chat" : "auto");
   if (!baseURL)
     throw new AiSetupError(
       "Para usar OmniRoute no Sócrates, hospede o roteador em um servidor HTTPS acessível pela Vercel e configure SOCRATES_AI_BASE_URL com a base /v1 desse servidor. localhost no seu computador não funciona na Vercel.",
@@ -35,10 +42,14 @@ export function socratesAiConfig(env: Record<string, string | undefined>) {
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash)
       throw new Error();
   } catch {
-    throw new AiSetupError("SOCRATES_AI_BASE_URL precisa ser uma URL HTTPS da API escolhida, sem chave na URL.");
+    throw new AiSetupError(
+      "SOCRATES_AI_BASE_URL precisa ser uma URL HTTPS da API escolhida, sem chave na URL.",
+    );
   }
   if (/\/(?:chat\/completions|responses)$/.test(baseURL))
-    throw new AiSetupError("SOCRATES_AI_BASE_URL deve ser a base da API, sem /chat/completions ou /responses.");
+    throw new AiSetupError(
+      "SOCRATES_AI_BASE_URL deve ser a base da API, sem /chat/completions ou /responses.",
+    );
   if (model.length > 180 || /^https?:\/\//i.test(model) || /\s/.test(model))
     throw new AiSetupError("SOCRATES_AI_MODEL deve ser um identificador de modelo, não uma URL.");
   return { key, baseURL, model, provider: provider as "deepseek" | "omniroute" | "gemini" };

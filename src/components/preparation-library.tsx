@@ -104,7 +104,7 @@ export function PreparationLibraryPanel({
           </p>
         </div>
       </div>
-      {!!library?.videos.length ? (
+      {Boolean(library?.videos.length) ? (
         <div className="library-video-grid">
           {library.videos.map((video) => (
             <VideoLesson

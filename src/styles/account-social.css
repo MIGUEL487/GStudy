@@ -43,7 +43,7 @@
   padding: 4px 8px;
   border-radius: 8px;
   border: 1px solid transparent;
-  transition: all .2s;
+  transition: all 0.2s;
 }
 .account-sync-status.is-synced {
   color: var(--success);
@@ -57,12 +57,16 @@
   border-color: rgba(234, 67, 53, 0.15);
 }
 .sync-spin {
-  animation: astra-spin 1s cubic-bezier(.4, 0, .2, 1) infinite;
+  animation: astra-spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   color: var(--primary);
 }
 @keyframes astra-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 .app-shell {
   transition: grid-template-columns 0.35s var(--ease);

@@ -77,12 +77,18 @@ describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
     vi.stubEnv("SOCRATES_AI_API_KEY", "socrates-secret-key");
     vi.stubEnv("SOCRATES_AI_BASE_URL", "https://api.omniroute.example/v1");
     vi.stubEnv("SOCRATES_AI_MODEL", "study-model");
-    fetchMock.mockResolvedValueOnce(groq(JSON.stringify({
-      explanation: "Uma unidade contém duas metades.",
-      question: "Por que duas metades formam um inteiro?",
-    })));
+    fetchMock.mockResolvedValueOnce(
+      groq(
+        JSON.stringify({
+          explanation: "Uma unidade contém duas metades.",
+          question: "Por que duas metades formam um inteiro?",
+        }),
+      ),
+    );
     const schema = {
-      type: "object", additionalProperties: false, required: ["explanation", "question"],
+      type: "object",
+      additionalProperties: false,
+      required: ["explanation", "question"],
       properties: { explanation: { type: "string" }, question: { type: "string" } },
     };
     const result = await aiMeteredObject("Explique e pergunte.", messages, schema, 4096);
@@ -95,38 +101,68 @@ describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
     fetchMock.mockResolvedValueOnce(google());
     await expect(aiText("Outra atividade.", messages)).resolves.toBe("Resposta Gemini");
     expect(String(fetchMock.mock.calls[1]![0])).toContain("generativelanguage.googleapis.com");
-    expect(new Headers(fetchMock.mock.calls[1]![1].headers).get("x-goog-api-key"))
-      .toBe("gemini-private-key");
+    expect(new Headers(fetchMock.mock.calls[1]![1].headers).get("x-goog-api-key")).toBe(
+      "gemini-private-key",
+    );
   });
   it("usa Gemini se OmniRoute falhar tecnicamente, sem expor a chave nos logs", async () => {
     vi.stubEnv("SOCRATES_AI_PROVIDER", "omniroute");
     vi.stubEnv("SOCRATES_AI_API_KEY", "socrates-secret-key");
     vi.stubEnv("SOCRATES_AI_BASE_URL", "https://api.omniroute.example/v1");
     vi.stubEnv("SOCRATES_AI_MODEL", "study-model");
-    fetchMock.mockResolvedValueOnce(failed(429)).mockResolvedValueOnce(google(JSON.stringify({
-      explanation: "Explicação didática de exemplo.", question: "Por que isso acontece?",
-    })));
-    const result = await aiMeteredObject("Explique.", messages, {
-      type: "object", required: ["explanation", "question"],
-      properties: { explanation: { type: "string" }, question: { type: "string" } },
-    }, 4096);
+    fetchMock.mockResolvedValueOnce(failed(429)).mockResolvedValueOnce(
+      google(
+        JSON.stringify({
+          explanation: "Explicação didática de exemplo.",
+          question: "Por que isso acontece?",
+        }),
+      ),
+    );
+    const result = await aiMeteredObject(
+      "Explique.",
+      messages,
+      {
+        type: "object",
+        required: ["explanation", "question"],
+        properties: { explanation: { type: "string" }, question: { type: "string" } },
+      },
+      4096,
+    );
     expect(result.totalTokens).toBe(12);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("socrates-secret-key");
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+      "socrates-secret-key",
+    );
   });
   it("usa DeepSeek por padrão e valida a configuração opcional do OmniRoute", () => {
     expect(socratesAiConfig({})).toBeNull();
-    expect(socratesAiConfig({
-      SOCRATES_AI_API_KEY: "key",
-    })).toMatchObject({ provider: "deepseek", model: "deepseek-chat", baseURL: "https://api.deepseek.com" });
-    expect(() => socratesAiConfig({ SOCRATES_AI_API_KEY: "key", SOCRATES_AI_PROVIDER: "omniroute" }))
-      .toThrow("SOCRATES_AI_BASE_URL");
-    expect(() => socratesAiConfig({
-      SOCRATES_AI_API_KEY: "key", SOCRATES_AI_PROVIDER: "omniroute", SOCRATES_AI_BASE_URL: "http://example.com/v1", SOCRATES_AI_MODEL: "model",
-    })).toThrow("HTTPS");
-    expect(() => socratesAiConfig({
-      SOCRATES_AI_API_KEY: "oma_live_admin", SOCRATES_AI_PROVIDER: "omniroute", SOCRATES_AI_BASE_URL: "https://omni.example/v1",
-    })).toThrow("token de administração");
+    expect(
+      socratesAiConfig({
+        SOCRATES_AI_API_KEY: "key",
+      }),
+    ).toMatchObject({
+      provider: "deepseek",
+      model: "deepseek-chat",
+      baseURL: "https://api.deepseek.com",
+    });
+    expect(() =>
+      socratesAiConfig({ SOCRATES_AI_API_KEY: "key", SOCRATES_AI_PROVIDER: "omniroute" }),
+    ).toThrow("SOCRATES_AI_BASE_URL");
+    expect(() =>
+      socratesAiConfig({
+        SOCRATES_AI_API_KEY: "key",
+        SOCRATES_AI_PROVIDER: "omniroute",
+        SOCRATES_AI_BASE_URL: "http://example.com/v1",
+        SOCRATES_AI_MODEL: "model",
+      }),
+    ).toThrow("HTTPS");
+    expect(() =>
+      socratesAiConfig({
+        SOCRATES_AI_API_KEY: "oma_live_admin",
+        SOCRATES_AI_PROVIDER: "omniroute",
+        SOCRATES_AI_BASE_URL: "https://omni.example/v1",
+      }),
+    ).toThrow("token de administração");
   });
   it.each(["gemini", "groq"])(
     "Sócrates recebe o consumo e limita a saída com %s",

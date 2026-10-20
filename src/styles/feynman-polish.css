@@ -1,49 +1,355 @@
-.feyn-studio .feyn-studio-heading{color:var(--foreground);margin-bottom:18px;gap:18px}
-.feyn-studio .feyn-back{color:var(--muted-foreground);margin-bottom:12px}
-.feyn-studio .feyn-back:hover{color:var(--foreground)}
-.feyn-studio .feyn-studio-heading .eyebrow{color:#967753}
-.feyn-studio .feyn-studio-heading h1{font-size:36px}
-.feyn-studio .feyn-topic{color:#8b735b;margin-top:7px}
-.feyn-studio .feyn-topic strong{color:#58412d}
-.feyn-studio .feyn-history-toggle{border-color:#d7c6af;background:#fffaf3;color:#74583d;min-height:42px}
-.feyn-studio .feyn-history-toggle:hover,.feyn-studio .feyn-history-toggle.is-open{background:#eee3d3}
-.feyn-studio .feyn-history-toggle span{background:#eee2cf}
-.feyn-studio .feyn-board-area{display:flex;flex-direction:column;gap:14px}
-.feyn-studio .feyn-studio-compose{order:0;margin:0;padding:13px 15px 10px;background:#fffaf1;box-shadow:0 4px 20px #48322207}
-.feyn-studio .feyn-compose-label{margin-bottom:8px}
-.feyn-studio .feyn-compose-label>span{margin-left:auto;font-weight:400;color:#9b846a}
-.feyn-studio .feyn-compose-fields textarea{min-height:64px;padding:11px 13px}
-.feyn-studio .feyn-compose-footer{margin-top:7px}
-.feyn-studio .whiteboard--paper{box-shadow:0 8px 30px #4832220a}
-.feyn-studio .feyn-student-card{box-shadow:0 8px 30px #4832220a;animation:feyn-student-arrive .65s var(--ease)}
-.feyn-studio .feyn-student-card>.student-illustration{width:190px;margin:0 auto -5px}
-.feyn-studio .feyn-student-copy{padding:8px 20px 18px}
-.feyn-studio .feyn-student-copy h2{font-size:25px}
-.feyn-studio .feyn-student-question{margin-top:10px;line-height:1.7}
-.feyn-answer-motion{animation:feyn-answer-enter .65s var(--ease) both}
-@keyframes feyn-answer-enter{from{opacity:0;transform:translateX(20px) translateY(20px) scale(.95)}to{opacity:1;transform:translateX(0) translateY(0) scale(1)}}
-.feyn-student-picker{display:flex;justify-content:center;gap:6px;width:100%;margin-bottom:12px}
-.feyn-student-picker>button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid transparent;border-radius:11px;padding:5px 3px;background:transparent;color:#8c7359;font-size:10px;transition:background .2s,border-color .2s,transform .2s}
-.feyn-student-picker>button:hover:not(:disabled){background:#f2e7d7;transform:translateY(-2px)}
-.feyn-student-picker>button[aria-pressed=true]{background:#fffaf2;border-color:#d5bea0;color:#58412d;box-shadow:0 2px 9px #4b35250b}
-.feyn-student-picker>button:disabled{cursor:wait;opacity:.65}
-.feyn-student-mini{display:block;width:28px;height:30px;overflow:hidden;border-radius:50%;border:1px solid currentColor;flex:none}
-.feyn-student-mini .student-illustration{width:54px;max-width:none;transform:translate(-13px,-5px)}
-.feyn-intro-kicker{display:flex;align-items:center;justify-content:center;gap:7px;font-size:10px;color:#927655}
-.feyn-intro .feyn-student-picker{max-width:370px;margin:0 auto}
-.feyn-intro .feyn-student-picker>button{padding:7px;font-size:11px}
-.feyn-intro-portrait{animation:feyn-student-arrive .35s var(--ease)}
-.feyn-attempt-note{font-size:10px;line-height:1.6;color:#947b60}
-.feyn-studio .feyn-lesson-progress{color:#8c7359;padding-top:15px}
-.feyn-studio .feyn-lesson-progress [role=progressbar]{background:#e6d9c6;height:4px}
-.feyn-studio .feyn-lesson-progress [role=progressbar]>span{background:#839573}
-.feyn-studio .feyn-score{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.feyn-studio .feyn-score>span{flex:1}
-.feyn-next{display:flex;justify-content:center;align-items:center;gap:7px;width:100%;margin-top:7px;padding:10px;border-radius:7px;background:#596d50;color:#fffaf2;font-size:11px}
-.feyn-next:hover{background:#43563c}
-.feyn-student-question .dots{justify-content:flex-start;gap:5px;margin-top:12px}
-@keyframes feyn-student-arrive{from{opacity:0;transform:translateY(28px) scale(.92)}to{opacity:1;transform:translateY(0) scale(1)}}
-@media(max-width:1150px){.feyn-studio .feyn-student-card>.student-illustration{width:160px}.feyn-studio .feyn-student-copy{padding:8px 15px 16px}.feyn-student-picker>button{flex-direction:column;gap:2px}}
-@media(max-width:900px){.feyn-studio .feyn-stage{gap:14px}.feyn-studio .feyn-student-card{grid-template-columns:115px minmax(0,1fr)}.feyn-studio .feyn-student-card>.student-illustration{width:120px;margin:0;max-width:100%}.feyn-studio .feyn-student-copy{padding:10px 15px 14px 2px}.feyn-studio .feyn-student-copy h2{font-size:22px}.feyn-studio .feyn-student-question{font-size:11px;line-height:1.55;margin-top:7px}.feyn-studio .feyn-student-label{padding:10px 14px 0}.feyn-student-column>.feyn-student-picker{justify-content:flex-start;margin:0 0 7px;max-width:340px}.feyn-student-picker>button{flex-direction:row}.feyn-studio .feyn-lesson-progress{padding-top:10px}.feyn-studio .feyn-lesson-progress>div:first-child{margin-bottom:5px}}
-@media(max-width:600px){.feyn-studio .feyn-studio-heading{margin-bottom:13px}.feyn-studio .feyn-studio-heading h1{font-size:28px}.feyn-studio .feyn-back{margin-bottom:10px}.feyn-studio .feyn-studio-heading .eyebrow{font-size:7px}.feyn-studio .feyn-history-toggle{font-size:0;padding:10px}.feyn-studio .feyn-history-toggle svg{width:18px;height:18px}.feyn-studio .feyn-topic{font-size:10px}.feyn-studio .feyn-student-card{grid-template-columns:82px minmax(0,1fr)}.feyn-studio .feyn-student-card>.student-illustration{width:90px}.feyn-studio .feyn-student-copy h2{font-size:19px}.feyn-studio .feyn-student-copy{padding:10px 12px 12px 0}.feyn-studio .feyn-student-question{font-size:10px;line-height:1.5}.feyn-studio .feyn-student-foot{display:none}.feyn-studio .feyn-studio-compose{padding:11px}.feyn-studio .feyn-compose-fields textarea{min-height:64px;font-size:16px}.feyn-studio .feyn-compose-label>span{font-size:8px}.feyn-student-column>.feyn-student-picker{max-width:none}.feyn-studio .feyn-student-mini{width:24px;height:26px}.feyn-studio .feyn-student-mini .student-illustration{width:47px;transform:translate(-11px,-4px)}}
-@media(prefers-reduced-motion:reduce){.feyn-studio .feyn-student-card,.feyn-intro-portrait,.feyn-answer-motion{animation:none}.feyn-student-picker>button{transition:none}}
+.feyn-studio .feyn-studio-heading {
+  color: var(--foreground);
+  margin-bottom: 18px;
+  gap: 18px;
+}
+.feyn-studio .feyn-back {
+  color: var(--muted-foreground);
+  margin-bottom: 12px;
+}
+.feyn-studio .feyn-back:hover {
+  color: var(--foreground);
+}
+.feyn-studio .feyn-studio-heading .eyebrow {
+  color: #967753;
+}
+.feyn-studio .feyn-studio-heading h1 {
+  font-size: 36px;
+}
+.feyn-studio .feyn-topic {
+  color: #8b735b;
+  margin-top: 7px;
+}
+.feyn-studio .feyn-topic strong {
+  color: #58412d;
+}
+.feyn-studio .feyn-history-toggle {
+  border-color: #d7c6af;
+  background: #fffaf3;
+  color: #74583d;
+  min-height: 42px;
+}
+.feyn-studio .feyn-history-toggle:hover,
+.feyn-studio .feyn-history-toggle.is-open {
+  background: #eee3d3;
+}
+.feyn-studio .feyn-history-toggle span {
+  background: #eee2cf;
+}
+.feyn-studio .feyn-board-area {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.feyn-studio .feyn-studio-compose {
+  order: 0;
+  margin: 0;
+  padding: 13px 15px 10px;
+  background: #fffaf1;
+  box-shadow: 0 4px 20px #48322207;
+}
+.feyn-studio .feyn-compose-label {
+  margin-bottom: 8px;
+}
+.feyn-studio .feyn-compose-label > span {
+  margin-left: auto;
+  font-weight: 400;
+  color: #9b846a;
+}
+.feyn-studio .feyn-compose-fields textarea {
+  min-height: 64px;
+  padding: 11px 13px;
+}
+.feyn-studio .feyn-compose-footer {
+  margin-top: 7px;
+}
+.feyn-studio .whiteboard--paper {
+  box-shadow: 0 8px 30px #4832220a;
+}
+.feyn-studio .feyn-student-card {
+  box-shadow: 0 8px 30px #4832220a;
+  animation: feyn-student-arrive 0.65s var(--ease);
+}
+.feyn-studio .feyn-student-card > .student-illustration {
+  width: 190px;
+  margin: 0 auto -5px;
+}
+.feyn-studio .feyn-student-copy {
+  padding: 8px 20px 18px;
+}
+.feyn-studio .feyn-student-copy h2 {
+  font-size: 25px;
+}
+.feyn-studio .feyn-student-question {
+  margin-top: 10px;
+  line-height: 1.7;
+}
+.feyn-answer-motion {
+  animation: feyn-answer-enter 0.65s var(--ease) both;
+}
+@keyframes feyn-answer-enter {
+  from {
+    opacity: 0;
+    transform: translateX(20px) translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+}
+.feyn-student-picker {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.feyn-student-picker > button {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  padding: 5px 3px;
+  background: transparent;
+  color: #8c7359;
+  font-size: 10px;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
+}
+.feyn-student-picker > button:hover:not(:disabled) {
+  background: #f2e7d7;
+  transform: translateY(-2px);
+}
+.feyn-student-picker > button[aria-pressed="true"] {
+  background: #fffaf2;
+  border-color: #d5bea0;
+  color: #58412d;
+  box-shadow: 0 2px 9px #4b35250b;
+}
+.feyn-student-picker > button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.feyn-student-mini {
+  display: block;
+  width: 28px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  flex: none;
+}
+.feyn-student-mini .student-illustration {
+  width: 54px;
+  max-width: none;
+  transform: translate(-13px, -5px);
+}
+.feyn-intro-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 10px;
+  color: #927655;
+}
+.feyn-intro .feyn-student-picker {
+  max-width: 370px;
+  margin: 0 auto;
+}
+.feyn-intro .feyn-student-picker > button {
+  padding: 7px;
+  font-size: 11px;
+}
+.feyn-intro-portrait {
+  animation: feyn-student-arrive 0.35s var(--ease);
+}
+.feyn-attempt-note {
+  font-size: 10px;
+  line-height: 1.6;
+  color: #947b60;
+}
+.feyn-studio .feyn-lesson-progress {
+  color: #8c7359;
+  padding-top: 15px;
+}
+.feyn-studio .feyn-lesson-progress [role="progressbar"] {
+  background: #e6d9c6;
+  height: 4px;
+}
+.feyn-studio .feyn-lesson-progress [role="progressbar"] > span {
+  background: #839573;
+}
+.feyn-studio .feyn-score {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.feyn-studio .feyn-score > span {
+  flex: 1;
+}
+.feyn-next {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 7px;
+  padding: 10px;
+  border-radius: 7px;
+  background: #596d50;
+  color: #fffaf2;
+  font-size: 11px;
+}
+.feyn-next:hover {
+  background: #43563c;
+}
+.feyn-student-question .dots {
+  justify-content: flex-start;
+  gap: 5px;
+  margin-top: 12px;
+}
+@keyframes feyn-student-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (max-width: 1150px) {
+  .feyn-studio .feyn-student-card > .student-illustration {
+    width: 160px;
+  }
+  .feyn-studio .feyn-student-copy {
+    padding: 8px 15px 16px;
+  }
+  .feyn-student-picker > button {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+@media (max-width: 900px) {
+  .feyn-studio .feyn-stage {
+    gap: 14px;
+  }
+  .feyn-studio .feyn-student-card {
+    grid-template-columns: 115px minmax(0, 1fr);
+  }
+  .feyn-studio .feyn-student-card > .student-illustration {
+    width: 120px;
+    margin: 0;
+    max-width: 100%;
+  }
+  .feyn-studio .feyn-student-copy {
+    padding: 10px 15px 14px 2px;
+  }
+  .feyn-studio .feyn-student-copy h2 {
+    font-size: 22px;
+  }
+  .feyn-studio .feyn-student-question {
+    font-size: 11px;
+    line-height: 1.55;
+    margin-top: 7px;
+  }
+  .feyn-studio .feyn-student-label {
+    padding: 10px 14px 0;
+  }
+  .feyn-student-column > .feyn-student-picker {
+    justify-content: flex-start;
+    margin: 0 0 7px;
+    max-width: 340px;
+  }
+  .feyn-student-picker > button {
+    flex-direction: row;
+  }
+  .feyn-studio .feyn-lesson-progress {
+    padding-top: 10px;
+  }
+  .feyn-studio .feyn-lesson-progress > div:first-child {
+    margin-bottom: 5px;
+  }
+}
+@media (max-width: 600px) {
+  .feyn-studio .feyn-studio-heading {
+    margin-bottom: 13px;
+  }
+  .feyn-studio .feyn-studio-heading h1 {
+    font-size: 28px;
+  }
+  .feyn-studio .feyn-back {
+    margin-bottom: 10px;
+  }
+  .feyn-studio .feyn-studio-heading .eyebrow {
+    font-size: 7px;
+  }
+  .feyn-studio .feyn-history-toggle {
+    font-size: 0;
+    padding: 10px;
+  }
+  .feyn-studio .feyn-history-toggle svg {
+    width: 18px;
+    height: 18px;
+  }
+  .feyn-studio .feyn-topic {
+    font-size: 10px;
+  }
+  .feyn-studio .feyn-student-card {
+    grid-template-columns: 82px minmax(0, 1fr);
+  }
+  .feyn-studio .feyn-student-card > .student-illustration {
+    width: 90px;
+  }
+  .feyn-studio .feyn-student-copy h2 {
+    font-size: 19px;
+  }
+  .feyn-studio .feyn-student-copy {
+    padding: 10px 12px 12px 0;
+  }
+  .feyn-studio .feyn-student-question {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .feyn-studio .feyn-student-foot {
+    display: none;
+  }
+  .feyn-studio .feyn-studio-compose {
+    padding: 11px;
+  }
+  .feyn-studio .feyn-compose-fields textarea {
+    min-height: 64px;
+    font-size: 16px;
+  }
+  .feyn-studio .feyn-compose-label > span {
+    font-size: 8px;
+  }
+  .feyn-student-column > .feyn-student-picker {
+    max-width: none;
+  }
+  .feyn-studio .feyn-student-mini {
+    width: 24px;
+    height: 26px;
+  }
+  .feyn-studio .feyn-student-mini .student-illustration {
+    width: 47px;
+    transform: translate(-11px, -4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feyn-studio .feyn-student-card,
+  .feyn-intro-portrait,
+  .feyn-answer-motion {
+    animation: none;
+  }
+  .feyn-student-picker > button {
+    transition: none;
+  }
+}

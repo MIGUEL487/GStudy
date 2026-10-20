@@ -101,7 +101,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: activitiesCss },
       { rel: "stylesheet", href: accountCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -130,7 +133,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <AuthGate><AccountWorkspace><StudyLayout><Outlet /></StudyLayout></AccountWorkspace></AuthGate><Toaster position="bottom-center" />
+      <AuthGate>
+        <AccountWorkspace>
+          <StudyLayout>
+            <Outlet />
+          </StudyLayout>
+        </AccountWorkspace>
+      </AuthGate>
+      <Toaster position="bottom-center" />
     </QueryClientProvider>
   );
 }

@@ -112,12 +112,17 @@ export function pendingAbsenceSuggestions(data: StudyData, today = dateKey(new D
         .includes(subject.id),
     );
     for (let period = 0; period < periods.length; period++) {
-      let remaining = absenceTotal(data, subject.id, period) - datedAbsences(data, subject.id, period);
+      let remaining =
+        absenceTotal(data, subject.id, period) - datedAbsences(data, subject.id, period);
       if (remaining <= 0) continue;
       const range = periods[period]!;
       const start = parseAttendanceDate(range.start);
       if (!start) continue;
-      for (const day = new Date(start); dateKey(day) <= range.end && dateKey(day) <= today && remaining > 0; day.setDate(day.getDate() + 1)) {
+      for (
+        const day = new Date(start);
+        dateKey(day) <= range.end && dateKey(day) <= today && remaining > 0;
+        day.setDate(day.getDate() + 1)
+      ) {
         const date = dateKey(day);
         if (!schoolDays.includes(day.getDay()) || data.attendance?.[date]) continue;
         // A blank timetable can still display a provisional chronology, one lesson at a time.

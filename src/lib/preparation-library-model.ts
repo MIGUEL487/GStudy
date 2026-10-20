@@ -220,7 +220,9 @@ export function videoEmbedUrl(video: LibraryVideo, origin?: string) {
       const parsed = new URL(origin);
       if (["https:", "http:"].includes(parsed.protocol))
         url.searchParams.set("origin", parsed.origin);
-    } catch {}
+    } catch {
+      // Ignora URL de origem inválida
+    }
   }
   return url.href;
 }

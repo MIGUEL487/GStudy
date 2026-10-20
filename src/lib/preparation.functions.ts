@@ -24,7 +24,7 @@ import { schoolYearLabel } from "./school-year";
 
 export const researchPreparation = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     preparationDetailsSchema
       .extend({
         subject: z.string().trim().max(120).default(""),
@@ -177,7 +177,7 @@ const output = z
   );
 export const createPreparationPath = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
-  .inputValidator((input: unknown) => inputSchema.parse(input))
+  .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { aiObject } = await import("./ai.server");
     const memory = await learningMemory(context.supabase, data.ids);
