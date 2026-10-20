@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "fix/**", "feat/**"]
   pull_request:
     branches: [main]
 
@@ -35,3 +35,8 @@ jobs:
 
       - name: Build Application
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://mock.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'mock-anon-key' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://mock.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'mock-anon-key' }}

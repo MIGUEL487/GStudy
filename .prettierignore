@@ -1,8 +1,16 @@
 node_modules
 dist
+dist-ssr
 .output
+.vercel
 .vinxi
+.tanstack
+.wrangler
+.playwright-cli
+.taste-skill
+strix_runs
 pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+src/routeTree.gen.ts
