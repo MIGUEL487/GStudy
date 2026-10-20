@@ -167,7 +167,6 @@ export function LearnHub() {
   return (
     <div className="learning-hub">
       <div className="journey-eyebrow">
-        <span className="eyebrow">APRENDER</span>
         <span>
           <Sparkles size={13} /> Aprender é construir
         </span>

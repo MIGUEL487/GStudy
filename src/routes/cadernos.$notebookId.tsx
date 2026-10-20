@@ -139,7 +139,7 @@ function NotebookPage() {
         <ArrowLeft size={14} />
         {subject.name}
       </Link>
-      <div className="eyebrow">SUAS IDEIAS MERECEM ESPAÇO</div>
+
       <div className="editor-header">
         <h1>{notebook.title}</h1>
         <span className="save-status">

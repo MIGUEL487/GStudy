@@ -78,7 +78,6 @@ function Index() {
 
   return (
     <>
-      <div className="eyebrow">UM NOVO DIA, NOVAS POSSIBILIDADES</div>
       <div className="welcome-row">
         <div>
           <h1>{data.name ? `Olá, ${data.name.split(" ")[0]}.` : "Seu próximo capítulo."}</h1>
@@ -96,7 +95,6 @@ function Index() {
           alt="Mesa de estudos iluminada pelo sol, com livros, caderno e uma xícara"
         />
         <div className="banner-copy">
-          <div className="eyebrow">SEU MOMENTO DE CONCENTRAÇÃO</div>
           <h2>
             Pequenos passos.
             <br />

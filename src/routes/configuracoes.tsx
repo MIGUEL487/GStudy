@@ -85,7 +85,6 @@ function Settings() {
   const days = data.schoolDays ?? defaultSchoolDays;
   return (
     <>
-      <div className="eyebrow">DO SEU JEITO</div>
       <div className="welcome-row">
         <div>
           <h1>Configurações</h1>

@@ -24,6 +24,10 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Security and audit runs
+strix_runs/
+.taste-skill/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -71,7 +71,6 @@ function CalendarPage() {
     });
   return (
     <>
-      <div className="eyebrow">UM DIA DE CADA VEZ</div>
       <div className="welcome-row">
         <div>
           <h1>Calendário de presença</h1>

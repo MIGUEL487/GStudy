@@ -260,7 +260,6 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
     <div className="preparation-page">
       <header className="prep-heading">
         <div>
-          <span className="eyebrow">RUMO À PROVA</span>
           <h1>Seu próximo grande passo.</h1>
           <p>Um plano, boas referências e um próximo passo claro para a sua conquista.</p>
         </div>
@@ -330,7 +329,7 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                 <small className="prep-caption">
                   Você pode alterar isso depois em{" "}
                   <Link to="/configuracoes" search={{ tab: "profile" }}>
-                    Configurações → Perfil
+                    Configurações / Perfil
                   </Link>
                   .
                 </small>
@@ -708,7 +707,7 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
             </span>
           </div>
           <div className="prep-rhythm">
-            <span>DESCOBRIR → ESTUDAR → CONQUISTAR</span>
+            <span>Descobrir, estudar e conquistar</span>
             <p>
               Uma curadoria de vídeos e livros, sessões que cabem no seu dia e um mapa do que
               estudar. Seu roteiro fica salvo na sua conta.

@@ -102,7 +102,6 @@ function SubjectPage() {
           <SubjectIcon name={subject.name} size={28} />
         </div>
         <div>
-          <div className="eyebrow">MATÉRIA EM FOCO</div>
           <h1>{subject.name}</h1>
           <p>
             {subject.notebooks.length}{" "}
