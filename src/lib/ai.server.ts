@@ -253,9 +253,7 @@ async function generate(
       ...(research && isGoogle && !schema
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
         : {}),
-      // Reduz ou desliga thinking em tarefas simples (Item A5b)
       providerOptions: {
-        ...(isGoogle && !research ? { google: { thinkingConfig: { thinkingBudget: 0 } } } : {}),
         ...(name === "groq" ? { groq: { structuredOutputs: false } } : {}),
       },
       // Do not interrupt a healthy Gemini generation just to switch providers.
