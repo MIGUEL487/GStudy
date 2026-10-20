@@ -24,6 +24,7 @@ O **GStudy** é um ambiente de aprendizado focado em concentração, retenção 
 ## 🚀 Como Executar Localmente
 
 ### Pré-requisitos
+
 - **Node.js:** Versão 20+ (recomendado **Node 22 LTS**)
 - **npm:** Versão 10+ (utilize o `package-lock.json` para garantir determinismo)
 
@@ -52,21 +53,21 @@ A aplicação estará disponível em `http://localhost:3000`.
 
 Crie um arquivo `.env` baseado no `.env.example`:
 
-| Variável | Descrição | Obrigatória |
-|---|---|:---:|
-| `VITE_SUPABASE_URL` | URL do projeto Supabase | Sim |
-| `VITE_SUPABASE_ANON_KEY` | Chave anônima (pública) do Supabase | Sim |
-| `SUPABASE_SERVICE_ROLE_KEY` | Chave administrativa do Supabase (para rotinas serverless seguras) | Não |
-| `BOARD_AI_API_KEY` | Chave do Google Gemini (AI Studio) para a IA principal | Sim |
-| `BOARD_AI_MODEL` | Modelo padrão do Gemini (padrão: `gemini-2.5-flash` ou `gemini-3.5-flash-lite`) | Não |
-| `SOCRATES_AI_API_KEY` | Chave dedicada para o Sócrates (Gemini, DeepSeek ou OmniRoute) | Não |
-| `SOCRATES_AI_PROVIDER` | Provedor do Sócrates (`gemini`, `deepseek` ou `omniroute`) | Não |
-| `GROQ_API_KEY` | Chave de fallback secundário do Groq (Llama 3.3 70B) | Não |
-| `OPENROUTER_API_KEY` | Chave de fallback terciário do OpenRouter (modelos `:free`) | Não |
-| `YOUTUBE_API_KEY` | Chave da API do YouTube para busca de videoaulas com capítulos | Não |
-| `NOTION_CLIENT_ID` | Client ID da integração OAuth do Notion | Não |
-| `NOTION_CLIENT_SECRET` | Client Secret da integração OAuth do Notion | Não |
-| `NOTION_TOKEN_SECRET` | Chave secreta de criptografia (AES-256-GCM) para tokens do Notion | Não |
+| Variável                    | Descrição                                                                       | Obrigatória |
+| --------------------------- | ------------------------------------------------------------------------------- | :---------: |
+| `VITE_SUPABASE_URL`         | URL do projeto Supabase                                                         |     Sim     |
+| `VITE_SUPABASE_ANON_KEY`    | Chave anônima (pública) do Supabase                                             |     Sim     |
+| `SUPABASE_SERVICE_ROLE_KEY` | Chave administrativa do Supabase (para rotinas serverless seguras)              |     Não     |
+| `BOARD_AI_API_KEY`          | Chave do Google Gemini (AI Studio) para a IA principal                          |     Sim     |
+| `BOARD_AI_MODEL`            | Modelo padrão do Gemini (padrão: `gemini-2.5-flash` ou `gemini-3.5-flash-lite`) |     Não     |
+| `SOCRATES_AI_API_KEY`       | Chave dedicada para o Sócrates (Gemini, DeepSeek ou OmniRoute)                  |     Não     |
+| `SOCRATES_AI_PROVIDER`      | Provedor do Sócrates (`gemini`, `deepseek` ou `omniroute`)                      |     Não     |
+| `GROQ_API_KEY`              | Chave de fallback secundário do Groq (Llama 3.3 70B)                            |     Não     |
+| `OPENROUTER_API_KEY`        | Chave de fallback terciário do OpenRouter (modelos `:free`)                     |     Não     |
+| `YOUTUBE_API_KEY`           | Chave da API do YouTube para busca de videoaulas com capítulos                  |     Não     |
+| `NOTION_CLIENT_ID`          | Client ID da integração OAuth do Notion                                         |     Não     |
+| `NOTION_CLIENT_SECRET`      | Client Secret da integração OAuth do Notion                                     |     Não     |
+| `NOTION_TOKEN_SECRET`       | Chave secreta de criptografia (AES-256-GCM) para tokens do Notion               |     Não     |
 
 ---
 
@@ -81,6 +82,7 @@ As migrações SQL estão organizadas no diretório `drizzle/migrations/` e deve
 5. `0004_server_ai_quotas.sql` — Controle de cotas diárias de IA no servidor (`user_daily_ai_usage`) e incremento atômico de XP (`award_learner_xp`).
 
 ### Verificação do Banco
+
 Para confirmar que todas as tabelas, políticas de RLS e funções RPC foram criadas corretamente:
 
 ```bash
@@ -135,6 +137,7 @@ npm run build
 ## 🚢 Deploy na Vercel
 
 O projeto está configurado para deploy contínuo na [Vercel](https://vercel.com):
+
 - **Framework Preset:** Vite / TanStack Start
 - **Install Command:** `npm ci`
 - **Build Command:** `npm run build`

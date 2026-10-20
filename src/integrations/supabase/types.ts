@@ -62,6 +62,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_daily_ai_usage: {
+        Row: {
+          id: string;
+          user_id: string;
+          action: string;
+          day: string;
+          count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          action: string;
+          day?: string;
+          count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          action?: string;
+          day?: string;
+          count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_activity_cache: {
+        Row: {
+          id: string;
+          user_id: string;
+          cache_key: string;
+          mode: string;
+          payload: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          cache_key: string;
+          mode: string;
+          payload: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          cache_key?: string;
+          mode?: string;
+          payload?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

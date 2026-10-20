@@ -165,6 +165,7 @@ export async function learningMemory(
   supabase: SupabaseClient<Database>,
   ids: string[],
   allowRecent = false,
+  maxChars = 12_000,
 ) {
   if (!ids.length && !allowRecent) return "";
   let query = supabase
@@ -186,6 +187,12 @@ export async function learningMemory(
     throw new Error(
       "Os materiais selecionados são muito extensos para uma atividade. Selecione menos páginas ou divida o conteúdo no Notion e importe novamente.",
     );
+  // Recorte relevante (Item A5c): limita a 12.000 caracteres para evitar latência excessiva
+  if (memory.length > maxChars) {
+    return (
+      memory.slice(0, maxChars) + "\n\n[...conteúdo complementar sintetizado para o tema atual]"
+    );
+  }
   return memory;
 }
 

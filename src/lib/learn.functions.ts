@@ -1,7 +1,10 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { createServerFn } from "@tanstack/react-start";
 import { requireStudyAuth } from "@/lib/study-auth-middleware";
 import { z } from "zod";
 import type { ModelMessage } from "ai";
+import { createHash } from "node:crypto";
 import {
   arraySchema,
   boardImageSchema,
@@ -16,8 +19,10 @@ import {
   stringSchema as s,
   studentPersonas,
   validatedLearningOutput,
+  type ActivityContext,
 } from "./learning-ai";
 import { enforceServerAiQuota } from "./server-ai-quota";
+import { createAiTelemetry } from "./ai-telemetry.server";
 
 const str = (n: number) => z.string().max(n);
 
@@ -159,6 +164,7 @@ const genInput = z.object({
   mode: z.enum(["quiz", "flashcards", "explain"]),
   ids: materialIdsSchema,
   context: learningContextSchema.optional(),
+  regenerate: z.boolean().optional(),
 });
 
 export type Quiz = {
@@ -166,6 +172,61 @@ export type Quiz = {
 };
 export type Cards = { cards: { front: string; back: string }[] };
 export type Explain = { topics: { title: string; explanation: string; example: string }[] };
+
+export function computeActivityCacheKey(
+  userId: string,
+  mode: string,
+  materialIds: string[],
+  context?: ActivityContext,
+): string {
+  const sorted = [...materialIds].sort().join(",");
+  const ctx = context ? `${context.subject}:${context.topic}:${context.goal || ""}` : "default";
+  return createHash("sha256").update(`${userId}:${mode}:${sorted}:${ctx}`).digest("hex");
+}
+
+export async function getCachedActivity(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  cacheKey: string,
+) {
+  try {
+    const { data, error } = await supabase
+      .from("ai_activity_cache")
+      .select("payload")
+      .eq("user_id", userId)
+      .eq("cache_key", cacheKey)
+      .maybeSingle();
+    if (!error && data?.payload) {
+      return data.payload;
+    }
+  } catch {
+    // Graceful fallback to live generation
+  }
+  return null;
+}
+
+export async function saveCachedActivity(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  cacheKey: string,
+  mode: string,
+  payload: unknown,
+) {
+  try {
+    await supabase.from("ai_activity_cache").upsert(
+      {
+        user_id: userId,
+        cache_key: cacheKey,
+        mode,
+        payload,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,cache_key" },
+    );
+  } catch {
+    // Cache write failure does not break user interaction
+  }
+}
 
 const quizOutput = z.object({
   questions: z
@@ -207,48 +268,215 @@ export const generateActivity = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
   .validator((i: unknown) => genInput.parse(i))
   .handler(async ({ data, context }) => {
-    await enforceServerAiQuota(context.supabase, context.userId, data.mode);
+    const cacheKey = computeActivityCacheKey(context.userId, data.mode, data.ids, data.context);
+
+    // Cache (Item A6): Se já gerado para este usuário e contexto, devolve na hora (< 100ms)
+    if (!data.regenerate) {
+      const cached = await getCachedActivity(context.supabase, context.userId, cacheKey);
+      if (cached) {
+        console.log(`[GStudy AI Cache] Hit para ${data.mode} (${cacheKey.slice(0, 8)})`);
+        return cached as { mode: typeof data.mode; [key: string]: unknown };
+      }
+    }
+
+    const telemetry = createAiTelemetry(data.mode);
+    const tStartDb = performance.now();
+
+    // Infra (Item A7): Paraleliza leitura de cota e busca de memória de estudos
+    const [, mem] = await Promise.all([
+      enforceServerAiQuota(context.supabase, context.userId, data.mode),
+      learningMemory(context.supabase, data.ids, !data.context, 12_000),
+    ]);
+
+    telemetry.supabase_read_ms = performance.now() - tStartDb;
+    const tStartPrompt = performance.now();
 
     const { aiObject } = await import("./ai.server");
-    const mem = await learningMemory(context.supabase, data.ids, !data.context);
     const msg: ModelMessage[] = [
       { role: "user" as const, content: learningReference(data.context, mem) },
     ];
+    telemetry.prompt_build_ms = performance.now() - tStartPrompt;
 
     if (data.mode === "quiz") {
-      const r = await aiObject<Quiz>(
-        `${learningLanguage}\nCrie exatamente 6 perguntas de múltipla escolha sobre a etapa indicada. Cada uma deve ter exatamente 4 opções distintas e curtas, o índice (0 a 3) da única resposta correta e uma explicação curta e encorajadora. Verifique a resposta correta antes de entregar; nunca marque uma alternativa inconsistente. Varie a dificuldade da mais fácil à mais difícil e avalie compreensão, não pegadinhas.`,
-        msg,
-        obj({
-          questions: arraySchema(
+      // Geração em lotes paralelos (Item A3): dispara 2 lotes de 3 perguntas em paralelo
+      const batch1Promise = Promise.resolve()
+        .then(() =>
+          aiObject<Quiz>(
+            `${learningLanguage}\nCrie exatamente 3 perguntas de múltipla escolha sobre os fundamentos da etapa indicada. Cada uma deve ter 4 opções distintas e curtas, o índice da resposta correta (0 a 3) e uma explicação curta. Avalie compreensão.`,
+            msg,
             obj({
-              question: s,
-              options: arraySchema(s, 4),
-              answer: { type: "integer", minimum: 0, maximum: 3 },
-              why: s,
+              questions: arraySchema(
+                obj({
+                  question: s,
+                  options: arraySchema(s, 4),
+                  answer: { type: "integer", minimum: 0, maximum: 3 },
+                  why: s,
+                }),
+                3,
+              ),
             }),
-            6,
+            { maxOutputTokens: 800, onUsage: () => {} },
           ),
-        }),
-      );
-      return { mode: "quiz" as const, quiz: validatedLearningOutput(quizOutput, r) };
+        )
+        .catch(() => null);
+
+      const batch2Promise = Promise.resolve()
+        .then(() =>
+          aiObject<Quiz>(
+            `${learningLanguage}\nCrie exatamente 3 perguntas de múltipla escolha sobre aplicações práticas e aprofundamento da etapa indicada. Cada uma deve ter 4 opções distintas e curtas, o índice da resposta correta (0 a 3) e uma explicação curta. Não repita os mesmos enunciados do básico.`,
+            msg,
+            obj({
+              questions: arraySchema(
+                obj({
+                  question: s,
+                  options: arraySchema(s, 4),
+                  answer: { type: "integer", minimum: 0, maximum: 3 },
+                  why: s,
+                }),
+                3,
+              ),
+            }),
+            { maxOutputTokens: 800, onUsage: () => {} },
+          ),
+        )
+        .catch(() => null);
+
+      const [b1, b2] = await Promise.all([batch1Promise, batch2Promise]);
+      let rawQuestions: Quiz["questions"] = [];
+
+      if (b1?.questions && b2?.questions) {
+        // Deduplicação entre lotes (Item A3)
+        const seen = new Set<string>();
+        rawQuestions = [...b1.questions, ...b2.questions].filter((q) => {
+          const key = q.question.trim().toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      } else if (b1?.questions?.length === 6) {
+        rawQuestions = b1.questions;
+      } else {
+        const full = await aiObject<Quiz>(
+          `${learningLanguage}\nCrie exatamente 6 perguntas de múltipla escolha sobre a etapa indicada. Cada uma deve ter exatamente 4 opções distintas e curtas, o índice (0 a 3) da única resposta correta e uma explicação curta.`,
+          msg,
+          obj({
+            questions: arraySchema(
+              obj({
+                question: s,
+                options: arraySchema(s, 4),
+                answer: { type: "integer", minimum: 0, maximum: 3 },
+                why: s,
+              }),
+              6,
+            ),
+          }),
+          { maxOutputTokens: 1400, onUsage: () => {} },
+        );
+        rawQuestions = full.questions;
+      }
+
+      if (rawQuestions.length < 6 && b1?.questions) {
+        rawQuestions = [...rawQuestions, ...b1.questions].slice(0, 6);
+      }
+
+      const result = {
+        mode: "quiz" as const,
+        quiz: validatedLearningOutput(quizOutput, { questions: rawQuestions.slice(0, 6) }),
+      };
+
+      await saveCachedActivity(context.supabase, context.userId, cacheKey, "quiz", result);
+      telemetry.finish();
+      return result;
     }
 
     if (data.mode === "flashcards") {
-      const r = await aiObject<Cards>(
-        `${learningLanguage}\nCrie exatamente 10 flashcards sobre a etapa indicada. Frente: uma pergunta específica ou um termo curto. Verso: resposta clara em até 2 frases. Cada carta deve ensinar uma ideia distinta. Use somente texto legível, sem Markdown, asteriscos, crases, marcadores, HTML, símbolos de dólar ou comandos de LaTeX. Use acentuação natural e revise cada frente e verso para não haver palavras truncadas, duplicadas ou erros ortográficos. Fórmulas devem ser legíveis em texto simples, como c² = a² + b².`,
-        msg,
-        obj({ cards: arraySchema(obj({ front: s, back: s }), 10) }),
-      );
-      return { mode: "flashcards" as const, cards: validatedLearningOutput(cardsOutput, r) };
+      // Geração em lotes paralelos (Item A3): dispara 2 lotes de 5 flashcards em paralelo
+      const batch1Promise = Promise.resolve()
+        .then(() =>
+          aiObject<Cards>(
+            `${learningLanguage}\nCrie exatamente 5 flashcards sobre conceitos centrais e definições da etapa indicada. Frente: pergunta específica ou termo. Verso: resposta clara em até 2 frases. Use somente texto simples sem Markdown ou LaTeX.`,
+            msg,
+            obj({ cards: arraySchema(obj({ front: s, back: s }), 5) }),
+            { maxOutputTokens: 600, onUsage: () => {} },
+          ),
+        )
+        .catch(() => null);
+
+      const batch2Promise = Promise.resolve()
+        .then(() =>
+          aiObject<Cards>(
+            `${learningLanguage}\nCrie exatamente 5 flashcards sobre relações, causas e aplicações da etapa indicada. Frente: pergunta específica ou termo. Verso: resposta clara em até 2 frases. Use somente texto simples sem Markdown ou LaTeX.`,
+            msg,
+            obj({ cards: arraySchema(obj({ front: s, back: s }), 5) }),
+            { maxOutputTokens: 600, onUsage: () => {} },
+          ),
+        )
+        .catch(() => null);
+
+      const [b1, b2] = await Promise.all([batch1Promise, batch2Promise]);
+      let rawCards: Cards["cards"] = [];
+
+      if (b1?.cards && b2?.cards) {
+        const seen = new Set<string>();
+        rawCards = [...b1.cards, ...b2.cards].filter((c) => {
+          const key = c.front.trim().toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      } else if (b1?.cards?.length === 10) {
+        rawCards = b1.cards;
+      } else {
+        const full = await aiObject<Cards>(
+          `${learningLanguage}\nCrie exatamente 10 flashcards sobre a etapa indicada. Frente: pergunta específica ou termo. Verso: resposta clara em até 2 frases. Use somente texto legível sem Markdown.`,
+          msg,
+          obj({ cards: arraySchema(obj({ front: s, back: s }), 10) }),
+          { maxOutputTokens: 1200, onUsage: () => {} },
+        );
+        rawCards = full.cards;
+      }
+
+      if (rawCards.length < 10 && b1?.cards) {
+        rawCards = [...rawCards, ...b1.cards].slice(0, 10);
+      }
+
+      const result = {
+        mode: "flashcards" as const,
+        cards: validatedLearningOutput(cardsOutput, { cards: rawCards.slice(0, 10) }),
+      };
+
+      await saveCachedActivity(context.supabase, context.userId, cacheKey, "flashcards", result);
+      telemetry.finish();
+      return result;
     }
 
     const r = await aiObject<Explain>(
-      `${learningLanguage}\nExplique os 4 a 6 conceitos mais importantes desta etapa, como um ótimo professor: linguagem simples, conexão entre ideias e analogias do dia a dia. Para cada um: título, explicação (até 120 palavras, pode usar Markdown simples) e um exemplo prático. Prepare a pessoa para explicar o raciocínio e resolver um pequeno problema.`,
+      `${learningLanguage}\nExplique os 4 a 6 conceitos mais importantes desta etapa com clareza pedagógica: linguagem simples, conexão entre ideias e analogias do dia a dia. Para cada um: title, explanation (até 100 palavras) e um exemplo prático (example).`,
       msg,
       obj({ topics: arraySchema(obj({ title: s, explanation: s, example: s }), 4, 6) }),
+      { maxOutputTokens: 1600, onUsage: () => {} },
     );
-    return { mode: "explain" as const, explain: validatedLearningOutput(explainOutput, r) };
+    const result = { mode: "explain" as const, explain: validatedLearningOutput(explainOutput, r) };
+    await saveCachedActivity(context.supabase, context.userId, cacheKey, "explain", result);
+    telemetry.finish();
+    return result;
+  });
+
+export const pregenerateNextActivity = createServerFn({ method: "POST" })
+  .middleware([requireStudyAuth])
+  .validator((i: unknown) => genInput.parse(i))
+  .handler(async ({ data, context }) => {
+    // Pré-geração em segundo plano (Item A6): respeita cota e só gera se ainda não estiver em cache
+    const cacheKey = computeActivityCacheKey(context.userId, data.mode, data.ids, data.context);
+    const cached = await getCachedActivity(context.supabase, context.userId, cacheKey);
+    if (cached) return { cached: true };
+
+    try {
+      await generateActivity({ data: { ...data, regenerate: false } });
+      return { pregenerated: true };
+    } catch {
+      return { pregenerated: false };
+    }
   });
 
 const feynInput = z.object({

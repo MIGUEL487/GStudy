@@ -6,7 +6,8 @@ import { awardXp } from "@/lib/learn-client";
 import { learningSearch, type LearningSearch } from "@/lib/learning-model";
 import { useLessonContext } from "@/components/learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
-import { LessonShell, Thinking, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import { LessonShell, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import { ExplainSkeleton } from "@/components/activity-skeletons";
 
 export const Route = createFileRoute("/aprender/explicacoes")({
   validateSearch: learningSearch,
@@ -28,6 +29,7 @@ function ExplainPage() {
 
 export function ExplanationsLesson({ search }: { search: LearningSearch }) {
   const lesson = useLessonContext(search);
+
   const enabled = lesson.ready && lesson.allowed && (!search.p || Boolean(lesson.context));
   const {
     result,
@@ -57,7 +59,7 @@ export function ExplanationsLesson({ search }: { search: LearningSearch }) {
   if (!data)
     return (
       <LessonShell progress={0} {...shell}>
-        <Thinking text="Organizando conceitos e exemplos que fazem sentido…" />
+        <ExplainSkeleton backTo="/aprender" backSearch={lesson.backSearch ?? {}} />
       </LessonShell>
     );
   const topic = data.topics[i];

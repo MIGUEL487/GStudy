@@ -171,22 +171,27 @@ async function generate(
       messages,
       maxRetries: 0,
       ...(meter ? { maxOutputTokens: meter.maxOutputTokens } : {}),
-      abortSignal: AbortSignal.timeout(name === "groq" ? groqTimeoutMs : 45000),
+      abortSignal: AbortSignal.timeout(
+        name === "groq"
+          ? groqTimeoutMs
+          : name === "gemini" || name === "socrates-gemini"
+            ? 35000
+            : 45000,
+      ),
       ...(research && isGoogle
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
         : {}),
+      // Reduz ou desliga thinking em tarefas simples (Item A5b)
+      providerOptions: {
+        ...(isGoogle && !research ? { google: { thinkingConfig: { thinkingBudget: 0 } } } : {}),
+        ...(name === "groq" ? { groq: { structuredOutputs: false } } : {}),
+      },
       // Do not interrupt a healthy Gemini generation just to switch providers.
       ...(schema
         ? {
             output: Output.object({
               schema: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
             }),
-          }
-        : {}),
-      // Llama text/vision models support JSON mode, but not all support strict JSON Schema.
-      ...(name === "groq"
-        ? {
-            providerOptions: { groq: { structuredOutputs: false } },
           }
         : {}),
     });
@@ -269,33 +274,37 @@ async function withFallback(
     omniroute: "OmniRoute",
     deepseek: "DeepSeek",
   };
+
+  const runProvider = async (name: Provider) => {
+    const prepared =
+      name === "groq" || name === "deepseek" || name === "omniroute"
+        ? await fallbackMessages(messages)
+        : { messages, convertedPdf: false };
+    const parsedPdf = name === "openrouter" && hasPdf(messages);
+    const extra =
+      prepared.convertedPdf || parsedPdf
+        ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente ilustrações, diagramas ou imagens ausentes."
+        : "";
+    const isGoogle = name === "gemini" || name === "socrates-gemini";
+    const noSearch =
+      !isGoogle && research
+        ? "\nVocê não tem busca web nesta resposta. Não afirme ter consultado páginas nem confirmado o edital atual."
+        : "";
+    const value = await generate(
+      instructions + extra + noSearch,
+      prepared.messages,
+      name,
+      schema,
+      research,
+      meter,
+    );
+    return { value, convertedPdf: prepared.convertedPdf || parsedPdf };
+  };
+
   const failed: string[] = [];
   for (const [index, name] of providers.entries()) {
     try {
-      // Every alternative starts from the original messages, including the original PDF.
-      const prepared =
-        name === "groq" || name === "deepseek" || name === "omniroute"
-          ? await fallbackMessages(messages)
-          : { messages, convertedPdf: false };
-      const parsedPdf = name === "openrouter" && hasPdf(messages);
-      const extra =
-        prepared.convertedPdf || parsedPdf
-          ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente ilustrações, diagramas ou imagens ausentes."
-          : "";
-      const isGoogle = name === "gemini" || name === "socrates-gemini";
-      const noSearch =
-        !isGoogle && research
-          ? "\nVocê não tem busca web nesta resposta. Não afirme ter consultado páginas nem confirmado o edital atual."
-          : "";
-      const value = await generate(
-        instructions + extra + noSearch,
-        prepared.messages,
-        name,
-        schema,
-        research,
-        meter,
-      );
-      return { value, convertedPdf: prepared.convertedPdf || parsedPdf };
+      return await runProvider(name);
     } catch (error) {
       if (index < providers.length - 1 && canFallback(error)) {
         logFailure(error, name, vision);

@@ -1,10 +1,12 @@
+import { generateActivity } from "@/lib/learn.functions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, CircleCheck, Compass, Lightbulb } from "lucide-react";
 import { awardXp } from "@/lib/learn-client";
 import { type LearningSearch } from "@/lib/learning-model";
 import { useLessonContext } from "@/components/learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
-import { LessonShell, Thinking, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import { LessonShell, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import { QuizSkeleton } from "@/components/activity-skeletons";
 
 export type QuizQuestion = {
   question: string;
@@ -88,6 +90,21 @@ export function QuizLesson({ search }: { search: LearningSearch }) {
     action.current = false;
   }, [i, checked]);
 
+  useEffect(() => {
+    if (done && lesson.next) {
+      void generateActivity({
+        data: {
+          mode: "flashcards",
+          ids: (search.m ?? "")
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean),
+          ...(lesson.context ? { context: lesson.context } : {}),
+        },
+      }).catch(() => {});
+    }
+  }, [done, lesson.next, search.m, lesson.context]);
+
   const shell = { title: "Quiz", backSearch: lesson.backSearch, backTo: lesson.backTo };
 
   if (lesson.ready && !enabled)
@@ -107,7 +124,7 @@ export function QuizLesson({ search }: { search: LearningSearch }) {
   if (!quiz)
     return (
       <LessonShell progress={0} {...shell}>
-        <Thinking text="Criando desafios para conectar o que você aprendeu…" />
+        <QuizSkeleton backTo={lesson.backTo || "/aprender"} backSearch={lesson.backSearch ?? {}} />
       </LessonShell>
     );
 

@@ -1,3 +1,4 @@
+import { generateActivity } from "@/lib/learn.functions";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Check, Layers3, RotateCcw, RotateCw } from "lucide-react";
@@ -5,11 +6,14 @@ import { awardXp } from "@/lib/learn-client";
 import { type LearningSearch } from "@/lib/learning-model";
 import { useLessonContext } from "@/components/learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
-import { LessonShell, Thinking, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import { LessonShell, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import { FlashcardsSkeleton } from "@/components/activity-skeletons";
+import { idsFrom } from "@/lib/learn-client";
 
 type Card = { front: string; back: string };
 export function FlashcardsLesson({ search }: { search: LearningSearch }) {
   const lesson = useLessonContext(search);
+
   const enabled = lesson.ready && lesson.allowed && (!search.p || Boolean(lesson.context));
   const {
     result,
@@ -39,6 +43,20 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
   useEffect(() => {
     answering.current = false;
   }, [queue]);
+  useEffect(() => {
+    if (total > 0 && queue && queue.length === 0 && lesson.next) {
+      void generateActivity({
+        data: {
+          mode: "explain",
+          ids: (search.m ?? "")
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean),
+          ...(lesson.context ? { context: lesson.context } : {}),
+        },
+      }).catch(() => {});
+    }
+  }, [queue, total, lesson.next, search.m, lesson.context]);
   const shell = { title: "Flashcards", backSearch: lesson.backSearch, backTo: lesson.backTo };
   if (lesson.ready && !enabled)
     return (
@@ -55,7 +73,10 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
   if (!queue)
     return (
       <LessonShell progress={0} {...shell}>
-        <Thinking text="Preparando perguntas curtas e respostas claras…" />
+        <FlashcardsSkeleton
+          backTo={lesson.backTo || "/aprender"}
+          backSearch={lesson.backSearch ?? {}}
+        />
       </LessonShell>
     );
   const card = queue[0];

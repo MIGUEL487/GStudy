@@ -20,6 +20,7 @@ export function useGeneratedActivity(
   const dailyRef = useRef(daily);
   const pending = useRef<{ key: string; promise: Promise<Activity> } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [forceRegenerate, setForceRegenerate] = useState(false);
   const [result, setResult] = useState<Activity | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -28,7 +29,10 @@ export function useGeneratedActivity(
   useEffect(() => {
     dailyRef.current = daily;
   }, [daily]);
-  const reload = useCallback(() => setAttempt((n) => n + 1), []);
+  const reload = useCallback((force = true) => {
+    setForceRegenerate(Boolean(force));
+    setAttempt((n) => n + 1);
+  }, []);
   const contextKey = JSON.stringify(context ?? null);
   useEffect(() => {
     let active = true;
@@ -38,7 +42,7 @@ export function useGeneratedActivity(
       return () => {
         active = false;
       };
-    const key = JSON.stringify([mode, materials ?? "", contextKey, attempt]);
+    const key = JSON.stringify([mode, materials ?? "", contextKey, attempt, forceRegenerate]);
     // Reuse the pending call during effect replay; ordinary renders never restart it.
     if (pending.current?.key !== key) {
       pending.current = {
@@ -48,7 +52,12 @@ export function useGeneratedActivity(
           const token = quota.begin();
           try {
             const activity = await generateRef.current({
-              data: { mode, ids: idsFrom(materials), ...(context ? { context } : {}) },
+              data: {
+                mode,
+                ids: idsFrom(materials),
+                ...(context ? { context } : {}),
+                ...(forceRegenerate ? { regenerate: true } : {}),
+              },
             });
             if (activity.mode !== mode)
               throw new Error("A IA retornou outra atividade. Tente gerar novamente.");
@@ -85,6 +94,6 @@ export function useGeneratedActivity(
     return () => {
       active = false;
     };
-  }, [mode, materials, contextKey, attempt, enabled]);
+  }, [mode, materials, contextKey, attempt, forceRegenerate, enabled]);
   return { result, error, reload, remaining: daily.remaining };
 }

@@ -30,6 +30,9 @@ if (!url || !key) {
   console.log("  3. drizzle/migrations/0002_account_sync_reviews.sql (Sincronização e avaliações)");
   console.log("  4. drizzle/migrations/0003_socrates.sql (Cotas e sessões do Sócrates)");
   console.log("  5. drizzle/migrations/0004_server_ai_quotas.sql (Cotas do servidor e XP atômico)");
+  console.log(
+    "  6. drizzle/migrations/0005_ai_activity_cache.sql (Cache e pré-geração de atividades de IA)",
+  );
   process.exit(0);
 }
 
@@ -48,6 +51,7 @@ const EXPECTED_TABLES = [
   "socrates_quotas",
   "socrates_reservations",
   "user_daily_ai_usage",
+  "ai_activity_cache",
 ];
 
 const EXPECTED_RPCS = [
