@@ -26,10 +26,20 @@ export function useStats() {
   return stats;
 }
 
-/** Soma XP e mantém a ofensiva (dias seguidos estudando). */
+/** Soma XP e mantém a ofensiva (dias seguidos estudando) de forma atômica no servidor. */
 export async function awardXp(amount: number) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return null;
+
+  try {
+    const { data, error } = await (supabase.rpc as any)('award_learner_xp', { p_amount: amount });
+    if (!error && data) {
+      return data as { user_id: string; xp: number; streak: number; last_day: string };
+    }
+  } catch {
+    // Fallback gracioso caso a migração ainda não tenha sido rodada
+  }
+
   const { data: cur } = await supabase.from('learner_stats').select('xp, streak, last_day').maybeSingle();
   const t = today();
   const y = new Date(Date.now() - 864e5).toLocaleDateString('sv-SE');

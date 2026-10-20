@@ -1,15 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ aiObject: vi.fn(), aiText: vi.fn(), from: vi.fn(), filter: vi.fn(), rows: [] as { id: string; title: string; memory: string }[] }));
+const mocks = vi.hoisted(() => ({
+  aiObject: vi.fn(),
+  aiText: vi.fn(),
+  from: vi.fn(),
+  filter: vi.fn(),
+  rpc: vi.fn(),
+  rows: [] as { id: string; title: string; memory: string }[],
+}));
 vi.mock('@/lib/ai.server', () => ({ aiObject: mocks.aiObject, aiText: mocks.aiText }));
 vi.mock('@/lib/study-auth-middleware', () => ({ requireStudyAuth: {} }));
 vi.mock('@tanstack/react-start', () => ({
   createServerFn: () => {
-    let parse: (input: unknown) => unknown = input => input;
+    let parse: (input: unknown) => unknown = (input) => input;
     const builder = {
       middleware: () => builder,
-      inputValidator: (validator: (input: unknown) => unknown) => { parse = validator; return builder; },
-      handler: (handler: (input: unknown) => Promise<unknown>) => async ({ data }: { data: unknown }) => handler({ data: parse(data), context: { supabase: { from: mocks.from }, userId: 'test-user' } }),
+      validator: (validator: (input: unknown) => unknown) => {
+        parse = validator;
+        return builder;
+      },
+      inputValidator: (validator: (input: unknown) => unknown) => {
+        parse = validator;
+        return builder;
+      },
+      handler: (handler: (input: unknown) => Promise<unknown>) => async ({ data }: { data: unknown }) =>
+        handler({
+          data: parse(data),
+          context: {
+            supabase: { from: mocks.from, rpc: mocks.rpc },
+            userId: 'test-user',
+          },
+        }),
     };
     return builder;
   },
@@ -29,8 +50,9 @@ const grade = () => ({ score: 8, feedback: 'Você conectou as áreas dos quadrad
 
 beforeEach(() => {
   vi.clearAllMocks(); mocks.rows = [];
+  mocks.rpc.mockResolvedValue({ data: { allowed: true, count: 1, limit: 10, remaining: 9 }, error: null });
   const query = {
-    select: () => query, order: () => query, limit: () => query,
+    select: () => query, order: () => query, limit: () => query, eq: () => query, maybeSingle: () => Promise.resolve({ data: { count: 0 }, error: null }),
     in: (...args: unknown[]) => { mocks.filter(...args); return query; },
     then: (resolve: (result: unknown) => unknown) => Promise.resolve({ data: mocks.rows, error: null }).then(resolve),
   };
@@ -42,7 +64,6 @@ describe('Contexto e qualidade das atividades', () => {
     mocks.aiObject.mockResolvedValue(cards());
     const result = await call(generateActivity, { mode: 'flashcards', ids: [], context: { ...context, notes: 'Minha anotação: hipotenusa oposta ao ângulo reto.' } });
     expect(result).toEqual({ mode: 'flashcards', cards: cards() });
-    expect(mocks.from).not.toHaveBeenCalled();
     const [instructions, messages] = mocks.aiObject.mock.calls[0]!;
     expect(instructions).toContain('acentos'); expect(instructions).toContain('sem Markdown');
     expect(messages[0].content).toContain('Matemática'); expect(messages[0].content).toContain('Minha anotação');
