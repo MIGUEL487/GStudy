@@ -20,6 +20,69 @@ import { hasPdf, validateOpenRouterFiles } from "./openrouter-media.server";
 
 type Provider = "gemini" | "socrates-gemini" | "groq" | "openrouter" | "omniroute" | "deepseek";
 const groqTimeoutMs = 25000;
+
+export function cleanSchemaForGemini(val: unknown): unknown {
+  if (Array.isArray(val)) return val.map(cleanSchemaForGemini);
+  if (val && typeof val === "object") {
+    const raw = val as Record<string, unknown>;
+    if (Array.isArray(raw["anyOf"]) && raw["anyOf"].length === 2) {
+      const hasNull = raw["anyOf"].some(
+        (s) => s && typeof s === "object" && (s as Record<string, unknown>)["type"] === "null",
+      );
+      const real = raw["anyOf"].find(
+        (s) => s && typeof s === "object" && (s as Record<string, unknown>)["type"] !== "null",
+      );
+      if (hasNull && real && typeof real === "object") {
+        return cleanSchemaForGemini({ ...(real as Record<string, unknown>), nullable: true });
+      }
+    }
+    const copy: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (k === "additionalProperties" || k === "$schema" || k === "$ref" || k === "format") {
+        continue;
+      }
+      copy[k] = cleanSchemaForGemini(v);
+    }
+    return copy;
+  }
+  return val;
+}
+
+export function cleanMessages(messages: ModelMessage[]): ModelMessage[] {
+  const cleaned: ModelMessage[] = [];
+  for (const msg of messages) {
+    if (!msg || !msg.role) continue;
+    if (typeof msg.content === "string") {
+      const text = msg.content.trim();
+      if (!text) continue;
+      cleaned.push({ ...msg, content: text });
+    } else if (Array.isArray(msg.content)) {
+      const filteredParts = msg.content.filter((part) => {
+        if (!part) return false;
+        if (part.type === "text")
+          return typeof part.text === "string" && part.text.trim().length > 0;
+        return true;
+      });
+      if (filteredParts.length > 0) {
+        cleaned.push({ ...msg, content: filteredParts as unknown as ModelMessage["content"] });
+      }
+    } else if (msg.content) {
+      cleaned.push(msg);
+    }
+  }
+
+  if (cleaned.length === 0) {
+    return [{ role: "user", content: "Continuar" }];
+  }
+
+  const last = cleaned[cleaned.length - 1];
+  if (last.role === "assistant") {
+    cleaned.push({ role: "user", content: "Por favor, continue." });
+  }
+
+  return cleaned;
+}
+
 type GenerationMeter = { maxOutputTokens: number; onUsage: (total: number | undefined) => void };
 async function provider(name: Provider, vision: boolean, research = false, document = false) {
   const context = {
@@ -136,11 +199,15 @@ function logFailure(error: unknown, name: Provider, vision: boolean) {
       : {}),
   });
   // SDK exceptions may contain keys, photos, notes or request bodies. Log only safe fields.
+  const isGoogle = name === "gemini" || name === "socrates-gemini";
   console.error("[GStudy AI] Falha na geração:", {
     provider: name,
     vision,
     status: failure.status ?? null,
     category: failure.category ?? null,
+    ...(isGoogle && failure.providerMessage
+      ? { googleStatus: failure.status, googleMessage: failure.providerMessage }
+      : {}),
   });
   return failure;
 }
@@ -148,7 +215,11 @@ function finishFailure(error: unknown, name: Provider, vision: boolean): never {
   const failure = logFailure(error, name, vision);
   if (NoObjectGeneratedError.isInstance(error))
     throw new Error("A IA respondeu num formato inesperado. Tente gerar de novo.");
-  throw new Error(failure.message);
+  let displayMessage = failure.message;
+  if (process.env["DEBUG_AI_ERRORS"] === "1" && failure.providerMessage) {
+    displayMessage += ` (Google ${failure.status}: ${failure.providerMessage})`;
+  }
+  throw new Error(displayMessage);
 }
 async function generate(
   instructions: string,
@@ -161,6 +232,7 @@ async function generate(
   if (name === "openrouter") await validateOpenRouterFiles(messages);
   const model = await provider(name, hasImages(messages), research, hasPdf(messages));
   const isGoogle = name === "gemini" || name === "socrates-gemini";
+  const validMessages = isGoogle ? cleanMessages(messages) : messages;
   const request = () =>
     generateText({
       model,
@@ -168,7 +240,7 @@ async function generate(
         !isGoogle && schema
           ? `${instructions}\n\nResponda somente com um objeto JSON válido que cumpra este esquema, sem cercas de código e sem texto fora do JSON:\n${JSON.stringify(schema)}`
           : instructions,
-      messages,
+      messages: validMessages,
       maxRetries: 0,
       ...(meter ? { maxOutputTokens: meter.maxOutputTokens } : {}),
       abortSignal: AbortSignal.timeout(
@@ -178,7 +250,7 @@ async function generate(
             ? 35000
             : 45000,
       ),
-      ...(research && isGoogle
+      ...(research && isGoogle && !schema
         ? { tools: { google_search: google.tools.googleSearch({}) } as unknown as ToolSet }
         : {}),
       // Reduz ou desliga thinking em tarefas simples (Item A5b)
@@ -190,7 +262,11 @@ async function generate(
       ...(schema
         ? {
             output: Output.object({
-              schema: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
+              schema: jsonSchema(
+                (isGoogle ? cleanSchemaForGemini(schema) : schema) as Parameters<
+                  typeof jsonSchema
+                >[0],
+              ),
             }),
           }
         : {}),
@@ -321,7 +397,11 @@ async function withFallback(
         throw new Error(
           prefix + labels[name] + " retornou um formato inesperado. Tente novamente.",
         );
-      throw new Error(prefix + failure.message);
+      let screenMessage = prefix + failure.message;
+      if (process.env["DEBUG_AI_ERRORS"] === "1" && failure.providerMessage) {
+        screenMessage += ` (Google ${failure.status}: ${failure.providerMessage})`;
+      }
+      throw new Error(screenMessage);
     }
   }
   throw new Error("Nenhum provedor de IA está disponível.");

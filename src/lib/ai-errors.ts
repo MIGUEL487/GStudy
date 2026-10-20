@@ -25,14 +25,25 @@ const categories = [
 ] as const;
 type FailureCategory = (typeof categories)[number];
 
+export function sanitizeErrorMessage(raw: unknown): string {
+  if (!raw || typeof raw !== "string") return "";
+  let text = raw;
+  text = text.replace(/AIza[0-9A-Za-z_-]{20,}/g, "[CHAVE_REMOVIDA]");
+  text = text.replace(/\b[a-zA-Z0-9_-]*(?:key|token|secret)[a-zA-Z0-9_-]*\b/gi, "[CHAVE_REMOVIDA]");
+  text = text.replace(/\b(?:private[ _-]*)?prompt\b/gi, "[CONTEÚDO_REMOVIDO]");
+  text = text.replace(/\b(?:private[ _-]*)?provider[ _-]*diagnostic\b/gi, "[DIAGNOSTICO_REMOVIDO]");
+  text = text.replace(/\bprivate[-_]diagnostic\b/gi, "[DIAGNOSTICO_REMOVIDO]");
+  text = text.replace(/Bearer\s+[a-zA-Z0-9_.-]+/gi, "Bearer [REMOVIDO]");
+  text = text.replace(/data:[^;]+;base64,[A-Za-z0-9+/=]+/g, "[ANEXO_REMOVIDO]");
+  text = text.replace(/[A-Za-z0-9+/=]{80,}/g, "[DADOS_REMOVIDOS]");
+  text = text.replace(/'(?:[^'\\]|\\.)*'/g, (m) => (m.length > 50 ? "'[CONTEÚDO_REMOVIDO]'" : m));
+  text = text.replace(/"(?:[^"\\]|\\.)*"/g, (m) => (m.length > 50 ? '"[CONTEÚDO_REMOVIDO]"' : m));
+  return text.trim();
+}
+
 // Read provider diagnostics only to classify them. Never return raw response text,
 // URLs, prompts, project identifiers, request bodies or credentials to the client.
 export function providerFailure(status: number, payload: unknown, context: Context): AiSetupError {
-  const failure = (message: string, category?: FailureCategory) =>
-    Object.assign(new AiSetupError(message), {
-      statusCode: status,
-      ...(category ? { category } : {}),
-    });
   const root = record(Array.isArray(payload) ? payload[0] : payload);
   const error = record(root?.["error"]);
   const message =
@@ -43,6 +54,13 @@ export function providerFailure(status: number, payload: unknown, context: Conte
         : typeof root?.["message"] === "string"
           ? root["message"]
           : "";
+  const sanitizedDiagnosticMessage = sanitizeErrorMessage(message);
+  const failure = (messageText: string, category?: FailureCategory) =>
+    Object.assign(new AiSetupError(messageText), {
+      statusCode: status,
+      ...(category ? { category } : {}),
+      ...(sanitizedDiagnosticMessage ? { providerMessage: sanitizedDiagnosticMessage } : {}),
+    });
   const code =
     typeof error?.["code"] === "string"
       ? error["code"]
@@ -244,17 +262,29 @@ export function providerFailure(status: number, payload: unknown, context: Conte
 export function safeAiFailure(
   error: unknown,
   context: Context,
-): { message: string; status: number | undefined; category?: FailureCategory } {
+): {
+  message: string;
+  status: number | undefined;
+  category?: FailureCategory;
+  providerMessage?: string;
+} {
   const seen = new Set<unknown>();
   let current = error;
   let status: number | undefined;
+  let providerMessage: string | undefined;
   for (let depth = 0; depth < 8 && current && !seen.has(current); depth++) {
     seen.add(current);
     const item = record(current);
     if (typeof item?.["statusCode"] === "number") status = item["statusCode"];
+    if (typeof item?.["providerMessage"] === "string") providerMessage = item["providerMessage"];
     if (current instanceof AiSetupError) {
       const category = categories.find((value) => value === item?.["category"]);
-      return { message: current.message, status, ...(category ? { category } : {}) };
+      return {
+        message: current.message,
+        status,
+        ...(category ? { category } : {}),
+        ...(providerMessage ? { providerMessage } : {}),
+      };
     }
     if (["AbortError", "TimeoutError"].includes(String(item?.["name"])))
       return {
@@ -270,8 +300,16 @@ export function safeAiFailure(
     current = item?.["cause"];
   }
   if (status !== undefined && status >= 400 && status < 600)
-    return { message: providerFailure(status, null, context).message, status };
-  return { message: "A IA não conseguiu responder agora. Tente de novo em instantes.", status };
+    return {
+      message: providerFailure(status, null, context).message,
+      status,
+      ...(providerMessage ? { providerMessage } : {}),
+    };
+  return {
+    message: "A IA não conseguiu responder agora. Tente de novo em instantes.",
+    status,
+    ...(providerMessage ? { providerMessage } : {}),
+  };
 }
 
 // Retry another provider only for availability/configuration/format failures.
@@ -287,21 +325,12 @@ export function canFallback(error: unknown): boolean {
       return false;
     const status = item?.["statusCode"];
     if (typeof status === "number") {
-      if (status === 400 || status === 422)
-        return (
-          current instanceof AiSetupError &&
-          (current.message.includes("chave de IA foi recusada") ||
-            [
-              "key",
-              "plan",
-              "model",
-              "vision",
-              "context",
-              "schema",
-              "parameter",
-              "credits",
-            ].includes(String(item?.["category"])))
-        );
+      if (status === 400 || status === 422) {
+        if (["request", "image-input"].includes(String(item?.["category"]))) {
+          return false;
+        }
+        return true;
+      }
       if ([401, 402, 403, 404, 408, 409, 429].includes(status) || status >= 500) eligible = true;
       else if (status >= 400) return false;
     }

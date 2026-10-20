@@ -20,7 +20,7 @@ export function socratesAiConfig(env: Record<string, string | undefined>) {
     const baseURL = (
       env["SOCRATES_AI_BASE_URL"]?.trim() || "https://generativelanguage.googleapis.com/v1beta"
     ).replace(/\/+$/, "");
-    const model = env["SOCRATES_AI_MODEL"]?.trim() || "gemini-2.5-flash";
+    const model = env["SOCRATES_AI_MODEL"]?.trim() || "gemini-3.6-flash";
     return { key, baseURL, model, provider: "gemini" as const };
   }
   if (key.startsWith("oma_live_"))

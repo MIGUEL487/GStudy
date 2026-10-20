@@ -27,7 +27,7 @@ export const learningLanguage = `Escreva em português brasileiro correto, com a
 
 export const objectSchema = (props: Record<string, unknown>) => ({
   type: "object",
-  additionalProperties: false,
+
   required: Object.keys(props),
   properties: props,
 });

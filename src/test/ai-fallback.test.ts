@@ -382,10 +382,8 @@ describe("Troca automática Gemini → Groq com SDKs e HTTP simulado", () => {
     await expect(aiObject("Responda.", messages, schema)).rejects.toThrow("formato inesperado");
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
-  it("não envia ao outro provedor quando o erro é do conteúdo ou houve filtro", async () => {
-    fetchMock.mockResolvedValueOnce(failed(400));
-    await expect(aiText("Explique.", messages)).rejects.toThrow("HTTP 400");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+  it("não envia ao outro provedor quando houve filtro de conteúdo", async () => {
+    expect(canFallback({ finishReason: "content-filter" })).toBe(false);
     expect(canFallback({ name: "AI_NoObjectGeneratedError", finishReason: "content-filter" })).toBe(
       false,
     );
@@ -442,9 +440,37 @@ describe("Configuração e classificação seguras", () => {
         ),
       ),
     ).toBe(true);
-    expect(canFallback(providerFailure(400, null, { whiteboard: false, google: true }))).toBe(
-      false,
-    );
+    expect(canFallback(providerFailure(400, null, { whiteboard: false, google: true }))).toBe(true);
     expect(canFallback(new AiSetupError("Configuração ausente."))).toBe(true);
+  });
+  it("faz fallback para o próximo provedor quando o Gemini devolve 400", async () => {
+    fetchMock
+      .mockResolvedValueOnce(failed(400, "Invalid JSON payload or schema"))
+      .mockResolvedValueOnce(groq());
+    await expect(aiText("Explique.", messages)).resolves.toBe("Resposta Groq");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("generativelanguage.googleapis.com");
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("api.groq.com");
+  });
+
+  it("garante que a mensagem de erro do Gemini não vaza chave nem conteúdo", async () => {
+    vi.stubEnv("GROQ_API_KEY", "");
+    vi.stubEnv("DEBUG_AI_ERRORS", "1");
+    const secretKey = "AIzaSyD_ExampleSecretKey1234567890";
+    const secretContent = "Conteúdo super confidencial e privado do estudante que não pode vazar";
+    fetchMock.mockResolvedValueOnce(
+      failed(400, `Error with key ${secretKey} on payload '${secretContent}'`),
+    );
+    try {
+      await aiText("Explique.", messages);
+      expect.unreachable("Deveria ter lançado erro");
+    } catch (err: unknown) {
+      const msg = (err as Error).message;
+      expect(msg).not.toContain(secretKey);
+      expect(msg).not.toContain(secretContent);
+      expect(msg).toContain("[CHAVE_REMOVIDA]");
+      expect(msg).toContain("[CONTEÚDO_REMOVIDO]");
+      expect(msg).toContain("Google 400");
+    }
   });
 });
