@@ -130,8 +130,8 @@ function LoginScreen({ initialError }: { initialError: string }) {
           <img src={logo.url} alt="" />
           GStudy
         </div>
-        <h1>Bem-vindo(a) de volta!</h1>
-        <p className="page-subtitle">Seu ritmo. Sua jornada. Entre para continuar estudando.</p>
+        <h1>Seu espaço de estudo.</h1>
+        <p className="page-subtitle">Entre para acessar seus cadernos, matérias e trilhas.</p>
         <Button
           variant="outline"
           className="w-full"

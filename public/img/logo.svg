@@ -1,11 +1,11 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Filtro para transformar o marrom original em Off-White puro (#e3e3e3) -->
+    <!-- Filtro para transformar o símbolo na cor tema Dark Academia (#6D5B4C) -->
     <filter id="cleanSymbol" color-interpolation-filters="sRGB">
       <feColorMatrix type="matrix" values="
-        0 0 0 0 0.92
-        0 0 0 0 0.94
-        0 0 0 0 0.98
+        0 0 0 0 0.427
+        0 0 0 0 0.357
+        0 0 0 0 0.298
         0 0 0 1 0" />
     </filter>
   </defs>

@@ -32,7 +32,7 @@ const renderLogin = async () => {
       <Workspace />
     </AuthGate>,
   );
-  return screen.findByText("Bem-vindo(a) de volta!");
+  return screen.findByText("Seu espaço de estudo.");
 };
 beforeEach(() => {
   vi.clearAllMocks();
@@ -96,7 +96,7 @@ describe("Entrada social", () => {
       </AuthGate>,
     );
     fireEvent.click(await screen.findByText("Sair dos estudos"));
-    expect(await screen.findByText("Bem-vindo(a) de volta!")).toBeInTheDocument();
+    expect(await screen.findByText("Seu espaço de estudo.")).toBeInTheDocument();
     expect(mocks.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

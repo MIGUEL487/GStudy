@@ -558,48 +558,49 @@
 .topic-activities:before {
   content: "";
   position: absolute;
-  top: 30px;
-  bottom: 38px;
-  left: 48px;
-  border-left: 1px dashed var(--border);
+  top: 20px;
+  bottom: 24px;
+  left: 39px;
+  border-left: 1px solid var(--border);
 }
 .path-activity {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 17px;
-  padding: 10px 17px 10px 11px;
-  max-width: 460px;
-  border: 1px solid transparent;
-  border-radius: 17px;
+  gap: 16px;
+  padding: 12px 18px;
+  max-width: 520px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
   transition:
-    transform 0.25s var(--ease),
-    background 0.25s,
-    border-color 0.25s;
+    transform 0.2s var(--ease),
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .path-activity.step-1,
-.path-activity.step-4 {
-  margin-left: 36px;
-}
 .path-activity.step-2,
-.path-activity.step-3 {
-  margin-left: 61px;
+.path-activity.step-3,
+.path-activity.step-4 {
+  margin-left: 0;
 }
 .activity-orb {
   display: grid;
   place-items: center;
   flex: none;
-  width: 71px;
-  height: 71px;
-  border: 1.5px solid var(--subject-color);
-  border-radius: 25px;
-  background: var(--background);
-  color: var(--subject-color);
-  box-shadow: 0 5px 0 color-mix(in srgb, var(--subject-color) 17%, var(--background));
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: none;
   z-index: 1;
   transition:
-    transform 0.3s,
-    box-shadow 0.3s;
+    transform 0.2s var(--ease),
+    border-color 0.2s var(--ease),
+    background 0.2s var(--ease);
 }
 .activity-label {
   flex: 1;
@@ -640,7 +641,8 @@
   border-color: var(--border);
 }
 .path-activity.is-current:hover .activity-orb {
-  transform: rotate(-5deg);
+  border-color: var(--primary);
+  background: var(--secondary);
 }
 .path-activity.is-completed .activity-orb {
   border-color: var(--success);

@@ -92,7 +92,7 @@
   transition:
     opacity 0.25s,
     transform 0.3s var(--ease);
-  box-shadow: 0 0 8px var(--primary);
+  box-shadow: none;
 }
 .sidebar > .side-nav a.active::before {
   opacity: 1;

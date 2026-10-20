@@ -95,9 +95,7 @@
   background: var(--card);
   backdrop-filter: blur(12px);
   overflow: hidden;
-  box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.4),
-    0 0 30px rgba(255, 255, 255, 0.03);
+  box-shadow: var(--shadow-modal);
 }
 .socrates-dialogue-heading {
   display: flex;
@@ -106,7 +104,7 @@
   border-bottom: 1px solid var(--border);
   padding: 17px 24px;
   color: var(--foreground);
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--surface);
 }
 .socrates-dialogue-heading > span {
   font-family: var(--font-serif);
@@ -135,7 +133,7 @@
 .socrates-empty > svg {
   margin: 0 auto 14px;
   color: var(--primary);
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.25));
+  filter: none;
 }
 .socrates-empty h2 {
   margin: 8px 0;
@@ -169,8 +167,8 @@
 }
 .socrates-empty button:hover,
 .socrates-quick-replies button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--card);
+  border-color: var(--primary);
   transform: translateY(-2px);
 }
 .socrates-message {
@@ -193,10 +191,11 @@
 }
 .socrates-message.is-user {
   margin-left: auto;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary-dark);
   border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-soft);
 }
 .socrates-message.is-assistant {
   border-bottom-left-radius: 4px;
