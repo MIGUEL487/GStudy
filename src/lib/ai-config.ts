@@ -1,4 +1,17 @@
 export class AiSetupError extends Error {}
+function upgradeGeminiModel(model: string | undefined, defaultModel: string): string {
+  const trimmed = model?.trim();
+  if (!trimmed) return defaultModel;
+  if (
+    trimmed === "gemini-2.5-flash" ||
+    trimmed === "gemini-2.5-flash-lite" ||
+    trimmed.includes("gemini-2.5") ||
+    trimmed.includes("gemini-1.5")
+  ) {
+    return defaultModel;
+  }
+  return trimmed;
+}
 
 // OmniRoute is a self-hosted router. Vercel needs a separately hosted HTTPS
 // instance; the default local http://localhost:20128/v1 cannot be reached there.
@@ -20,7 +33,7 @@ export function socratesAiConfig(env: Record<string, string | undefined>) {
     const baseURL = (
       env["SOCRATES_AI_BASE_URL"]?.trim() || "https://generativelanguage.googleapis.com/v1beta"
     ).replace(/\/+$/, "");
-    const model = env["SOCRATES_AI_MODEL"]?.trim() || "gemini-3.6-flash";
+    const model = upgradeGeminiModel(env["SOCRATES_AI_MODEL"], "gemini-3.6-flash");
     return { key, baseURL, model, provider: "gemini" as const };
   }
   if (key.startsWith("oma_live_"))
@@ -66,7 +79,7 @@ export function aiConfig(env: Record<string, string | undefined>) {
   const baseURL = (
     env["BOARD_AI_BASE_URL"]?.trim() || "https://generativelanguage.googleapis.com/v1beta"
   ).replace(/\/+$/, "");
-  const model = env["BOARD_AI_MODEL"]?.trim() || "gemini-3.5-flash-lite";
+  const model = upgradeGeminiModel(env["BOARD_AI_MODEL"], "gemini-3.5-flash-lite");
   try {
     const url = new URL(baseURL);
     if (

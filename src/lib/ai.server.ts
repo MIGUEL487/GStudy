@@ -25,11 +25,14 @@ export function cleanSchemaForGemini(val: unknown): unknown {
   if (Array.isArray(val)) return val.map(cleanSchemaForGemini);
   if (val && typeof val === "object") {
     const raw = val as Record<string, unknown>;
-    if (Array.isArray(raw["anyOf"]) && raw["anyOf"].length === 2) {
-      const hasNull = raw["anyOf"].some(
+    const union =
+      (Array.isArray(raw["anyOf"]) ? raw["anyOf"] : undefined) ||
+      (Array.isArray(raw["oneOf"]) ? raw["oneOf"] : undefined);
+    if (union && union.length === 2) {
+      const hasNull = union.some(
         (s) => s && typeof s === "object" && (s as Record<string, unknown>)["type"] === "null",
       );
-      const real = raw["anyOf"].find(
+      const real = union.find(
         (s) => s && typeof s === "object" && (s as Record<string, unknown>)["type"] !== "null",
       );
       if (hasNull && real && typeof real === "object") {
@@ -38,7 +41,14 @@ export function cleanSchemaForGemini(val: unknown): unknown {
     }
     const copy: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(raw)) {
-      if (k === "additionalProperties" || k === "$schema" || k === "$ref" || k === "format") {
+      if (
+        k === "additionalProperties" ||
+        k === "$schema" ||
+        k === "$ref" ||
+        k === "format" ||
+        k === "definitions" ||
+        k === "$defs"
+      ) {
         continue;
       }
       copy[k] = cleanSchemaForGemini(v);
@@ -49,13 +59,13 @@ export function cleanSchemaForGemini(val: unknown): unknown {
 }
 
 export function cleanMessages(messages: ModelMessage[]): ModelMessage[] {
-  const cleaned: ModelMessage[] = [];
+  const valid: ModelMessage[] = [];
   for (const msg of messages) {
     if (!msg || !msg.role) continue;
     if (typeof msg.content === "string") {
       const text = msg.content.trim();
       if (!text) continue;
-      cleaned.push({ ...msg, content: text });
+      valid.push({ ...msg, content: text });
     } else if (Array.isArray(msg.content)) {
       const filteredParts = msg.content.filter((part) => {
         if (!part) return false;
@@ -64,23 +74,51 @@ export function cleanMessages(messages: ModelMessage[]): ModelMessage[] {
         return true;
       });
       if (filteredParts.length > 0) {
-        cleaned.push({ ...msg, content: filteredParts as unknown as ModelMessage["content"] });
+        valid.push({ ...msg, content: filteredParts as unknown as ModelMessage["content"] });
       }
     } else if (msg.content) {
-      cleaned.push(msg);
+      valid.push(msg);
     }
   }
 
-  if (cleaned.length === 0) {
+  if (valid.length === 0) {
     return [{ role: "user", content: "Continuar" }];
   }
 
-  const last = cleaned[cleaned.length - 1];
-  if (last.role === "assistant") {
-    cleaned.push({ role: "user", content: "Por favor, continue." });
+  if (valid[0].role !== "user") {
+    valid.unshift({ role: "user", content: "Continuar" });
   }
 
-  return cleaned;
+  const alternated: ModelMessage[] = [];
+  for (const msg of valid) {
+    if (alternated.length === 0) {
+      alternated.push({ ...msg });
+      continue;
+    }
+    const prev = alternated[alternated.length - 1];
+    if (prev.role === msg.role) {
+      if (typeof prev.content === "string" && typeof msg.content === "string") {
+        prev.content = prev.content + "\n\n" + msg.content;
+      } else {
+        const prevParts = Array.isArray(prev.content)
+          ? prev.content
+          : [{ type: "text" as const, text: String(prev.content) }];
+        const msgParts = Array.isArray(msg.content)
+          ? msg.content
+          : [{ type: "text" as const, text: String(msg.content) }];
+        prev.content = [...prevParts, ...msgParts] as unknown as ModelMessage["content"];
+      }
+    } else {
+      alternated.push({ ...msg });
+    }
+  }
+
+  const last = alternated[alternated.length - 1];
+  if (last.role === "assistant") {
+    alternated.push({ role: "user", content: "Por favor, continue." });
+  }
+
+  return alternated;
 }
 
 type GenerationMeter = { maxOutputTokens: number; onUsage: (total: number | undefined) => void };
@@ -380,7 +418,24 @@ async function withFallback(
     try {
       return await runProvider(name);
     } catch (error) {
-      if (index < providers.length - 1 && canFallback(error)) {
+      const isGoogle = name === "gemini" || name === "socrates-gemini";
+      let status: number | undefined;
+      const seen = new Set<unknown>();
+      let cur: unknown = error;
+      for (let d = 0; d < 8 && cur && !seen.has(cur); d++) {
+        seen.add(cur);
+        if (
+          typeof cur === "object" &&
+          cur !== null &&
+          typeof (cur as Record<string, unknown>)["statusCode"] === "number"
+        ) {
+          status = (cur as Record<string, unknown>)["statusCode"] as number;
+          break;
+        }
+        cur = (cur as Record<string, unknown>)?.["cause"];
+      }
+      const canGoogleFallback = isGoogle && (status === 400 || status === 422);
+      if (index < providers.length - 1 && (canFallback(error) || canGoogleFallback)) {
         logFailure(error, name, vision);
         failed.push(labels[name]);
         continue;
