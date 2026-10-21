@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { captureNotionSession, oauthError, startOAuth } from "@/lib/oauth-client";
 import { Button } from "@/components/ui/button";
-import { logo, studyImage } from "@/lib/images";
+import { logo, loginImage } from "@/lib/images";
 
 type AuthValue = { user: User; signOut: () => Promise<void> };
 const ag = globalThis as { __gstudyAuthContext?: React.Context<AuthValue | null> };
@@ -175,7 +175,7 @@ function LoginScreen({ initialError }: { initialError: string }) {
         </p>
       </div>
       <div className="login-art">
-        <img src={studyImage.url} alt="Mesa de estudos iluminada pelo sol" />
+        <img src={loginImage.url} alt="Livro de estudos aberto com páginas e anotações" />
       </div>
     </div>
   );
