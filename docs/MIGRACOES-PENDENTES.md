@@ -19,3 +19,17 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
   7. **RLS Estrita:** Usuários só visualizam perfis de amigos aceitos ou do mesmo grupo de estudo. Varredura pública de perfis devolve conjunto vazio.
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0006_social_friends_and_groups.sql` e execute no painel **SQL Editor** do projeto Supabase.
+
+---
+
+## 0007_study_rooms_and_presence.sql
+
+- **Fase:** Fase 3 — Salas ao Vivo e Presença (`feat/salas-estudo`)
+- **Data:** 22/10/2026
+- **Feature Flag Relacionada:** `VITE_FEATURE_SOCIAL`
+- **Conteúdo da Migration:**
+  1. `public.study_rooms`: Salas de estudo ao vivo com tópico/matéria, limite de 2 a 16 participantes, estado sincronizado do Pomodoro (modo trabalho/pausa e segundos restantes) e fechamento automático.
+  2. `public.study_room_participants`: Registro dos participantes na sala com meta de foco (`current_goal`), status de conclusão (`is_goal_completed`), microfone mutado e câmera.
+  3. **RLS Estrita:** Salas privadas só são visíveis e acessíveis para amigos aceitos do criador ou membros do grupo de estudo correspondente. Ninguém fora da sala pode listar ou visualizar os participantes de uma sala.
+- **Como Aplicar no Supabase:**
+  Copie o conteúdo de `drizzle/migrations/0007_study_rooms_and_presence.sql` e execute no painel **SQL Editor** do projeto Supabase.

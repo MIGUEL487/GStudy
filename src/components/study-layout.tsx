@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Compass,
   Users,
+  Radio,
 } from "lucide-react";
 import { useAuth } from "./auth-gate";
 import { Avatar, useDisplayName } from "./avatar";
@@ -53,12 +54,15 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     return () => transition.cancel();
   }, [path]);
   const selected = (to: string) =>
-    ["/aprender", "/preparar", "/amigos"].includes(to) ? path.startsWith(to) : path === to;
+    ["/aprender", "/preparar", "/amigos", "/salas"].includes(to)
+      ? path.startsWith(to)
+      : path === to;
   const socialEnabled = isSocialFeatureEnabled();
   const currentNav = socialEnabled
     ? [
         ...navigation.slice(0, 4),
         { to: "/amigos" as const, label: "Amigos", mobileLabel: "Amigos", icon: Users },
+        { to: "/salas" as const, label: "Salas ao vivo", mobileLabel: "Salas", icon: Radio },
         ...navigation.slice(4),
       ]
     : navigation;

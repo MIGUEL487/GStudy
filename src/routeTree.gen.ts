@@ -14,6 +14,7 @@ import { Route as AmigosRouteImport } from './routes/amigos'
 import { Route as CalendarioRouteImport } from './routes/calendario'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as PrepararRouteImport } from './routes/preparar'
+import { Route as SalasRouteImport } from './routes/salas'
 import { Route as SocratesRouteImport } from './routes/socrates'
 import { Route as AprenderIndexRouteImport } from './routes/aprender.index'
 import { Route as AprenderExplicacoesRouteImport } from './routes/aprender.explicacoes'
@@ -51,6 +52,11 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
 const PrepararRoute = PrepararRouteImport.update({
   id: '/preparar',
   path: '/preparar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SalasRoute = SalasRouteImport.update({
+  id: '/salas',
+  path: '/salas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SocratesRoute = SocratesRouteImport.update({
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
+  '/salas': typeof SalasRoute
   '/socrates': typeof SocratesRoute
   '/aprender/explicacoes': typeof AprenderExplicacoesRoute
   '/aprender/feynman': typeof AprenderFeynmanRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
+  '/salas': typeof SalasRoute
   '/socrates': typeof SocratesRoute
   '/aprender/explicacoes': typeof AprenderExplicacoesRoute
   '/aprender/feynman': typeof AprenderFeynmanRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
+  '/salas': typeof SalasRoute
   '/socrates': typeof SocratesRoute
   '/aprender/explicacoes': typeof AprenderExplicacoesRoute
   '/aprender/feynman': typeof AprenderFeynmanRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/configuracoes'
     | '/preparar'
+    | '/salas'
     | '/socrates'
     | '/aprender/explicacoes'
     | '/aprender/feynman'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/configuracoes'
     | '/preparar'
+    | '/salas'
     | '/socrates'
     | '/aprender/explicacoes'
     | '/aprender/feynman'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/configuracoes'
     | '/preparar'
+    | '/salas'
     | '/socrates'
     | '/aprender/explicacoes'
     | '/aprender/feynman'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   CalendarioRoute: typeof CalendarioRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   PrepararRoute: typeof PrepararRoute
+  SalasRoute: typeof SalasRoute
   SocratesRoute: typeof SocratesRoute
   AprenderExplicacoesRoute: typeof AprenderExplicacoesRoute
   AprenderFeynmanRoute: typeof AprenderFeynmanRoute
@@ -299,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/preparar'
       fullPath: '/preparar'
       preLoaderRoute: typeof PrepararRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/salas': {
+      id: '/salas'
+      path: '/salas'
+      fullPath: '/salas'
+      preLoaderRoute: typeof SalasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/socrates': {
@@ -401,6 +421,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarioRoute: CalendarioRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   PrepararRoute: PrepararRoute,
+  SalasRoute: SalasRoute,
   SocratesRoute: SocratesRoute,
   AprenderExplicacoesRoute: AprenderExplicacoesRoute,
   AprenderFeynmanRoute: AprenderFeynmanRoute,
