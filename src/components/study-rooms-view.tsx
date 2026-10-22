@@ -13,10 +13,15 @@ import {
   Circle,
   Coffee,
   Brain,
+  MessageSquare,
+  Send,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "./auth-gate";
 import { Avatar } from "./avatar";
+import { supabase } from "@/integrations/supabase/client";
 import { isSocialFeatureEnabled } from "@/lib/social-model";
 import {
   listAvailableRooms,
@@ -27,9 +32,13 @@ import {
   listRoomParticipants,
   updateMyGoal,
   updatePomodoroState,
+  listRoomMessages,
+  sendRoomMessage,
+  playNotificationSound,
   type StudyRoom,
   type RoomParticipant,
   type PomodoroState,
+  type RoomMessage,
 } from "@/lib/study-rooms-model";
 import "@/styles/study-rooms.css";
 
@@ -51,6 +60,15 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
 
   // In-room goal editing
   const [myGoalInput, setMyGoalInput] = useState("");
+
+  // Chat State
+  const [messages, setMessages] = useState<RoomMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [typingIndicator, setTypingIndicator] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Pomodoro local tick
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -101,6 +119,78 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
       void loadRooms();
     }
   }, [activeRoomId, loadRooms, loadRoomContent]);
+
+  // Chat Realtime & Initial Load
+  useEffect(() => {
+    if (!activeRoomId || !isSocialFeatureEnabled()) return;
+
+    void listRoomMessages(activeRoomId).then((initial) => {
+      setMessages(initial);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    });
+
+    const channel = supabase.channel(`room_chat_${activeRoomId}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    channel
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "study_room_messages",
+          filter: `room_id=eq.${activeRoomId}`,
+        },
+        (payload) => {
+          const m = payload.new as {
+            id: string;
+            room_id: string;
+            user_id: string;
+            sender_username: string;
+            sender_display_name: string;
+            content: string;
+            created_at: string;
+          };
+          const newMsg: RoomMessage = {
+            id: m.id,
+            roomId: m.room_id,
+            userId: m.user_id,
+            senderUsername: m.sender_username,
+            senderDisplayName: m.sender_display_name,
+            content: m.content,
+            createdAt: m.created_at,
+          };
+          setMessages((prev) => {
+            if (prev.some((item) => item.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          if (newMsg.userId !== user?.id && soundEnabled) {
+            playNotificationSound();
+          }
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 100);
+        },
+      )
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        if (payload?.username && payload.userId !== user?.id) {
+          setTypingIndicator(`${payload.username} está digitando...`);
+          if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+          typingTimerRef.current = setTimeout(() => {
+            setTypingIndicator(null);
+          }, 2500);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, [activeRoomId, user?.id, soundEnabled]);
 
   // Pomodoro local countdown timer
   useEffect(() => {
@@ -268,6 +358,64 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
     }
   };
 
+  const handleChatInputChange = (val: string) => {
+    setChatInput(val);
+    if (!activeRoomId || !user?.id) return;
+    const me = participants.find((p) => p.userId === user?.id);
+    const username = me?.displayName || me?.username || "colega";
+
+    const channel = supabase.channel(`room_chat_${activeRoomId}`);
+    void channel.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { userId: user.id, username },
+    });
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeRoomId || !user?.id || !chatInput.trim() || isSending) return;
+
+    const me = participants.find((p) => p.userId === user?.id);
+    const senderUsername = me?.username || "estudante";
+    const senderDisplayName = me?.displayName || "Estudante";
+    const textToSend = chatInput.trim();
+
+    setIsSending(true);
+    try {
+      const msgId = await sendRoomMessage(
+        activeRoomId,
+        textToSend,
+        senderUsername,
+        senderDisplayName,
+      );
+
+      const optimisticMsg: RoomMessage = {
+        id: msgId,
+        roomId: activeRoomId,
+        userId: user.id,
+        senderUsername,
+        senderDisplayName,
+        content: textToSend,
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === msgId)) return prev;
+        return [...prev, optimisticMsg];
+      });
+
+      setChatInput("");
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar mensagem.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60)
       .toString()
@@ -294,139 +442,229 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
           </button>
         </div>
 
-        {/* Central Synchronized Pomodoro */}
-        <div className="room-pomodoro-card">
-          <div className="room-pomodoro-mode">
-            {isWork ? (
-              <span
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#2f4a3a" }}
-              >
-                <Brain size={16} /> Bloco de Foco (25 min)
-              </span>
-            ) : (
-              <span
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#f57c00" }}
-              >
-                <Coffee size={16} /> Intervalo (5 min)
-              </span>
-            )}
-          </div>
-
-          <div className="room-pomodoro-timer">
-            {formatTime(activeRoom.pomodoroState.remaining_seconds)}
-          </div>
-
-          <div className="room-pomodoro-controls">
-            <button
-              type="button"
-              className="social-btn social-btn-primary"
-              onClick={handleTogglePomodoro}
-            >
-              {activeRoom.pomodoroState.is_running ? (
-                <>
-                  <Pause size={16} /> Pausar
-                </>
-              ) : (
-                <>
-                  <Play size={16} /> Iniciar Foco
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              className="social-btn"
-              onClick={handleResetPomodoro}
-              title="Reiniciar tempo"
-            >
-              <RotateCcw size={16} /> Reiniciar
-            </button>
-
-            <button
-              type="button"
-              className="social-btn"
-              onClick={handleSwitchMode}
-              title="Alternar entre foco e pausa"
-            >
-              Alternar para {isWork ? "Pausa" : "Foco"}
-            </button>
-          </div>
-        </div>
-
-        {/* My Goal Form */}
-        <div
-          style={{
-            background: "#fffdfa",
-            padding: 16,
-            borderRadius: 12,
-            marginBottom: 24,
-            border: "1px solid rgba(108,88,76,0.18)",
-          }}
-        >
-          <form onSubmit={handleSaveGoal} style={{ display: "flex", gap: 10 }}>
-            <input
-              type="text"
-              placeholder="Defina sua meta nesta sessão (ex: Resolver 10 questões de Biologia)..."
-              value={myGoalInput}
-              onChange={(e) => setMyGoalInput(e.target.value)}
-              style={{
-                flex: 1,
-                padding: "8px 14px",
-                borderRadius: 8,
-                border: "1px solid rgba(108,88,76,0.25)",
-                fontSize: 14,
-              }}
-            />
-            <button type="submit" className="social-btn social-btn-primary">
-              Salvar Meta
-            </button>
-          </form>
-        </div>
-
-        {/* Participants Grid */}
-        <h2 style={{ fontSize: 18, marginBottom: 14, color: "#2f4a3a" }}>
-          Estudando Agora ({participants.length}/{activeRoom.maxParticipants})
-        </h2>
-
-        <div className="room-participants-grid">
-          {participants.map((p) => {
-            const isMe = p.userId === user?.id;
-            return (
-              <div key={p.userId} className="participant-card">
-                <div className="participant-header">
-                  <div className="avatar-halo">
-                    <Avatar url={p.avatarUrl} name={p.displayName ?? "Aluno"} size={42} />
-                  </div>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#2c2523" }}>
-                      {p.displayName} {isMe && "(Você)"}
-                    </h4>
-                    <span style={{ fontSize: 12, color: "#8c7365" }}>@{p.username}</span>
-                  </div>
-                </div>
-
-                <div
-                  className={`participant-goal-box ${p.isGoalCompleted ? "completed" : ""}`}
-                  style={{ cursor: isMe ? "pointer" : "default" }}
-                  onClick={() => {
-                    if (isMe) void handleToggleGoalCompleted(p);
-                  }}
-                  title={isMe ? "Clique para marcar como concluída" : undefined}
-                >
-                  {isMe ? (
-                    p.isGoalCompleted ? (
-                      <CheckCircle2 size={16} color="#2e7d32" style={{ flexShrink: 0 }} />
-                    ) : (
-                      <Circle size={16} color="#8c7365" style={{ flexShrink: 0 }} />
-                    )
-                  ) : (
-                    <Sparkles size={16} color="#8c7365" style={{ flexShrink: 0 }} />
-                  )}
-                  <span>{p.currentGoal || "Sem meta definida ainda"}</span>
-                </div>
+        <div className="room-active-layout">
+          {/* Main content: Pomodoro, goal, participants */}
+          <div className="room-main-content">
+            {/* Central Synchronized Pomodoro */}
+            <div className="room-pomodoro-card">
+              <div className="room-pomodoro-mode">
+                {isWork ? (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      color: "#2f4a3a",
+                    }}
+                  >
+                    <Brain size={16} /> Bloco de Foco (25 min)
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      color: "#f57c00",
+                    }}
+                  >
+                    <Coffee size={16} /> Intervalo (5 min)
+                  </span>
+                )}
               </div>
-            );
-          })}
+
+              <div className="room-pomodoro-timer">
+                {formatTime(activeRoom.pomodoroState.remaining_seconds)}
+              </div>
+
+              <div className="room-pomodoro-controls">
+                <button
+                  type="button"
+                  className="social-btn social-btn-primary"
+                  onClick={handleTogglePomodoro}
+                >
+                  {activeRoom.pomodoroState.is_running ? (
+                    <>
+                      <Pause size={16} /> Pausar
+                    </>
+                  ) : (
+                    <>
+                      <Play size={16} /> Iniciar Foco
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className="social-btn"
+                  onClick={handleResetPomodoro}
+                  title="Reiniciar tempo"
+                >
+                  <RotateCcw size={16} /> Reiniciar
+                </button>
+
+                <button
+                  type="button"
+                  className="social-btn"
+                  onClick={handleSwitchMode}
+                  title="Alternar entre foco e pausa"
+                >
+                  Alternar para {isWork ? "Pausa" : "Foco"}
+                </button>
+              </div>
+            </div>
+
+            {/* My Goal Form */}
+            <div
+              style={{
+                background: "#fffdfa",
+                padding: 16,
+                borderRadius: 12,
+                marginBottom: 24,
+                border: "1px solid rgba(108,88,76,0.18)",
+              }}
+            >
+              <form onSubmit={handleSaveGoal} style={{ display: "flex", gap: 10 }}>
+                <input
+                  type="text"
+                  placeholder="Defina sua meta nesta sessão (ex: Resolver 10 questões de Biologia)..."
+                  value={myGoalInput}
+                  onChange={(e) => setMyGoalInput(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(108,88,76,0.25)",
+                    fontSize: 14,
+                  }}
+                />
+                <button type="submit" className="social-btn social-btn-primary">
+                  Salvar Meta
+                </button>
+              </form>
+            </div>
+
+            {/* Participants Grid */}
+            <h2 style={{ fontSize: 18, marginBottom: 14, color: "#2f4a3a" }}>
+              Estudando Agora ({participants.length}/{activeRoom.maxParticipants})
+            </h2>
+
+            <div className="room-participants-grid">
+              {participants.map((p) => {
+                const isMe = p.userId === user?.id;
+                return (
+                  <div key={p.userId} className="participant-card">
+                    <div className="participant-header">
+                      <div className="avatar-halo">
+                        <Avatar url={p.avatarUrl} name={p.displayName ?? "Aluno"} size={42} />
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#2c2523" }}>
+                          {p.displayName} {isMe && "(Você)"}
+                        </h4>
+                        <span style={{ fontSize: 12, color: "#8c7365" }}>@{p.username}</span>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`participant-goal-box ${p.isGoalCompleted ? "completed" : ""}`}
+                      style={{ cursor: isMe ? "pointer" : "default" }}
+                      onClick={() => {
+                        if (isMe) void handleToggleGoalCompleted(p);
+                      }}
+                      title={isMe ? "Clique para marcar como concluída" : undefined}
+                    >
+                      {isMe ? (
+                        p.isGoalCompleted ? (
+                          <CheckCircle2 size={16} color="#2e7d32" style={{ flexShrink: 0 }} />
+                        ) : (
+                          <Circle size={16} color="#8c7365" style={{ flexShrink: 0 }} />
+                        )
+                      ) : (
+                        <Sparkles size={16} color="#8c7365" style={{ flexShrink: 0 }} />
+                      )}
+                      <span>{p.currentGoal || "Sem meta definida ainda"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right sidebar: Real-time room chat */}
+          <div className="room-chat-sidebar">
+            <div className="chat-sidebar-header">
+              <div className="chat-sidebar-title">
+                <MessageSquare size={17} color="#2f4a3a" />
+                <h4>Chat da Sala</h4>
+                <span className="chat-ephemeral-badge">24h</span>
+              </div>
+
+              <button
+                type="button"
+                className="chat-sound-btn"
+                onClick={() => setSoundEnabled((prev) => !prev)}
+                title={soundEnabled ? "Silenciar notificações" : "Ativar notificações sonoras"}
+                aria-label={soundEnabled ? "Silenciar" : "Ativar som"}
+              >
+                {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              </button>
+            </div>
+
+            <div className="chat-messages-container">
+              {messages.length === 0 ? (
+                <div className="chat-empty-hint">
+                  Nenhuma mensagem ainda.
+                  <br />
+                  Diga um olá aos colegas de estudo!
+                </div>
+              ) : (
+                messages.map((m) => {
+                  const isMine = m.userId === user?.id;
+                  const timeFormatted = new Date(m.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  return (
+                    <div key={m.id} className={`chat-message-item ${isMine ? "is-me" : ""}`}>
+                      <div className="chat-sender-info">
+                        <span className="chat-sender-name">
+                          {isMine ? "Você" : m.senderDisplayName}
+                        </span>
+                        <span className="chat-timestamp">{timeFormatted}</span>
+                      </div>
+                      <div className="chat-content-text">{m.content}</div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {typingIndicator && <div className="chat-typing-indicator">{typingIndicator}</div>}
+
+            <form className="chat-input-bar" onSubmit={handleSendMessage}>
+              <div className="chat-input-row">
+                <input
+                  type="text"
+                  placeholder="Mensagem na sala (máx. 500 carac.)..."
+                  value={chatInput}
+                  maxLength={500}
+                  onChange={(e) => handleChatInputChange(e.target.value)}
+                  disabled={isSending}
+                />
+                <button
+                  type="submit"
+                  className="chat-send-btn"
+                  disabled={isSending || !chatInput.trim()}
+                  title="Enviar mensagem"
+                >
+                  <Send size={15} />
+                </button>
+              </div>
+              <div className="chat-counter-text">{chatInput.length}/500</div>
+            </form>
+          </div>
         </div>
       </div>
     );

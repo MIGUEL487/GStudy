@@ -33,3 +33,18 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
   3. **RLS Estrita:** Salas privadas só são visíveis e acessíveis para amigos aceitos do criador ou membros do grupo de estudo correspondente. Ninguém fora da sala pode listar ou visualizar os participantes de uma sala.
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0007_study_rooms_and_presence.sql` e execute no painel **SQL Editor** do projeto Supabase.
+
+---
+
+## 0008_study_room_chat.sql
+
+- **Fase:** Fase 4 — Chat em Tempo Real nas Salas (`feat/chat-salas`)
+- **Data:** 22/10/2026
+- **Feature Flag Relacionada:** `VITE_FEATURE_SOCIAL`
+- **Conteúdo da Migration:**
+  1. `public.study_room_messages`: Mensagens de texto puro em salas de estudo com limite de 500 caracteres, autoria verificada e remoção de espaços em branco vazios.
+  2. `public.send_room_message(p_room_id, p_content, p_sender_username, p_sender_display_name)`: RPC `SECURITY DEFINER SET search_path = ''` que impõe rate limit de 20 mensagens por minuto por usuário.
+  3. `public.cleanup_old_room_messages()`: Função para expurgar mensagens com mais de 24 horas (caráter efêmero).
+  4. **RLS Estrita:** Apenas participantes ativos ou salas públicas permitem leitura e envio de mensagens. Varredura pública externa devolve zero registros.
+- **Como Aplicar no Supabase:**
+  Copie o conteúdo de `drizzle/migrations/0008_study_room_chat.sql` e execute no painel **SQL Editor** do projeto Supabase.
