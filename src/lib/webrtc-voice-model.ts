@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function isVoiceFeatureEnabled(): boolean {
   const flag = import.meta.env.VITE_FEATURE_VOICE;
-  return flag === "true" || flag === "1";
+  return flag !== "false" && flag !== "0";
 }
 
 export type VoicePeerState = {

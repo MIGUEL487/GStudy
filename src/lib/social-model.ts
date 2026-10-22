@@ -57,7 +57,7 @@ export type SearchUserResult = {
  */
 export function isSocialFeatureEnabled(): boolean {
   const flag = import.meta.env.VITE_FEATURE_SOCIAL;
-  return flag === "true" || flag === "1";
+  return flag !== "false" && flag !== "0";
 }
 
 /**
