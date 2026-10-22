@@ -40,6 +40,7 @@ import {
   type PomodoroState,
   type RoomMessage,
 } from "@/lib/study-rooms-model";
+import { triggerGoalCelebration, recordFocusSession } from "@/lib/social-gamification-model";
 import "@/styles/study-rooms.css";
 
 export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
@@ -352,6 +353,8 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
       );
       if (nextCompleted) {
         toast.success("Parabéns por atingir sua meta de foco!");
+        triggerGoalCelebration();
+        void recordFocusSession(activeRoomId, 25);
       }
     } catch (err) {
       console.error(err);

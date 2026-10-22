@@ -11,6 +11,9 @@ import {
   X,
   PlusCircle,
   Copy,
+  Trophy,
+  Medal,
+  Award,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "./auth-gate";
@@ -32,9 +35,17 @@ import {
   type StudyGroup,
   type SearchUserResult,
 } from "@/lib/social-model";
+import {
+  getSocialLeaderboard,
+  listUserAchievements,
+  updateRankingVisibility,
+  type LeaderboardEntry,
+  type SocialAchievement,
+  type RankingVisibility,
+} from "@/lib/social-gamification-model";
 import "@/styles/social-friends.css";
 
-type Tab = "friends" | "pending" | "search" | "groups";
+type Tab = "friends" | "pending" | "search" | "groups" | "ranking";
 
 export function SocialFriendsPanel() {
   const { user } = useAuth();
@@ -74,6 +85,13 @@ export function SocialFriendsPanel() {
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [joinCode, setJoinCode] = useState("");
 
+  // Ranking & Gamification state
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [achievements, setAchievements] = useState<SocialAchievement[]>([]);
+  const [rankingScope, setRankingScope] = useState<"friends" | "group">("friends");
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [rankingVisibility, setRankingVisibility] = useState<RankingVisibility>("public");
+
   const loadData = useCallback(async () => {
     if (!user?.id || !isSocialFeatureEnabled()) return;
     setLoading(true);
@@ -86,16 +104,51 @@ export function SocialFriendsPanel() {
       setFriends(friendsList);
       setPending(pendingReqs);
       setGroups(myGroups);
+      if (myGroups.length > 0 && !selectedGroupId) {
+        setSelectedGroupId(myGroups[0].id);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedGroupId]);
+
+  const loadRanking = useCallback(async () => {
+    if (!user?.id || !isSocialFeatureEnabled()) return;
+    try {
+      const [lb, achs] = await Promise.all([
+        getSocialLeaderboard(rankingScope, selectedGroupId || undefined),
+        listUserAchievements(user.id),
+      ]);
+      setLeaderboard(lb);
+      setAchievements(achs);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [user?.id, rankingScope, selectedGroupId]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (tab === "ranking") {
+      void loadRanking();
+    }
+  }, [tab, loadRanking]);
+
+  const handleUpdateVisibility = async (newVis: RankingVisibility) => {
+    if (!user?.id) return;
+    setRankingVisibility(newVis);
+    try {
+      await updateRankingVisibility(user.id, newVis);
+      toast.success("Privacidade no ranking atualizada!");
+      void loadRanking();
+    } catch (err) {
+      toast.error("Erro ao atualizar visibilidade.");
+    }
+  };
 
   if (!isSocialFeatureEnabled()) {
     return null;
@@ -262,6 +315,17 @@ export function SocialFriendsPanel() {
         >
           <Sparkles size={16} />
           Grupos ({groups.length})
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "ranking"}
+          className={`social-tab-btn ${tab === "ranking" ? "active" : ""}`}
+          onClick={() => setTab("ranking")}
+        >
+          <Trophy size={16} />
+          Ranking Semanal
         </button>
       </div>
 
@@ -561,6 +625,179 @@ export function SocialFriendsPanel() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Ranking Semanal & Gamificação Social */}
+      {tab === "ranking" && (
+        <div className="social-tab-content">
+          <div className="ranking-scope-selector">
+            <div className="ranking-scope-buttons">
+              <button
+                type="button"
+                className={`rooms-filter-btn ${rankingScope === "friends" ? "active" : ""}`}
+                onClick={() => setRankingScope("friends")}
+              >
+                Entre Amigos
+              </button>
+              {groups.length > 0 && (
+                <button
+                  type="button"
+                  className={`rooms-filter-btn ${rankingScope === "group" ? "active" : ""}`}
+                  onClick={() => setRankingScope("group")}
+                >
+                  Por Grupo
+                </button>
+              )}
+            </div>
+
+            {rankingScope === "group" && groups.length > 0 && (
+              <select
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(108,88,76,0.25)",
+                  background: "#fffdfa",
+                  fontSize: 13,
+                  color: "#2f4a3a",
+                }}
+              >
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <div className="ranking-privacy-select">
+              <label htmlFor="vis-select">Sua visibilidade:</label>
+              <select
+                id="vis-select"
+                value={rankingVisibility}
+                onChange={(e) => void handleUpdateVisibility(e.target.value as RankingVisibility)}
+              >
+                <option value="public">Público (Nome e Foto)</option>
+                <option value="anonymous">Anônimo (Estudante Anônimo)</option>
+                <option value="hidden">Oculto (Não participar)</option>
+              </select>
+            </div>
+          </div>
+
+          <h3 style={{ fontSize: 16, color: "#2f4a3a", margin: "0 0 12px" }}>
+            Quadro de Líderes · Foco Semanal
+          </h3>
+
+          {leaderboard.length === 0 ? (
+            <div className="social-empty-state">
+              <h3>Nenhum registro de foco esta semana</h3>
+              <p>
+                Participe de salas de estudo e conclua blocos de Pomodoro para acumular minutos.
+              </p>
+            </div>
+          ) : (
+            <div className="leaderboard-list">
+              {leaderboard.map((entry) => {
+                const rankClass =
+                  entry.rankPosition === 1
+                    ? "rank-1"
+                    : entry.rankPosition === 2
+                      ? "rank-2"
+                      : entry.rankPosition === 3
+                        ? "rank-3"
+                        : "";
+                const hours = Math.floor(entry.weeklyFocusMinutes / 60);
+                const mins = entry.weeklyFocusMinutes % 60;
+                const timeStr = hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
+
+                return (
+                  <div
+                    key={entry.userId}
+                    className={`leaderboard-item ${entry.isCurrentUser ? "is-me" : ""}`}
+                  >
+                    <div className="leaderboard-left">
+                      <div className={`leaderboard-rank-badge ${rankClass}`}>
+                        {entry.rankPosition <= 3 ? (
+                          <Medal size={16} />
+                        ) : (
+                          <span>{entry.rankPosition}º</span>
+                        )}
+                      </div>
+
+                      <Avatar url={entry.avatarUrl} name={entry.displayName} size={38} />
+
+                      <div className="leaderboard-user-details">
+                        <span className="leaderboard-user-name">
+                          {entry.displayName} {entry.isCurrentUser && "(Você)"}
+                        </span>
+                        <span className="leaderboard-user-tag">@{entry.username}</span>
+                      </div>
+                    </div>
+
+                    <div className="leaderboard-stats">
+                      <div className="leaderboard-focus-time">{timeStr}</div>
+                      <div className="leaderboard-focus-label">tempo de foco</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Seção de Conquistas Sociais */}
+          <h3 style={{ fontSize: 16, color: "#2f4a3a", margin: "28px 0 10px" }}>
+            Conquistas Sociais
+          </h3>
+          <div className="achievements-grid">
+            <div
+              className={`achievement-card ${achievements.some((a) => a.achievementKey === "first_group_session") ? "unlocked" : "locked"}`}
+            >
+              <div className="achievement-icon-wrapper">
+                <Users size={22} />
+              </div>
+              <div className="achievement-info">
+                <h4>Primeiro Foco Coletivo</h4>
+                <p>Concluiu seu primeiro bloco de foco em uma sala de estudos compartilhada.</p>
+                {achievements.some((a) => a.achievementKey === "first_group_session") ? (
+                  <span className="achievement-date">✓ Desbloqueada</span>
+                ) : (
+                  <span className="achievement-date">Bloqueada</span>
+                )}
+              </div>
+            </div>
+
+            <div className={`achievement-card ${friends.length >= 1 ? "unlocked" : "locked"}`}>
+              <div className="achievement-icon-wrapper">
+                <Award size={22} />
+              </div>
+              <div className="achievement-info">
+                <h4>Amizade de Estudos</h4>
+                <p>Conectou-se com seu primeiro amigo na plataforma GStudy.</p>
+                {friends.length >= 1 ? (
+                  <span className="achievement-date">✓ Desbloqueada</span>
+                ) : (
+                  <span className="achievement-date">Adicione 1 amigo para desbloquear</span>
+                )}
+              </div>
+            </div>
+
+            <div className={`achievement-card ${groups.length >= 1 ? "unlocked" : "locked"}`}>
+              <div className="achievement-icon-wrapper">
+                <Sparkles size={22} />
+              </div>
+              <div className="achievement-info">
+                <h4>Círculo Acadêmico</h4>
+                <p>Criou ou ingressou em um grupo de estudo privado.</p>
+                {groups.length >= 1 ? (
+                  <span className="achievement-date">✓ Desbloqueada</span>
+                ) : (
+                  <span className="achievement-date">Participe de 1 grupo</span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

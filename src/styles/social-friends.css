@@ -99,6 +99,215 @@ body.dark .social-header h1 {
   background: #d32f2f;
 }
 
+/* Ranking e Gamificação Social */
+.ranking-scope-selector {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ranking-scope-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.ranking-privacy-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6c584c;
+}
+
+.ranking-privacy-select select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(108, 88, 76, 0.25);
+  background: #fffdfa;
+  font-size: 13px;
+  color: #2f4a3a;
+  outline: none;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.leaderboard-item {
+  background: #fffdfa;
+  border: 1px solid rgba(108, 88, 76, 0.16);
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: transform 0.15s ease;
+}
+
+.leaderboard-item.is-me {
+  background: rgba(47, 74, 58, 0.06);
+  border: 1.5px solid #2f4a3a;
+}
+
+.leaderboard-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.leaderboard-rank-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #6c584c;
+  background: rgba(108, 88, 76, 0.08);
+}
+
+.leaderboard-rank-badge.rank-1 {
+  background: #ffd700;
+  color: #4a3b00;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+}
+
+.leaderboard-rank-badge.rank-2 {
+  background: #c0c0c0;
+  color: #333333;
+}
+
+.leaderboard-rank-badge.rank-3 {
+  background: #cd7f32;
+  color: #3a2000;
+}
+
+.leaderboard-user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.leaderboard-user-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #2f4a3a;
+}
+
+.leaderboard-user-tag {
+  font-size: 12px;
+  color: #8c7365;
+}
+
+.leaderboard-stats {
+  text-align: right;
+}
+
+.leaderboard-focus-time {
+  font-weight: 700;
+  font-size: 15px;
+  color: #2f4a3a;
+}
+
+.leaderboard-focus-label {
+  font-size: 11px;
+  color: #8c7365;
+}
+
+/* Conquistas Sociais */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.achievement-card {
+  background: #fffdfa;
+  border: 1px solid rgba(108, 88, 76, 0.16);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.achievement-card.unlocked {
+  border-color: #2f4a3a;
+  background: rgba(47, 74, 58, 0.04);
+}
+
+.achievement-card.locked {
+  opacity: 0.6;
+  filter: grayscale(0.8);
+}
+
+.achievement-icon-wrapper {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(108, 88, 76, 0.08);
+  color: #2f4a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.achievement-card.unlocked .achievement-icon-wrapper {
+  background: rgba(47, 74, 58, 0.12);
+  color: #2f4a3a;
+}
+
+.achievement-info h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2f4a3a;
+}
+
+.achievement-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #6c584c;
+  line-height: 1.4;
+}
+
+.achievement-date {
+  font-size: 10px;
+  color: #8c7365;
+  margin-top: 6px;
+  display: block;
+}
+
+/* Partículas de celebração de meta */
+.celebration-confetti-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+@keyframes particle-drop {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
 /* User Card */
 .social-card-list {
   display: grid;

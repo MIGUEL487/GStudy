@@ -48,3 +48,19 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
   4. **RLS Estrita:** Apenas participantes ativos ou salas públicas permitem leitura e envio de mensagens. Varredura pública externa devolve zero registros.
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0008_study_room_chat.sql` e execute no painel **SQL Editor** do projeto Supabase.
+
+---
+
+## 0009_social_gamification_and_rankings.sql
+
+- **Fase:** Fase 5 — Gamificação Social e Rankings (`feat/gamificacao-social`)
+- **Data:** 22/10/2026
+- **Feature Flag Relacionada:** `VITE_FEATURE_SOCIAL`
+- **Conteúdo da Migration:**
+  1. `public.profiles.ranking_visibility`: Campo de privacidade (`public`, `anonymous`, `hidden`), permitindo ao estudante controlar como aparece em placares.
+  2. `public.social_focus_logs`: Registro seguro de sessões de estudo/foco concluídas (minutos de 1 a 300).
+  3. `public.social_achievements`: Conquistas sociais (`first_group_session`, `collective_focus_50h`, etc.) com RLS restrita.
+  4. `public.get_social_leaderboard(p_scope, p_group_id)`: RPC `SECURITY DEFINER SET search_path = ''` que computa o ranking semanal entre amigos ou grupos, mascarando perfis anônimos e ocultando quem optou por privacidade.
+  5. `public.record_room_focus_session(p_room_id, p_minutes)`: RPC `SECURITY DEFINER SET search_path = ''` que registra blocos de foco concluídos e destrava conquistas automaticamente.
+- **Como Aplicar no Supabase:**
+  Copie o conteúdo de `drizzle/migrations/0009_social_gamification_and_rankings.sql` e execute no painel **SQL Editor** do projeto Supabase.
