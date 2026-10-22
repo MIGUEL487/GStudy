@@ -175,7 +175,10 @@ function LoginScreen({ initialError }: { initialError: string }) {
         </p>
       </div>
       <div className="login-art">
-        <img src={loginImage.url} alt="Livro de estudos aberto com páginas e anotações" />
+        <img
+          src={loginImage.url}
+          alt="Iluminação suave de sol da tarde com celular apoiado no sofá"
+        />
       </div>
     </div>
   );
