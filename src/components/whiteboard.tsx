@@ -30,42 +30,59 @@ import {
   sizeBoardImage,
   type ImageBox,
 } from "@/lib/whiteboard-images";
+import {
+  doesEraserTouchMark,
+  drawMark,
+  formatMathPreview,
+  isPointInTextMark,
+  type DrawMark,
+  type DrawTool,
+  type Gesture,
+  type ImageMark,
+  type Mark,
+  type Point,
+  type Tool,
+} from "@/lib/whiteboard-model";
 import "@/styles/whiteboard-images.css";
+import "@/styles/whiteboard-math.css";
 
 export type Board = {
   snapshot: () => string | undefined;
   clear: () => void;
   isLoading?: () => boolean;
 };
-type DrawTool = "pen" | "eraser" | "text" | "rectangle" | "ellipse" | "line" | "arrow";
-type Tool = DrawTool | "select";
-type Point = { x: number; y: number };
-type DrawMark = { tool: DrawTool; color: string; size: number; points: Point[]; text: string };
-type ImageMark = ImageBox & { tool: "image"; id: string; source: HTMLCanvasElement; name: string };
-type Mark = DrawMark | ImageMark;
-type Gesture =
-  | { pointerId: number; kind: "draw"; mark: DrawMark }
-  | {
-      pointerId: number;
-      kind: "move" | "resize";
-      original: ImageMark;
-      start: Point;
-      preview: ImageMark;
-    };
+
+export type { DrawMark, DrawTool, Gesture, ImageMark, Mark, Point, Tool };
+
+type TextSession = {
+  blockId: string;
+  lineIndex: number;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  text: string;
+  color: string;
+  size: number;
+};
+
 const chalkBackground = "#2f4a3a",
   paperBackground = "#fcf7ec";
+
 const chalkColors = [
   { value: "#f3efe2", name: "Branco" },
   { value: "#f5d76e", name: "Amarelo" },
   { value: "#7fd1ae", name: "Verde" },
   { value: "#f28b82", name: "Rosa" },
 ];
+
 const paperColors = [
   { value: "#493729", name: "Marrom" },
   { value: "#ac5a3e", name: "Terracota" },
   { value: "#4f7561", name: "Verde" },
   { value: "#486d89", name: "Azul" },
 ];
+
 const tools = [
   { id: "select", label: "Mover imagem", Icon: Move },
   { id: "pen", label: "Giz", Icon: Pencil },
@@ -78,98 +95,63 @@ const tools = [
   { id: "arrow", label: "Seta", Icon: ArrowUpRight },
 ] as const;
 
-function drawMark(g: CanvasRenderingContext2D, mark: Mark, background: string) {
-  if (mark.tool === "image") {
-    g.drawImage(mark.source, mark.x, mark.y, mark.width, mark.height);
-    return;
-  }
-  const a = mark.points[0],
-    b = mark.points.at(-1);
-  if (!a || !b) return;
-  g.strokeStyle = mark.tool === "eraser" ? background : mark.color;
-  g.fillStyle = g.strokeStyle;
-  g.lineWidth = mark.tool === "eraser" ? 26 : 4;
-  g.lineCap = "round";
-  g.lineJoin = "round";
-  g.beginPath();
-  if (mark.tool === "text") {
-    g.font = `${mark.size}px sans-serif`;
-    g.textBaseline = "top";
-    mark.text
-      .split("\n")
-      .forEach((line, index) => g.fillText(line, a.x, a.y + index * mark.size * 1.25));
-    return;
-  }
-  if (mark.tool === "rectangle") g.rect(a.x, a.y, b.x - a.x, b.y - a.y);
-  else if (mark.tool === "ellipse")
-    g.ellipse(
-      (a.x + b.x) / 2,
-      (a.y + b.y) / 2,
-      Math.abs(b.x - a.x) / 2,
-      Math.abs(b.y - a.y) / 2,
-      0,
-      0,
-      Math.PI * 2,
-    );
-  else if (mark.tool === "line" || mark.tool === "arrow") {
-    g.moveTo(a.x, a.y);
-    g.lineTo(b.x, b.y);
-    if (mark.tool === "arrow") {
-      const angle = Math.atan2(b.y - a.y, b.x - a.x);
-      for (const offset of [-Math.PI / 6, Math.PI / 6]) {
-        g.moveTo(b.x, b.y);
-        g.lineTo(b.x - 18 * Math.cos(angle + offset), b.y - 18 * Math.sin(angle + offset));
-      }
-    }
-  } else {
-    g.moveTo(a.x, a.y);
-    mark.points.slice(1).forEach((p) => g.lineTo(p.x, p.y));
-    if (mark.points.length === 1) {
-      g.arc(a.x, a.y, g.lineWidth / 2, 0, Math.PI * 2);
-      g.fill();
-      return;
-    }
-  }
-  g.stroke();
-}
+const SIZES = [
+  { id: "P", px: 20 },
+  { id: "M", px: 28 },
+  { id: "G", px: 40 },
+] as const;
+
 export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "chalk" | "paper" }>(
   function Whiteboard({ disabled = false, variant = "chalk" }, ref) {
     const paper = variant === "paper",
       background = paper ? paperBackground : chalkBackground,
       colors = paper ? paperColors : chalkColors;
+
     const canvas = useRef<HTMLCanvasElement>(null),
-      fileInput = useRef<HTMLInputElement>(null);
+      fileInput = useRef<HTMLInputElement>(null),
+      overlayInputRef = useRef<HTMLInputElement>(null);
+
     const marks = useRef<Mark[]>([]),
       past = useRef<Mark[][]>([]),
       future = useRef<Mark[][]>([]),
       gesture = useRef<Gesture | null>(null);
+
     const upload = useRef(0),
       loadingRef = useRef(false),
       alive = useRef(true),
       disabledRef = useRef(disabled);
     disabledRef.current = disabled;
+
     const [tool, setTool] = useState<Tool>("pen"),
       [color, setColor] = useState(colors[0]!.value),
       [text, setText] = useState(""),
-      [size, setSize] = useState(28);
+      [size, setSize] = useState(28),
+      [formulasEnabled, setFormulasEnabled] = useState(true);
+
     const [selected, setSelected] = useState<string | null>(null),
       [loading, setLoading] = useState(false),
       [imageError, setImageError] = useState("");
+
     const [history, setHistory] = useState({ undo: 0, redo: 0 });
+    const [textSession, setTextSession] = useState<TextSession | null>(null);
+
     const selectedImage = marks.current.find(
       (mark): mark is ImageMark => mark.tool === "image" && mark.id === selected,
     );
+
     const refresh = (editing = true) => {
       const c = canvas.current,
         g = c?.getContext("2d");
       if (!c || !g) return;
       g.fillStyle = background;
       g.fillRect(0, 0, c.width, c.height);
+
       if (paper) {
         g.fillStyle = "#dfd4c1";
         for (let x = 24; x < c.width; x += 24)
           for (let y = 24; y < c.height; y += 24) g.fillRect(x, y, 1, 1);
       }
+
       const active = editing ? gesture.current : null;
       marks.current.forEach((mark) =>
         drawMark(
@@ -183,13 +165,16 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
           background,
         ),
       );
+
       if (active?.kind === "draw") drawMark(g, active.mark, background);
+
       const selection =
         active && active.kind !== "draw"
           ? active.preview
           : marks.current.find(
               (mark): mark is ImageMark => mark.tool === "image" && mark.id === selected,
             );
+
       if (editing && selection && tool === "select" && !disabled) {
         const scale = c.width / (c.getBoundingClientRect().width || c.width);
         g.save();
@@ -212,7 +197,9 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         g.restore();
       }
     };
+
     const changed = () => setHistory({ undo: past.current.length, redo: future.current.length });
+
     const replace = (scene: Mark[]) => {
       past.current = [...past.current.slice(-39), marks.current];
       future.current = [];
@@ -220,6 +207,29 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       refresh();
       changed();
     };
+
+    const commit = (mark: Mark) => replace([...marks.current, mark]);
+
+    const finishTextSession = () => {
+      if (textSession) {
+        const trimmed = textSession.text.trim();
+        if (trimmed) {
+          const newMark: DrawMark = {
+            tool: "text",
+            color: textSession.color,
+            size: textSession.size,
+            points: [{ x: textSession.currentX, y: textSession.currentY }],
+            text: trimmed,
+            blockId: textSession.blockId,
+            lineIndex: textSession.lineIndex,
+            formatted: formulasEnabled,
+          };
+          commit(newMark);
+        }
+        setTextSession(null);
+      }
+    };
+
     const clear = () => {
       upload.current++;
       loadingRef.current = false;
@@ -230,32 +240,65 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       future.current = [];
       setSelected(null);
       setImageError("");
+      setTextSession(null);
       refresh();
       changed();
     };
+
     useEffect(() => {
       alive.current = true;
+      const uploadRef = upload;
       return () => {
         alive.current = false;
-        upload.current++;
+        uploadRef.current++;
       };
     }, []);
+
     useEffect(() => {
       if (disabled) {
         gesture.current = null;
         upload.current++;
         loadingRef.current = false;
         setLoading(false);
+        if (textSession) {
+          const trimmed = textSession.text.trim();
+          if (trimmed) {
+            const newMark: DrawMark = {
+              tool: "text",
+              color: textSession.color,
+              size: textSession.size,
+              points: [{ x: textSession.currentX, y: textSession.currentY }],
+              text: trimmed,
+              blockId: textSession.blockId,
+              lineIndex: textSession.lineIndex,
+              formatted: formulasEnabled,
+            };
+            past.current = [...past.current.slice(-39), marks.current];
+            future.current = [];
+            marks.current = [...marks.current, newMark];
+          }
+          setTextSession(null);
+        }
       }
       refresh();
-    }, [disabled, tool, selected, variant]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [disabled, tool, selected, variant, formulasEnabled]);
+
     useEffect(() => {
       const resize = () => refresh();
       window.addEventListener("resize", resize);
       return () => window.removeEventListener("resize", resize);
     });
+
+    useEffect(() => {
+      if (textSession && overlayInputRef.current) {
+        overlayInputRef.current.focus();
+      }
+    }, [textSession]);
+
     useImperativeHandle(ref, () => ({
       snapshot: () => {
+        finishTextSession();
         if (!marks.current.some((mark) => mark.tool !== "eraser")) return undefined;
         refresh(false);
         try {
@@ -267,7 +310,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       clear,
       isLoading: () => loadingRef.current,
     }));
-    const commit = (mark: Mark) => replace([...marks.current, mark]);
+
     const pos = (e: RPointerEvent<HTMLCanvasElement>): Point => {
       const r = e.currentTarget.getBoundingClientRect();
       return {
@@ -284,9 +327,11 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         ),
       };
     };
+
     const down = (e: RPointerEvent<HTMLCanvasElement>) => {
       if (disabled || loadingRef.current || gesture.current || e.button !== 0) return;
       const point = pos(e);
+
       if (tool === "select") {
         const c = e.currentTarget,
           range = (22 * c.width) / (c.getBoundingClientRect().width || c.width);
@@ -321,25 +366,108 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         refresh();
         return;
       }
-      if (tool === "text" && !text.trim()) return;
-      const mark: DrawMark = { tool, color, size, points: [point], text: text.trim() };
+
       if (tool === "text") {
-        commit(mark);
+        // If legacy text from toolbar textarea was provided, insert it directly
+        if (text.trim()) {
+          const mark: DrawMark = {
+            tool: "text",
+            color,
+            size,
+            points: [point],
+            text: text.trim(),
+            formatted: false,
+          };
+          commit(mark);
+          return;
+        }
+
+        // Check if user clicked on an existing text mark to edit it
+        const hitMark = [...marks.current]
+          .reverse()
+          .find(
+            (mark): mark is DrawMark =>
+              mark.tool === "text" &&
+              isPointInTextMark(point, mark, canvas.current?.getContext("2d") ?? undefined),
+          );
+
+        if (hitMark) {
+          finishTextSession();
+          // Remove from marks so it doesn't double-render during edit
+          marks.current = marks.current.filter((m) => m !== hitMark);
+          refresh();
+          setTextSession({
+            blockId: hitMark.blockId ?? crypto.randomUUID(),
+            lineIndex: hitMark.lineIndex ?? 0,
+            startX: hitMark.points[0]!.x,
+            startY: hitMark.points[0]!.y,
+            currentX: hitMark.points[0]!.x,
+            currentY: hitMark.points[0]!.y,
+            text: hitMark.text,
+            color: hitMark.color,
+            size: hitMark.size,
+          });
+          return;
+        }
+
+        // Clicked elsewhere on canvas: commit previous session if any and open new sequence
+        finishTextSession();
+        const newBlockId = crypto.randomUUID();
+        setTextSession({
+          blockId: newBlockId,
+          lineIndex: 0,
+          startX: point.x,
+          startY: point.y,
+          currentX: point.x,
+          currentY: point.y,
+          text: "",
+          color,
+          size,
+        });
         return;
       }
+
+      // If text session was open and user switched or clicked with another tool, finish it
+      if (textSession) {
+        finishTextSession();
+      }
+
+      const mark: DrawMark = { tool, color, size, points: [point], text: "" };
       e.currentTarget.setPointerCapture(e.pointerId);
       gesture.current = { pointerId: e.pointerId, kind: "draw", mark };
+
+      if (tool === "eraser") {
+        eraseAtPoint(point);
+      }
+
       refresh();
     };
+
+    const eraseAtPoint = (point: Point) => {
+      const g = canvas.current?.getContext("2d") ?? undefined;
+      const touched = marks.current.filter(
+        (m) => m.tool === "text" && doesEraserTouchMark(point, m, 24, g),
+      );
+      if (touched.length > 0) {
+        replace(marks.current.filter((m) => !touched.includes(m)));
+      }
+    };
+
     const extend = (e: RPointerEvent<HTMLCanvasElement>) => {
       const current = gesture.current;
       if (!current || current.pointerId !== e.pointerId) return;
       const point = pos(e);
+
       if (current.kind === "draw") {
         if (current.mark.tool === "pen" || current.mark.tool === "eraser") {
           const previous = current.mark.points.at(-1)!;
           if (previous.x !== point.x || previous.y !== point.y) current.mark.points.push(point);
-        } else current.mark.points = [current.mark.points[0]!, point];
+          if (current.mark.tool === "eraser") {
+            eraseAtPoint(point);
+          }
+        } else {
+          current.mark.points = [current.mark.points[0]!, point];
+        }
       } else {
         const dx = point.x - current.start.x,
           dy = point.y - current.start.y,
@@ -358,6 +486,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       }
       refresh();
     };
+
     const up = (e: RPointerEvent<HTMLCanvasElement>) => {
       const current = gesture.current;
       if (!current || current.pointerId !== e.pointerId) return;
@@ -365,6 +494,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       gesture.current = null;
       if (e.currentTarget.hasPointerCapture(e.pointerId))
         e.currentTarget.releasePointerCapture(e.pointerId);
+
       if (current.kind !== "draw") {
         const a = current.original,
           b = current.preview;
@@ -375,8 +505,10 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         else refresh();
         return;
       }
+
       const a = current.mark.points[0]!,
         b = current.mark.points.at(-1)!;
+
       if (
         current.mark.tool !== "pen" &&
         current.mark.tool !== "eraser" &&
@@ -387,11 +519,14 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       }
       commit(current.mark);
     };
+
     const cancel = () => {
       gesture.current = null;
       refresh();
     };
+
     const undo = () => {
+      finishTextSession();
       const scene = past.current.pop();
       if (scene) {
         future.current.push(marks.current);
@@ -401,7 +536,9 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       cancel();
       changed();
     };
+
     const redo = () => {
+      finishTextSession();
       const scene = future.current.pop();
       if (scene) {
         past.current.push(marks.current);
@@ -411,6 +548,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       cancel();
       changed();
     };
+
     const insertImage = async (file?: File) => {
       if (!file || disabledRef.current || loadingRef.current) return;
       if (marks.current.filter((mark) => mark.tool === "image").length >= 6) {
@@ -450,6 +588,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         }
       }
     };
+
     const adjustImage = (action: "smaller" | "larger" | "center" | "remove") => {
       const c = canvas.current;
       if (!selectedImage || !c || disabled || loading) return;
@@ -474,7 +613,9 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         marks.current.map((mark) => (mark === selectedImage ? { ...selectedImage, ...box } : mark)),
       );
     };
+
     const locked = disabled || loading;
+
     const palette = colors.map((c) => (
       <button
         key={c.value}
@@ -485,17 +626,43 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         aria-pressed={color === c.value}
         className={`chalk ${color === c.value ? "on" : ""}`}
         style={{ background: c.value }}
-        onClick={() => setColor(c.value)}
+        onClick={() => {
+          setColor(c.value);
+          if (textSession) {
+            setTextSession({ ...textSession, color: c.value });
+          }
+        }}
       />
     ));
+
     const hint =
       tool === "select"
         ? "Toque na imagem para selecionar. Arraste para mover e puxe o canto para ajustar."
         : tool === "text"
-          ? "Digite acima e clique para inserir."
+          ? "Clique na lousa para abrir o cursor. Digite texto ou fórmulas matemáticas."
           : tool === "pen" || tool === "eraser"
             ? "Desenhe com o mouse ou com o dedo."
             : "Arraste para desenhar a forma.";
+
+    // Overlay cursor coordinates relative to canvas display size
+    const getOverlayStyle = () => {
+      if (!textSession || !canvas.current) return { display: "none" };
+      const c = canvas.current;
+      const rect = c.getBoundingClientRect();
+      const scaleX = rect.width / c.width;
+      const scaleY = rect.height / c.height;
+
+      const left = Math.min(Math.max(0, textSession.currentX * scaleX), rect.width - 120);
+      const top = Math.min(Math.max(0, textSession.currentY * scaleY), rect.height - 40);
+      const fontSize = Math.max(12, Math.round(textSession.size * scaleY));
+
+      return {
+        left: `${left}px`,
+        top: `${top}px`,
+        fontSize: `${fontSize}px`,
+      };
+    };
+
     return (
       <div className={`whiteboard ${paper ? "whiteboard--paper" : ""}`}>
         <div className="wb-toolbar-shell">
@@ -518,6 +685,9 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                 onClick={() => {
                   if (id === "image") fileInput.current?.click();
                   else {
+                    if (tool === "text" && id !== "text") {
+                      finishTextSession();
+                    }
                     gesture.current = null;
                     setTool(id);
                   }
@@ -526,7 +696,51 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                 <Icon size={18} />
               </button>
             ))}
+
             <span className="wb-divider" />
+
+            <button
+              type="button"
+              disabled={locked}
+              title={
+                formulasEnabled
+                  ? "Fórmulas matemáticas ativadas (clique para desativar)"
+                  : "Fórmulas matemáticas desativadas (clique para ativar)"
+              }
+              aria-label="Fórmulas matemáticas"
+              aria-pressed={formulasEnabled}
+              className={`icon-btn wb-formula-toggle ${formulasEnabled ? "on" : ""}`}
+              onClick={() => setFormulasEnabled((prev) => !prev)}
+            >
+              <span className="wb-formula-icon" aria-hidden="true">
+                √x
+              </span>
+            </button>
+
+            <div className="wb-size-group" role="group" aria-label="Tamanho do traço e texto">
+              {SIZES.map(({ id, px }) => (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={locked}
+                  title={`Tamanho ${id} (${px}px)`}
+                  aria-label={`Tamanho ${id}`}
+                  aria-pressed={size === px}
+                  className={`wb-size-btn ${size === px ? "on" : ""}`}
+                  onClick={() => {
+                    setSize(px);
+                    if (textSession) {
+                      setTextSession({ ...textSession, size: px });
+                    }
+                  }}
+                >
+                  {id}
+                </button>
+              ))}
+            </div>
+
+            <span className="wb-divider" />
+
             <button
               type="button"
               disabled={locked || !history.undo}
@@ -557,6 +771,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                 replace([]);
                 setSelected(null);
                 setImageError("");
+                finishTextSession();
               }}
             >
               <Trash2 size={18} />
@@ -581,6 +796,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             }}
           />
         </div>
+
         {loading && (
           <p className="wb-image-notice" role="status">
             Preparando a imagem…{" "}
@@ -591,11 +807,13 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             </span>
           </p>
         )}
+
         {imageError && (
           <p className="wb-image-notice is-error" role="alert">
             {imageError}
           </p>
         )}
+
         {tool === "select" && (
           <div className="wb-image-controls" role="group" aria-label="Ajustar imagem selecionada">
             <span title={selectedImage?.name}>{selectedImage?.name ?? "Selecione uma imagem"}</span>
@@ -638,6 +856,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             <small>Arraste para mover · Puxe o canto para redimensionar</small>
           </div>
         )}
+
         {tool === "text" && (
           <div className="wb-text-controls">
             <label>
@@ -648,7 +867,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                 value={text}
                 disabled={locked}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Digite e clique na lousa para posicionar"
+                placeholder="Digite texto ou clique diretamente na lousa para posicionar"
               />
             </label>
             <label>
@@ -656,9 +875,15 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
               <select
                 value={size}
                 disabled={locked}
-                onChange={(e) => setSize(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setSize(val);
+                  if (textSession) {
+                    setTextSession({ ...textSession, size: val });
+                  }
+                }}
               >
-                {[20, 28, 36, 48].map((n) => (
+                {[20, 28, 36, 40, 48].map((n) => (
                   <option key={n} value={n}>
                     {n} px
                   </option>
@@ -667,20 +892,130 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             </label>
           </div>
         )}
-        <canvas
-          ref={canvas}
-          width={paper ? 1200 : 720}
-          height={paper ? 720 : 420}
-          aria-label="Lousa para desenhar, inserir texto e formas"
-          aria-description="Também aceita imagens: use Inserir imagem e Mover imagem."
-          aria-disabled={locked}
-          className={tool === "select" ? "is-selecting-image" : undefined}
-          onPointerDown={down}
-          onPointerMove={extend}
-          onPointerUp={up}
-          onPointerCancel={cancel}
-          onLostPointerCapture={cancel}
-        />
+
+        <div className="wb-canvas-container">
+          <canvas
+            ref={canvas}
+            width={paper ? 1200 : 720}
+            height={paper ? 720 : 420}
+            aria-label="Lousa para desenhar, inserir texto e formas"
+            aria-description="Também aceita imagens: use Inserir imagem e Mover imagem."
+            aria-disabled={locked}
+            className={tool === "select" ? "is-selecting-image" : undefined}
+            onPointerDown={down}
+            onPointerMove={extend}
+            onPointerUp={up}
+            onPointerCancel={cancel}
+            onLostPointerCapture={cancel}
+          />
+
+          {textSession && (
+            <div
+              className="wb-text-overlay"
+              style={getOverlayStyle()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="wb-text-overlay-row">
+                <input
+                  ref={overlayInputRef}
+                  type="text"
+                  className="wb-text-overlay-input"
+                  value={textSession.text}
+                  placeholder="Texto ou fórmula..."
+                  aria-label="Cursor de texto da lousa"
+                  style={{ color: textSession.color }}
+                  onChange={(e) => {
+                    setTextSession({ ...textSession, text: e.target.value });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      if (e.shiftKey || e.ctrlKey) {
+                        e.preventDefault();
+                        return;
+                      }
+                      e.preventDefault();
+                      const val = textSession.text.trim();
+                      if (val) {
+                        const newMark: DrawMark = {
+                          tool: "text",
+                          color: textSession.color,
+                          size: textSession.size,
+                          points: [{ x: textSession.currentX, y: textSession.currentY }],
+                          text: val,
+                          blockId: textSession.blockId,
+                          lineIndex: textSession.lineIndex,
+                          formatted: formulasEnabled,
+                        };
+                        past.current = [...past.current.slice(-39), marks.current];
+                        future.current = [];
+                        marks.current = [...marks.current, newMark];
+                        refresh();
+                        changed();
+                      }
+                      // Advance to next line at 1.4x font size below
+                      const nextY = textSession.currentY + Math.round(textSession.size * 1.4);
+                      setTextSession({
+                        ...textSession,
+                        lineIndex: textSession.lineIndex + 1,
+                        currentX: textSession.startX,
+                        currentY: nextY,
+                        text: "",
+                      });
+                      return;
+                    }
+
+                    if (e.key === "Backspace") {
+                      if (textSession.text === "" && textSession.lineIndex > 0) {
+                        e.preventDefault();
+                        const prevIndex = textSession.lineIndex - 1;
+                        const prevMark = marks.current.find(
+                          (m): m is DrawMark =>
+                            m.tool === "text" &&
+                            m.blockId === textSession.blockId &&
+                            m.lineIndex === prevIndex,
+                        );
+                        if (prevMark) {
+                          marks.current = marks.current.filter((m) => m !== prevMark);
+                          refresh();
+                          changed();
+                          setTextSession({
+                            ...textSession,
+                            lineIndex: prevIndex,
+                            currentX: prevMark.points[0]!.x,
+                            currentY: prevMark.points[0]!.y,
+                            text: prevMark.text,
+                          });
+                        }
+                        return;
+                      }
+                    }
+
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      finishTextSession();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="wb-text-overlay-done"
+                  onClick={finishTextSession}
+                  title="Concluir edição de texto"
+                >
+                  Concluir
+                </button>
+              </div>
+
+              {formulasEnabled && textSession.text.trim() && (
+                <div className="wb-text-overlay-preview" aria-live="polite">
+                  <span className="wb-preview-badge">Prévia:</span>
+                  <span>{formatMathPreview(textSession.text, true)}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className={paper ? "wb-status" : "wb-tools"}>
           {!paper && palette}
           <small className="wb-hint">{hint}</small>

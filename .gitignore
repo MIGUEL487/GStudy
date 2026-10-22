@@ -27,6 +27,7 @@ dist-ssr
 # Security and audit runs
 strix_runs/
 .taste-skill/
+.agent-progress.md
 
 # Editor directories and files
 .vscode/*
