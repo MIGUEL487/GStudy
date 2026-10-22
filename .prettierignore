@@ -14,3 +14,4 @@ package-lock.json
 bun.lock
 routeTree.gen.ts
 src/routeTree.gen.ts
+*.sql

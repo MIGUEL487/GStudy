@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AmigosRouteImport } from './routes/amigos'
 import { Route as CalendarioRouteImport } from './routes/calendario'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as PrepararRouteImport } from './routes/preparar'
@@ -30,6 +31,11 @@ import { Route as PrepararQuestoesRouteImport } from './routes/preparar_.questoe
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AmigosRoute = AmigosRouteImport.update({
+  id: '/amigos',
+  path: '/amigos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarioRoute = CalendarioRouteImport.update({
@@ -115,6 +121,7 @@ const PrepararQuestoesRoute = PrepararQuestoesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/amigos': typeof AmigosRoute
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/amigos': typeof AmigosRoute
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
@@ -154,6 +162,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/amigos': typeof AmigosRoute
   '/calendario': typeof CalendarioRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/amigos'
     | '/calendario'
     | '/configuracoes'
     | '/preparar'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/amigos'
     | '/calendario'
     | '/configuracoes'
     | '/preparar'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/amigos'
     | '/calendario'
     | '/configuracoes'
     | '/preparar'
@@ -233,6 +245,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AmigosRoute: typeof AmigosRoute
   CalendarioRoute: typeof CalendarioRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   PrepararRoute: typeof PrepararRoute
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/amigos': {
+      id: '/amigos'
+      path: '/amigos'
+      fullPath: '/amigos'
+      preLoaderRoute: typeof AmigosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendario': {
@@ -377,6 +397,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AmigosRoute: AmigosRoute,
   CalendarioRoute: CalendarioRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   PrepararRoute: PrepararRoute,

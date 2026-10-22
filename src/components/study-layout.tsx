@@ -9,6 +9,7 @@ import {
   LogOut,
   GraduationCap,
   Compass,
+  Users,
 } from "lucide-react";
 import { useAuth } from "./auth-gate";
 import { Avatar, useDisplayName } from "./avatar";
@@ -21,6 +22,7 @@ import { SocratesIcon } from "./socrates-icon";
 import { RecallResume } from "./recall-resume";
 import { SyncStatus } from "./account-sync-provider";
 import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from "./study-session-controls";
+import { isSocialFeatureEnabled } from "@/lib/social-model";
 
 const navigation = [
   { to: "/", label: "Início", mobileLabel: "Início", icon: Home },
@@ -51,8 +53,16 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     return () => transition.cancel();
   }, [path]);
   const selected = (to: string) =>
-    ["/aprender", "/preparar"].includes(to) ? path.startsWith(to) : path === to;
-  const pageName = navigation.find((item) => selected(item.to))?.label ?? "Minhas matérias";
+    ["/aprender", "/preparar", "/amigos"].includes(to) ? path.startsWith(to) : path === to;
+  const socialEnabled = isSocialFeatureEnabled();
+  const currentNav = socialEnabled
+    ? [
+        ...navigation.slice(0, 4),
+        { to: "/amigos" as const, label: "Amigos", mobileLabel: "Amigos", icon: Users },
+        ...navigation.slice(4),
+      ]
+    : navigation;
+  const pageName = currentNav.find((item) => selected(item.to))?.label ?? "Minhas matérias";
   return (
     <div className={`app-shell ${focused ? "is-test-focused" : ""}`}>
       <aside className="sidebar" inert={focused} aria-hidden={focused || undefined}>
@@ -62,7 +72,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         </Link>
         <div className="side-caption">SEU ESPAÇO</div>
         <nav className="side-nav" aria-label="Navegação principal">
-          {navigation.map(({ to, label, icon: Icon }) => (
+          {currentNav.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
               to={to}
@@ -167,7 +177,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         inert={focused}
         aria-hidden={focused || undefined}
       >
-        {navigation.map(({ to, label, mobileLabel, icon: Icon }) => (
+        {currentNav.map(({ to, label, mobileLabel, icon: Icon }) => (
           <Link
             key={to}
             to={to}
