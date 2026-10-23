@@ -59,7 +59,7 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [roomTopic, setRoomTopic] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(true);
   const [maxParticipants, setMaxParticipants] = useState(8);
 
   // In-room goal editing
@@ -763,7 +763,7 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
     <div className="rooms-container">
       <div className="rooms-header">
         <div className="rooms-header-title">
-          <h1>Salas de Estudo ao Vivo</h1>
+          <h2>Salas de estudo</h2>
           <p>Estude em tempo real com amigos e colegas com Pomodoro compartilhado.</p>
         </div>
 

@@ -1,8 +1,11 @@
-import { useState } from "react";
-import { Radio, Users, Gamepad2, Sparkles } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { m, AnimatePresence } from "motion/react";
+import { Radio, Users, Gamepad2 } from "lucide-react";
 import { StudyRoomsView } from "./study-rooms-view";
 import { SocialFriendsPanel } from "./social-friends-panel";
-import { GameCatalog } from "./games/game-catalog";
+const GameCatalog = lazy(() =>
+  import("./games/game-catalog").then((module) => ({ default: module.GameCatalog })),
+);
 import "@/styles/sessions-and-social.css";
 
 export type SessionTab = "rooms" | "groups" | "games";
@@ -13,14 +16,15 @@ interface SessionsViewProps {
 
 export function SessionsView({ initialTab = "rooms" }: SessionsViewProps) {
   const [tab, setTab] = useState<SessionTab>(initialTab);
+  useEffect(() => setTab(initialTab), [initialTab]);
 
   return (
     <div className="sessions-container space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <header className="sessions-heading">
         <div>
-          <h1 className="text-2xl font-serif font-bold text-foreground">Sessões Coletivas</h1>
+          <h1>Sessões</h1>
           <p className="text-sm text-muted-foreground">
-            Estude com foco compartilhado, participe de grupos ou dispute desafios de conhecimento.
+            Um lugar para estudar junto. Escolha uma sala ou reúna seu grupo.
           </p>
         </div>
 
@@ -61,13 +65,27 @@ export function SessionsView({ initialTab = "rooms" }: SessionsViewProps) {
             <span>Jogos</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {tab === "rooms" && <StudyRoomsView />}
-
-      {tab === "groups" && <SocialFriendsPanel initialTab="groups" />}
-
-      {tab === "games" && <GameCatalog />}
+      <AnimatePresence mode="wait" initial={false}>
+        <m.div
+          key={tab}
+          className="sessions-panel"
+          role="tabpanel"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.15 }}
+        >
+          {tab === "rooms" && <StudyRoomsView />}
+          {tab === "groups" && <SocialFriendsPanel initialTab="groups" groupsOnly />}
+          {tab === "games" && (
+            <Suspense fallback={<p role="status">Carregando jogos…</p>}>
+              <GameCatalog />
+            </Suspense>
+          )}
+        </m.div>
+      </AnimatePresence>
     </div>
   );
 }

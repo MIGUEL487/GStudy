@@ -245,7 +245,7 @@ describe("Bloco 3: Sessões, DMs, Notificações e Amigos", () => {
   });
 
   describe("Componente SessionsView (Segmentação)", () => {
-    it("renderiza os três modos segmentados e alterna entre Salas, Grupos e Jogos", () => {
+    it("renderiza os três modos segmentados e alterna entre Salas, Grupos e Jogos", async () => {
       render(<SessionsView initialTab="rooms" />);
 
       expect(screen.getByTestId("mock-rooms-view")).toBeInTheDocument();
@@ -259,7 +259,7 @@ describe("Bloco 3: Sessões, DMs, Notificações e Amigos", () => {
       const gamesBtn = screen.getByRole("tab", { name: /Jogos/i });
       fireEvent.click(gamesBtn);
       expect(
-        screen.getByRole("tablist", { name: "Filtrar jogos por matéria" }),
+        await screen.findByRole("tablist", { name: "Filtrar jogos por matéria" }),
       ).toBeInTheDocument();
     });
   });

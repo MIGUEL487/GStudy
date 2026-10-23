@@ -35,7 +35,7 @@ import {
   type PreparationKind,
   type PreparationResearch,
 } from "@/lib/preparation-model";
-import { schoolYearLabel, schoolYears } from "@/lib/school-year";
+import { schoolYearLabel } from "@/lib/school-year";
 import "@/styles/preparation.css";
 
 export const Route = createFileRoute("/preparar")({
@@ -307,29 +307,11 @@ export function PreparationPage({ search = {} }: { search?: { p?: string | undef
                 <p className="prep-intro">
                   Me conte um pouco sobre você. A preparação começa pelo seu momento.
                 </p>
-                <label className="form-label">
-                  Em que ano você está?
-                  <select
-                    className="form-input"
-                    aria-label="Em que ano você está?"
-                    value={schoolYear}
-                    onChange={(event) => {
-                      setYear(event.target.value);
-                      setResearch(null);
-                    }}
-                  >
-                    <option value="">Escolha seu ano ou etapa</option>
-                    {schoolYears.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <p className="form-label">{schoolYearLabel(schoolYear)}</p>
                 <small className="prep-caption">
                   Você pode alterar isso depois em{" "}
                   <Link to="/configuracoes" search={{ tab: "profile" }}>
-                    Configurações / Perfil
+                    Alterar ano em Configurações
                   </Link>
                   .
                 </small>

@@ -9,7 +9,8 @@
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right))
+    max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
   overflow-y: auto;
   box-sizing: border-box;
 }
@@ -62,7 +63,9 @@
   font-size: 0.875rem;
   cursor: pointer;
   border-radius: var(--radius);
-  transition: color 150ms ease, background-color 150ms ease;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
 }
 
 .onboarding-back-btn:hover:not(:disabled) {
@@ -130,7 +133,9 @@
   border-radius: var(--radius);
   color: var(--foreground);
   font-size: 1rem;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
   box-sizing: border-box;
 }
 
@@ -175,7 +180,10 @@
   color: var(--foreground);
   cursor: pointer;
   text-align: left;
-  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
 }
 
 .onboarding-option-card:hover {
@@ -217,7 +225,9 @@
   border-radius: var(--radius);
   border: none;
   cursor: pointer;
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
 }
 
 .onboarding-next-btn:hover:not(:disabled) {

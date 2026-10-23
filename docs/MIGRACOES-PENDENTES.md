@@ -2,6 +2,26 @@
 
 Este documento rastreia as migrations geradas no código e prontas para execução nos ambientes de banco de dados do Supabase.
 
+## Ordem e limites de aplicação
+
+Em um banco novo, aplique `0000` a `0013`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. A correção `0013` é aditiva e pode ser reaplicada.
+
+Nenhuma migração foi aplicada ao banco remoto durante esta correção. O harness PGlite executa a sequência completa com `auth.uid()` e os papéis `anon`, `authenticated` e `service_role`; verifica acessos e escritas reais entre duas identidades, inclusive tentativas indevidas.
+
+## 0013_social_security_hardening.sql
+
+- Bloqueios bilaterais passam a valer para perfis, salas, participantes e mensagens privadas, mesmo quando os usuários compartilham um grupo.
+- A entrada por código acontece na RPC `join_study_group(p_code)`, com registro de convite aceito. Inserir diretamente uma participação arbitrária não permite entrar em grupos de terceiros ou virar administrador.
+- Participantes não podem transferir a autoria ou o grupo da sala, alterar privacidade ou encerramento, nem transferir a própria participação para outra sala ou conta. Salas novas são privadas por padrão.
+- O servidor define nome e data das mensagens de sala. O envio, inclusive pela RPC histórica, valida acesso e aplica limite de 20 mensagens por minuto, serializado por remetente.
+- Mensagens privadas também têm limite de 20/minuto. Somente o destinatário pode atualizar `read_at`; conteúdo e autoria não podem ser alterados. Notificações são criadas pelo servidor; o cliente só marca leitura ou exclui as próprias notificações.
+- Tipos adicionais de notificação: `direct_message`, `missed_call`, `game_challenge`. Os dois últimos preparam o schema; não comprovam implementação dos fluxos de chamada e desafio.
+- A limpeza de chat fica restrita a `service_role`. Se `pg_cron` já existir, registra uma tarefa horária idempotente. Se não existir, o administrador precisa configurar um agendador seguro para `cleanup_old_room_messages()`; a política de leitura já oculta mensagens com mais de 24 horas.
+- Habilite Realtime para `friendships`, `direct_messages`, `notifications`, `study_room_participants` e `study_room_messages` conforme os recursos utilizados. A autorização de canais privados e o funcionamento do Realtime remoto ainda exigem validação no projeto Supabase.
+- Mantenha `VITE_FEATURE_SOCIAL` e `VITE_FEATURE_VOICE` conforme o ambiente. As credenciais existentes continuam nas configurações seguras; nenhum segredo deve entrar neste documento.
+
+Reversão: reverta o commit da aplicação se necessário. Para o banco, prepare uma nova migração corretiva após revisar os dados; não apague mensagens, perfis ou tabelas para desfazer o endurecimento.
+
 ---
 
 ## 0006_social_friends_and_groups.sql
@@ -81,7 +101,6 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0010_fix_rls_recursion_and_room_chat_columns.sql` e execute no painel **SQL Editor** do projeto Supabase.
 
-
 ---
 
 ## 0011_student_profile_and_onboarding.sql
@@ -96,7 +115,6 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
   4. `public.advance_school_year(p_new_school_year text)`: RPC `SECURITY DEFINER SET search_path = ''` para virada anual de ano escolar com carimbo temporal.
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0011_student_profile_and_onboarding.sql` e execute no painel **SQL Editor** do projeto Supabase.
-
 
 ---
 

@@ -25,6 +25,7 @@ import { SyncStatus } from "./account-sync-provider";
 import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from "./study-session-controls";
 import { isSocialFeatureEnabled } from "@/lib/social-model";
 import { ThemeToggle } from "./theme-toggle";
+import { toast } from "sonner";
 import { FriendsDrawer } from "./friends-drawer";
 import { NotificationsPopover } from "./notifications-popover";
 import { StudentOnboardingModal } from "./student-onboarding-modal";
@@ -45,7 +46,7 @@ const navigation = [
 ] as const;
 
 export function StudyLayout({ children }: { children: ReactNode }) {
-  const { data } = useStudy();
+  const { data, update } = useStudy();
   const { user, signOut } = useAuth();
   const path = useLocation({ select: (l) => l.pathname });
   const name = useDisplayName();
@@ -65,32 +66,42 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     if (!user) return;
     let cancelled = false;
 
-    void fetchCurrentStudentProfile(user.id).then((p) => {
-      if (cancelled) return;
-      setProfile(p);
+    void fetchCurrentStudentProfile(user.id)
+      .then((p) => {
+        if (cancelled) return;
+        setProfile(p);
 
-      // 2.1 Checagem de Onboarding incompleto ou primeiro acesso
-      const isProfileIncomplete = !p || !p.onboardingCompleted || !p.schoolYear || !p.username;
-      if (isProfileIncomplete && (!data.schoolYear || !data.name)) {
-        setShowOnboarding(true);
-      } else if (p) {
-        // 2.3 Checagem de virada de ano após 1º de janeiro
-        const rollover = checkSchoolYearRollover(p);
-        if (rollover.needsPrompt && rollover.currentSchoolYear) {
-          setRolloverPrompt({
-            show: true,
-            currentSchoolYear: rollover.currentSchoolYear,
-            suggestedNextYear: rollover.suggestedNextYear,
-            currentCalendarYear: rollover.currentCalendarYear,
-          });
+        // 2.1 Checagem de Onboarding incompleto ou primeiro acesso
+        const isProfileIncomplete = !p || !p.onboardingCompleted || !p.schoolYear || !p.username;
+        if (isProfileIncomplete) {
+          setShowOnboarding(true);
+        } else if (p) {
+          if (p.schoolYear && p.schoolYear !== data.schoolYear) {
+            update((value) => ({ ...value, schoolYear: p.schoolYear ?? undefined }));
+          }
+          // 2.3 Checagem de virada de ano após 1º de janeiro
+          const rollover = checkSchoolYearRollover(p);
+          if (rollover.needsPrompt && rollover.currentSchoolYear) {
+            setRolloverPrompt({
+              show: true,
+              currentSchoolYear: rollover.currentSchoolYear,
+              suggestedNextYear: rollover.suggestedNextYear,
+              currentCalendarYear: rollover.currentCalendarYear,
+            });
+          }
         }
-      }
-    });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled)
+          toast.error(
+            error instanceof Error ? error.message : "Não foi possível carregar seu perfil.",
+          );
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [user, data.schoolYear, data.name]);
+  }, [user?.id]);
   useLayoutEffect(() => {
     if (!page.current?.animate || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
       return;

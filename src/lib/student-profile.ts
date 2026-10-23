@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getNextSchoolYear } from "./school-year";
+import { schoolYearAt } from "./school-year";
+import { backendErrorMessage } from "./backend-errors";
 
 export type StudentProfile = {
   id: string;
@@ -38,6 +39,9 @@ export const POPULAR_EXAMS = [
   "Unicamp",
   "Unesp",
   "UERJ",
+  "UFRGS",
+  "UnB",
+  "Ainda não sei",
   "ITA / IME",
   "Militares (AFA/EFOMM/EsPCEx)",
   "Outros vestibulares",
@@ -94,14 +98,11 @@ export async function checkUsernameAvailability(
     });
 
     if (error) {
-      // Se RPC ainda não aplicada, faz verificação direta via query
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", clean)
-        .maybeSingle();
-
-      return { available: !existing };
+      // RLS deliberately hides strangers: a SELECT cannot establish availability.
+      return {
+        available: false,
+        error: backendErrorMessage(error, "Não foi possível verificar este nome. Tente novamente."),
+      };
     }
 
     return {
@@ -109,7 +110,10 @@ export async function checkUsernameAvailability(
       error: data ? undefined : "Este nome de usuário já está em uso.",
     };
   } catch {
-    return { available: true };
+    return {
+      available: false,
+      error: "Não foi possível verificar este nome. Confira sua conexão.",
+    };
   }
 }
 
@@ -124,7 +128,11 @@ export async function fetchCurrentStudentProfile(userId: string): Promise<Studen
       .eq("id", userId)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error)
+      throw new Error(
+        backendErrorMessage(error, "Não foi possível carregar seu perfil. Tente novamente."),
+      );
+    if (!data) return null;
 
     return {
       id: data.id,
@@ -143,8 +151,8 @@ export async function fetchCurrentStudentProfile(userId: string): Promise<Studen
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
-  } catch {
-    return null;
+  } catch (error) {
+    throw error instanceof Error ? error : new Error("Não foi possível carregar seu perfil.");
   }
 }
 
@@ -173,20 +181,12 @@ export async function saveStudentOnboardingData(params: {
     });
 
     if (rpcError) {
-      // Fallback para update direto se RPC não estiver ativa
-      const { error: upsertError } = await supabase.from("profiles").upsert({
-        id: userData.user.id,
-        username: params.username.trim().toLowerCase(),
-        display_name: params.displayName.trim(),
-        school_year: params.schoolYear,
-        favorite_subject: params.favoriteSubject,
-        school_days: params.schoolDays,
-        exam_goals: params.examGoals,
-        year_selected_at: new Date().toISOString(),
-        onboarding_completed: true,
-        updated_at: new Date().toISOString(),
-      });
-      if (upsertError) throw upsertError;
+      throw new Error(
+        backendErrorMessage(
+          rpcError,
+          "Não foi possível salvar seu perfil. Confira o nome de usuário e tente novamente.",
+        ),
+      );
     }
 
     return { success: true };
@@ -204,16 +204,21 @@ export async function saveStudentOnboardingData(params: {
  * Pergunta à pessoa se ela avançou de ano e atualiza o perfil e o plano com um clique.
  * Retorna se a verificação é necessária e a sugestão de novo ano.
  */
-export function checkSchoolYearRollover(profile: {
-  schoolYear?: string | null;
-  yearSelectedAt?: string | null;
-}): {
+export function checkSchoolYearRollover(
+  profile: {
+    schoolYear?: string | null;
+    yearSelectedAt?: string | null;
+  },
+  now = new Date(),
+): {
   needsPrompt: boolean;
   currentSchoolYear?: string;
   suggestedNextYear?: string;
   currentCalendarYear: number;
 } {
-  const currentCalendarYear = new Date().getFullYear();
+  const currentCalendarYear = Number(
+    new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "America/Sao_Paulo" }).format(now),
+  );
   if (!profile.schoolYear) {
     return { needsPrompt: false, currentCalendarYear };
   }
@@ -224,15 +229,21 @@ export function checkSchoolYearRollover(profile: {
   }
 
   const selectedDate = new Date(profile.yearSelectedAt);
-  const selectedYear = selectedDate.getFullYear();
+  const selectedYear = Number.isFinite(selectedDate.getTime())
+    ? Number(
+        new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "America/Sao_Paulo" }).format(
+          selectedDate,
+        ),
+      )
+    : currentCalendarYear;
 
   // Se o ano da data de escolha for anterior ao ano atual do calendário (ex: gravou em 2025 ou antes, e agora é 2026+)
   if (currentCalendarYear > selectedYear) {
-    const nextYear = getNextSchoolYear(profile.schoolYear);
+    const nextYear = schoolYearAt(profile.schoolYear, profile.yearSelectedAt, now);
     return {
       needsPrompt: true,
       currentSchoolYear: profile.schoolYear,
-      suggestedNextYear: nextYear ?? undefined,
+      suggestedNextYear: nextYear === profile.schoolYear ? undefined : nextYear,
       currentCalendarYear,
     };
   }

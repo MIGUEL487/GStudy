@@ -62,7 +62,11 @@ export function StudentOnboardingModal({
   );
 
   // Step 5: Objetivos de Vestibular (se EM ou Cursinho)
-  const [examGoals, setExamGoals] = useState<string[]>(["ENEM"]);
+  const [examGoals, setExamGoals] = useState<string[]>([]);
+  const [trainee, setTrainee] = useState<string>("");
+  const [entrance, setEntrance] = useState<string>("");
+  const [otherSubject, setOtherSubject] = useState("");
+  const [otherExam, setOtherExam] = useState("");
 
   const [saving, setSaving] = useState(false);
 
@@ -70,14 +74,17 @@ export function StudentOnboardingModal({
   const displayNameId = useId();
 
   // Verifica se a etapa de vestibulares é relevante (Ensino Médio ou Cursinho)
-  const isHighSchoolOrCursinho = schoolYear.startsWith("medio-") || schoolYear === "cursinho";
+  const isTraineeYear = ["fundamental-9", "medio-1", "medio-2"].includes(schoolYear);
+  const isHighSchoolOrCursinho =
+    isTraineeYear || schoolYear === "medio-3" || schoolYear === "cursinho";
 
   // Total de etapas efetivas
   const totalSteps = isHighSchoolOrCursinho ? 5 : 4;
-  const progressRatio = (step + 1) / (totalSteps + 1);
+  const progressRatio = step === 5 ? 1 : (step + 1) / (totalSteps + 1);
 
   // Debounced username check
   useEffect(() => {
+    let active = true;
     const clean = username.trim().toLowerCase();
     if (!clean) {
       setUsernameStatus("idle");
@@ -97,6 +104,7 @@ export function StudentOnboardingModal({
 
     const timer = setTimeout(async () => {
       const result = await checkUsernameAvailability(clean);
+      if (!active) return;
       if (result.available) {
         setUsernameStatus("available");
         setUsernameError("");
@@ -106,7 +114,10 @@ export function StudentOnboardingModal({
       }
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [username]);
 
   const toggleDay = (day: number) => {
@@ -137,13 +148,15 @@ export function StudentOnboardingModal({
       return Boolean(schoolYear);
     }
     if (step === 2) {
-      return Boolean(favoriteSubject);
+      return (
+        Boolean(favoriteSubject) && (favoriteSubject !== "Outra" || otherSubject.trim().length > 0)
+      );
     }
     if (step === 3) {
       return schoolDays.length > 0;
     }
     if (step === 4 && isHighSchoolOrCursinho) {
-      return examGoals.length > 0;
+      return true; // Preferences are optional; never silently opt someone into an exam.
     }
     return true;
   };
@@ -186,27 +199,31 @@ export function StudentOnboardingModal({
     const cleanUser = username.trim().toLowerCase();
     const cleanDisplay = displayName.trim();
 
-    // Atualiza workspace local
-    updateStudy((prev) => ({
-      ...prev,
-      name: cleanDisplay,
-      schoolYear: schoolYear,
-      schoolDays: schoolDays,
-    }));
-
     // Salva perfil persistente no Supabase
     const result = await saveStudentOnboardingData({
       username: cleanUser,
       displayName: cleanDisplay,
       schoolYear,
-      favoriteSubject,
+      favoriteSubject: favoriteSubject === "Outra" ? otherSubject.trim() : favoriteSubject,
       schoolDays,
-      examGoals: isHighSchoolOrCursinho ? examGoals : [],
+      examGoals: isTraineeYear
+        ? trainee
+          ? [`Treineiro: ${trainee}`]
+          : []
+        : [
+            ...(entrance ? [`Vestibular: ${entrance}`] : []),
+            ...(entrance === "sim"
+              ? examGoals
+                  .map((exam) => (exam === "Outros vestibulares" ? otherExam.trim() : exam))
+                  .filter(Boolean)
+              : []),
+          ],
     });
 
     setSaving(false);
 
     if (result.success) {
+      updateStudy((prev) => ({ ...prev, name: cleanDisplay, schoolYear, schoolDays }));
       toast.success("Boas-vindas ao seu espaço de estudos!");
       onCompleted({
         username: cleanUser,
@@ -260,7 +277,7 @@ export function StudentOnboardingModal({
           </div>
 
           <div className="onboarding-top-nav">
-            {step > 0 && step < 5 ? (
+            {step > 0 ? (
               <button
                 type="button"
                 className="onboarding-back-btn"
@@ -399,7 +416,7 @@ export function StudentOnboardingModal({
                   role="radiogroup"
                   aria-label="Matéria favorita"
                 >
-                  {POPULAR_SUBJECTS.map((subj) => {
+                  {[...POPULAR_SUBJECTS, "Outra"].map((subj) => {
                     const isSelected = favoriteSubject === subj;
                     return (
                       <button
@@ -415,6 +432,17 @@ export function StudentOnboardingModal({
                     );
                   })}
                 </div>
+                {favoriteSubject === "Outra" && (
+                  <label className="onboarding-input-wrapper">
+                    Outra matéria
+                    <input
+                      className="onboarding-text-input"
+                      value={otherSubject}
+                      maxLength={80}
+                      onChange={(e) => setOtherSubject(e.target.value)}
+                    />
+                  </label>
+                )}
               </m.div>
             )}
 
@@ -436,7 +464,7 @@ export function StudentOnboardingModal({
                   role="group"
                   aria-label="Dias da semana"
                 >
-                  {WEEK_DAYS.map((day) => {
+                  {WEEK_DAYS.filter((day) => day.value !== 0).map((day) => {
                     const isSelected = schoolDays.includes(day.value);
                     return (
                       <button
@@ -465,9 +493,11 @@ export function StudentOnboardingModal({
                 animate="animate"
                 exit="exit"
               >
-                <h1 className="onboarding-title">Quais provas você pretende prestar?</h1>
+                <h1 className="onboarding-title">
+                  {isTraineeYear ? "Vai fazer o ENEM como treineiro?" : "Vai prestar vestibular?"}
+                </h1>
                 <p className="onboarding-subtitle">
-                  Selecione os vestibulares que estão no seu radar. Você pode escolher mais de um.
+                  Esta etapa é opcional. Você pode mudar de ideia depois.
                 </p>
 
                 <div
@@ -475,24 +505,50 @@ export function StudentOnboardingModal({
                   role="group"
                   aria-label="Objetivos de vestibular"
                 >
-                  {POPULAR_EXAMS.map((exam) => {
-                    const isSelected = examGoals.includes(exam);
-                    return (
-                      <button
-                        key={exam}
-                        type="button"
-                        aria-pressed={isSelected}
-                        className={`onboarding-option-card ${isSelected ? "selected" : ""}`}
-                        onClick={() => toggleExamGoal(exam)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="option-title">{exam}</span>
-                          {isSelected && <Check size={14} className="text-accent" />}
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {["sim", "não", "talvez"].map((choice) => (
+                    <button
+                      key={choice}
+                      type="button"
+                      className={`onboarding-option-card ${(isTraineeYear ? trainee : entrance) === choice ? "selected" : ""}`}
+                      aria-pressed={(isTraineeYear ? trainee : entrance) === choice}
+                      onClick={() => (isTraineeYear ? setTrainee(choice) : setEntrance(choice))}
+                    >
+                      {choice === "sim" ? "Sim" : choice === "não" ? "Não" : "Talvez"}
+                    </button>
+                  ))}
+                  {!isTraineeYear &&
+                    entrance === "sim" &&
+                    POPULAR_EXAMS.map((exam) => {
+                      const isSelected = examGoals.includes(exam);
+                      return (
+                        <button
+                          key={exam}
+                          type="button"
+                          aria-pressed={isSelected}
+                          className={`onboarding-option-card ${isSelected ? "selected" : ""}`}
+                          onClick={() => toggleExamGoal(exam)}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="option-title">{exam}</span>
+                            {isSelected && <Check size={14} className="text-accent" />}
+                          </div>
+                        </button>
+                      );
+                    })}
                 </div>
+                {!isTraineeYear &&
+                  entrance === "sim" &&
+                  examGoals.includes("Outros vestibulares") && (
+                    <label className="onboarding-input-wrapper">
+                      Outro vestibular
+                      <input
+                        className="onboarding-text-input"
+                        maxLength={100}
+                        value={otherExam}
+                        onChange={(e) => setOtherExam(e.target.value)}
+                      />
+                    </label>
+                  )}
               </m.div>
             )}
 
