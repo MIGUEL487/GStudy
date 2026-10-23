@@ -25,6 +25,8 @@ import {
 import "@/styles/socrates.css";
 import { SocratesIcon } from "./socrates-icon";
 import { prepareStudyPhoto } from "@/lib/study-photo";
+import { StreamingMessage } from "./streaming-message";
+import { autoScrollPreservingUser, useStreamingText } from "@/lib/streaming-ai";
 const number = (value: number) => value.toLocaleString("pt-BR");
 type SocratesAttachment = {
   name: string;
@@ -101,9 +103,20 @@ export function SocratesChat({ userId }: { userId: string }) {
       window.removeEventListener("focus", refresh);
     };
   }, [userId]);
+  const {
+    text: streamingText,
+    isStreaming,
+    isStopped,
+    error: streamError,
+    start: startStream,
+    stop: stopStream,
+  } = useStreamingText({
+    scrollRef: scroll,
+  });
+
   useEffect(() => {
-    scroll.current?.scrollTo?.({ top: scroll.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length, busy, selected]);
+    autoScrollPreservingUser(scroll.current, !!pending);
+  }, [messages.length, busy, selected, pending]);
   const saveAnswer = () => {
     if (!unsaved) return;
     try {
@@ -139,6 +152,7 @@ export function SocratesChat({ userId }: { userId: string }) {
       const current = conversation ?? history.create(subject);
       setSelected(current.id);
       setPending(userMessage);
+      autoScrollPreservingUser(scroll.current, true);
       const result = await reply({
         data: {
           accountId: userId,
@@ -154,17 +168,25 @@ export function SocratesChat({ userId }: { userId: string }) {
         void loadQuota();
         return;
       }
-      const assistant: SocratesMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        text: result.explanation,
-        question: result.question,
-        createdAt: new Date().toISOString(),
-      };
-      const completed = { conversationId: current.id, messages: [userMessage, assistant] };
       setDraft("");
       setAttachment(null);
       if (result.warning) setWarning(result.warning);
+
+      const fullAssistantText = result.question
+        ? `${result.explanation}\n\n**Pergunta:** ${result.question}`
+        : result.explanation;
+
+      const streamResult = await startStream(fullAssistantText);
+      const assistantText = streamResult.text || result.explanation;
+
+      const assistant: SocratesMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        text: assistantText,
+        question: streamResult.stopped ? undefined : result.question,
+        createdAt: new Date().toISOString(),
+      };
+      const completed = { conversationId: current.id, messages: [userMessage, assistant] };
       try {
         history.append(current.id, completed.messages);
       } catch (cause) {
@@ -342,7 +364,19 @@ export function SocratesChat({ userId }: { userId: string }) {
               )}
             </article>
           ))}
-          {busy && (
+          {isStreaming && (
+            <article className="socrates-message is-assistant">
+              <small>Sócrates</small>
+              <StreamingMessage
+                text={streamingText}
+                isStreaming={isStreaming}
+                isStopped={isStopped}
+                error={streamError}
+                onStop={stopStream}
+              />
+            </article>
+          )}
+          {busy && !isStreaming && (
             <div className="socrates-thinking" role="status">
               <span className="dots" aria-hidden="true">
                 <i />

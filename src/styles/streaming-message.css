@@ -1,0 +1,119 @@
+.streaming-message-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.streaming-message-body {
+  position: relative;
+  line-height: 1.7;
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  vertical-align: -0.15em;
+  margin-left: 2px;
+  background-color: var(--primary, #b8860b);
+  border-radius: 1px;
+  animation: streaming-blink 0.85s steps(2, start) infinite;
+}
+
+@keyframes streaming-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.streaming-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.streaming-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d7c6af);
+  background: var(--card, #fffaf2);
+  color: var(--muted-foreground, #74583d);
+  font-size: 11px;
+  font-family: var(--font-serif);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+
+.streaming-stop-btn:hover {
+  background: var(--destructive-bg, #fde8e8);
+  border-color: var(--destructive, #c53030);
+  color: var(--destructive, #c53030);
+}
+
+.streaming-notice {
+  font-size: 11px;
+  color: var(--muted-foreground, #8c7359);
+  margin-top: 4px;
+}
+
+.streaming-error-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff3f0;
+  border: 1px solid #f2cfc7;
+  color: #a13d2d;
+  margin-top: 8px;
+}
+
+.streaming-error-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.streaming-error-detail {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.streaming-retry-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 6px 14px;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid #a13d2d;
+  background: #a13d2d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.streaming-retry-btn:hover {
+  background: #842e20;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streaming-cursor {
+    animation: none;
+    opacity: 0.7;
+  }
+}
