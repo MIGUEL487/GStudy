@@ -8,6 +8,7 @@ import { useLessonContext } from "@/components/learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
 import { LessonShell, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
 import { FlashcardsSkeleton } from "@/components/activity-skeletons";
+import { ActivityStreamPreview } from "./activity-stream-preview";
 import { idsFrom } from "@/lib/learn-client";
 
 type Card = { front: string; back: string };
@@ -19,6 +20,9 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
     result,
     error,
     reload: load,
+    partialItems,
+    loading,
+    stop,
   } = useGeneratedActivity("flashcards", search.m, lesson.context, enabled);
   const [queue, setQueue] = useState<Card[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -63,6 +67,18 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
         <UnavailableLesson backSearch={lesson.backSearch} backTo={lesson.backTo} />
       </LessonShell>
     );
+  if (partialItems?.length && !queue)
+    return (
+      <LessonShell progress={0} {...shell}>
+        <ActivityStreamPreview
+          items={partialItems}
+          loading={loading}
+          error={error}
+          stop={stop}
+          retry={load}
+        />
+      </LessonShell>
+    );
   if (error)
     return (
       <LessonShell progress={0} {...shell}>
@@ -72,10 +88,12 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
   if (!queue)
     return (
       <LessonShell progress={0} {...shell}>
-        <FlashcardsSkeleton
-          backTo={lesson.backTo || "/aprender"}
-          backSearch={lesson.backSearch ?? {}}
-        />
+        <ActivityStreamPreview loading={loading} stop={stop}>
+          <FlashcardsSkeleton
+            backTo={lesson.backTo || "/aprender"}
+            backSearch={lesson.backSearch ?? {}}
+          />
+        </ActivityStreamPreview>
       </LessonShell>
     );
   const card = queue[0];

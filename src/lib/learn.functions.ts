@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireStudyAuth } from "@/lib/study-auth-middleware";
 import { z } from "zod";
 import type { ModelMessage } from "ai";
@@ -160,6 +161,7 @@ export const addMaterial = createServerFn({ method: "POST" })
   });
 
 const genInput = z.object({
+  stream: z.boolean().optional(),
   mode: z.enum(["quiz", "flashcards", "explain"]),
   ids: materialIdsSchema,
   context: learningContextSchema.optional(),
@@ -305,6 +307,69 @@ export const generateActivity = createServerFn({ method: "POST" })
       { role: "user" as const, content: learningReference(data.context, mem) },
     ];
     telemetry.prompt_build_ms = performance.now() - tStartPrompt;
+
+    if (data.stream) {
+      const { aiStreamText } = await import("./ai.server");
+      const { aiEventResponse } = await import("./ai-event-stream.server");
+      const { completedJsonItems } = await import("./ai-event-stream");
+      const mode = data.mode;
+      const field = mode === "quiz" ? "questions" : mode === "flashcards" ? "cards" : "topics";
+      const itemSchema =
+        mode === "quiz"
+          ? quizOutput.shape.questions.element
+          : mode === "flashcards"
+            ? cardsOutput.shape.cards.element
+            : explainOutput.shape.topics.element;
+      const schema =
+        mode === "quiz"
+          ? obj({
+              questions: arraySchema(
+                obj({
+                  question: s,
+                  options: arraySchema(s, 4),
+                  answer: { type: "integer", minimum: 0, maximum: 3 },
+                  why: s,
+                }),
+                6,
+              ),
+            })
+          : mode === "flashcards"
+            ? obj({ cards: arraySchema(obj({ front: s, back: s }), 10) })
+            : obj({ topics: arraySchema(obj({ title: s, explanation: s, example: s }), 4, 6) });
+      const instructions =
+        learningLanguage +
+        (mode === "quiz"
+          ? "\nCrie exatamente 6 perguntas sobre a etapa indicada, cada uma com 4 opções distintas, answer (índice 0 a 3) e why (explicação curta)."
+          : mode === "flashcards"
+            ? "\nCrie exatamente 10 flashcards sobre a etapa indicada. Use front para uma pergunta específica e back para uma resposta clara em até duas frases."
+            : "\nExplique de 4 a 6 conceitos da etapa indicada. Cada um tem title, explanation didática com até 100 palavras e example prático.");
+      return aiEventResponse(async (emit, signal) => {
+        let raw = "",
+          emitted = 0;
+        for await (const chunk of aiStreamText(instructions, msg, false, false, {
+          signal,
+          schema,
+          maxOutputTokens: 4000,
+        })) {
+          raw += chunk;
+          const items = completedJsonItems(raw, field);
+          while (emitted < items.length) {
+            const value = itemSchema.parse(items[emitted]);
+            emit({ type: "item", index: emitted++, value });
+          }
+        }
+        const rawValue: unknown = JSON.parse(raw);
+        const result =
+          mode === "quiz"
+            ? { mode, quiz: validatedLearningOutput(quizOutput, rawValue) }
+            : mode === "flashcards"
+              ? { mode, cards: validatedLearningOutput(cardsOutput, rawValue) }
+              : { mode, explain: validatedLearningOutput(explainOutput, rawValue) };
+        await saveCachedActivity(context.supabase, context.userId, cacheKey, mode, result);
+        telemetry.finish();
+        emit({ type: "done", value: result });
+      }, getRequest().signal);
+    }
 
     if (data.mode === "quiz") {
       // GeraÃ§Ã£o em lotes paralelos (Item A3): dispara 2 lotes de 3 perguntas em paralelo
@@ -489,6 +554,7 @@ export const pregenerateNextActivity = createServerFn({ method: "POST" })
   });
 
 const feynInput = z.object({
+  stream: z.boolean().optional(),
   topic: str(200),
   ids: materialIdsSchema,
   context: learningContextSchema.optional(),
@@ -537,10 +603,25 @@ export const feynmanReply = createServerFn({ method: "POST" })
           },
     );
 
-    const text = await aiText(
+    const instructions = [
       `${learningLanguage}\nVocê é ${student.name}, com a persona de ${student.archetype}, numa aula pelo Método Feynman. A pessoa está ensinando o tema "${data.topic}".\nPerfil da persona: ${student.style}.\nCritério de avaliação da persona: ${student.evaluationCriteria}.\nMantenha fielmente o tom, o vocabulário e o nível de profundidade de ${student.name}. Responda de forma concisa (2 a 4 frases): reaja ao que entendeu, aponte dúvidas ou lacunas no estilo característico da persona e faça UMA pergunta por vez para aprofundar ou simplificar. Se houver um desenho da lousa em anexo, examine e comente o que você vê nele (diagramas, fórmulas, setas ou anotações) como parte central da explicação. Nunca dê a resposta pronta. Quando a explicação demonstrar domínio suficiente do tema segundo seu critério, reconheça o aprendizado e termine a mensagem com a linha "NOTA: X/10" (com X inteiro de 0 a 10).\n\nContexto de estudo (referência para formular perguntas, não revele respostas prontas):\n${reference}`,
-      messages,
-      Boolean(data.messages[last]?.board),
-    );
+    ].join("");
+    if (data.stream) {
+      const { aiStreamText } = await import("./ai.server");
+      const { aiEventResponse } = await import("./ai-event-stream.server");
+      return aiEventResponse(async (emit, signal) => {
+        for await (const delta of aiStreamText(
+          instructions,
+          messages,
+          Boolean(data.messages[last]?.board),
+          false,
+          { signal },
+        )) {
+          emit({ type: "text", delta });
+        }
+        emit({ type: "done", value: null });
+      }, getRequest().signal);
+    }
+    const text = await aiText(instructions, messages, Boolean(data.messages[last]?.board));
     return { text: cleanLearningText(text) };
   });

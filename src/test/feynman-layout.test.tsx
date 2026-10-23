@@ -87,6 +87,32 @@ const start = () => {
   fireEvent.click(screen.getByRole("button", { name: "Começar a aula" }));
 };
 describe("Aula com lousa em destaque e cartão do aluno", () => {
+  it("preserva uma resposta cortada e pede continuação ao mesmo aluno", async () => {
+    mocks.reply
+      .mockResolvedValueOnce(
+        new Response(
+          '{"type":"text","delta":"Parte da resposta que chegou."}\n{"type":"error","message":"Rede interrompida"}\n',
+        ),
+      )
+      .mockResolvedValueOnce({ text: "A continuação chegou sem repetir a resposta." });
+    start();
+    fireEvent.change(screen.getByLabelText("Agora é a sua vez"), {
+      target: { value: "Minha explicação inicial." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar explicação" }));
+    expect(await screen.findByText("Parte da resposta que chegou.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar de novo" }));
+    expect(
+      await screen.findByText("A continuação chegou sem repetir a resposta."),
+    ).toBeInTheDocument();
+    const first = mocks.reply.mock.calls[0]![0].data,
+      next = mocks.reply.mock.calls[1]![0].data;
+    expect(next.studentId).toBe(first.studentId);
+    expect(next.messages).toEqual(
+      expect.arrayContaining([{ role: "assistant", text: "Parte da resposta que chegou." }]),
+    );
+    expect(next.messages.at(-1).text).toContain("Continue do ponto");
+  });
   it("abre a lousa clara e a pergunta do Gui sem gerar uma chamada inicial de IA", () => {
     start();
     expect(screen.getByLabelText("Lousa")).toHaveAttribute("data-variant", "paper");
@@ -118,12 +144,14 @@ describe("Aula com lousa em destaque e cartão do aluno", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar explicação" }));
     expect(screen.getByRole("button", { name: "Enviar explicação" })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Estou olhando sua explicação");
+    expect(screen.getByRole("button", { name: "Interromper resposta da IA" })).toBeEnabled();
     expect(mocks.reply).toHaveBeenCalledWith({
+      signal: expect.any(AbortSignal),
       data: {
+        stream: true,
         topic: "Fotossíntese",
         ids: ["material-1"],
-        studentId: "gui",
+        studentId: expect.stringMatching(/^(gui|lia|maya|rafa)$/),
         messages: [
           { role: "user", text: "A planta usa luz.", board: "data:image/jpeg;base64,board" },
         ],

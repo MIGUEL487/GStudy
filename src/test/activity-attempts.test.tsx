@@ -50,6 +50,37 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Tentativas das atividades geradas", () => {
+  it("mostra cada item completo antes do fim e só libera a prática após o evento final", async () => {
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const encoder = new TextEncoder();
+    mocks.generate.mockResolvedValue(
+      new Response(
+        new ReadableStream({
+          start(value) {
+            controller = value;
+          },
+        }),
+      ),
+    );
+    const { result } = renderHook(() => useGeneratedActivity("quiz"));
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      controller.enqueue(
+        encoder.encode(
+          JSON.stringify({ type: "item", index: 0, value: quiz.quiz.questions[0] }) + "\n",
+        ),
+      );
+    });
+    expect(result.current.partialItems).toHaveLength(1);
+    expect(result.current.result).toBeNull();
+    expect(mocks.succeed).not.toHaveBeenCalled();
+    await act(async () => {
+      controller.enqueue(encoder.encode(JSON.stringify({ type: "done", value: quiz }) + "\n"));
+      controller.close();
+    });
+    expect(result.current.result).toEqual(quiz);
+    expect(mocks.succeed).toHaveBeenCalledOnce();
+  });
   it("reserva uma vez no StrictMode e só consome depois de receber conteúdo válido", async () => {
     const request = deferred();
     mocks.generate.mockReturnValue(request.promise);
@@ -64,7 +95,10 @@ describe("Tentativas das atividades geradas", () => {
     await act(async () => request.resolve(quiz));
     expect(result.current.result).toEqual(quiz);
     expect(mocks.succeed).toHaveBeenCalledExactlyOnceWith("attempt-1");
-    expect(mocks.generate).toHaveBeenCalledWith({ data: { mode: "quiz", ids: [], context } });
+    expect(mocks.generate).toHaveBeenCalledWith({
+      signal: expect.any(AbortSignal),
+      data: { mode: "quiz", ids: [], context, stream: true },
+    });
   });
 
   it("não faz pedidos nem reserva tentativas enquanto o contexto não estiver pronto", async () => {

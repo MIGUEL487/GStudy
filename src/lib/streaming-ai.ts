@@ -1,34 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/**
- * Checks whether an element is scrolled near its bottom (within threshold px).
- * If user has scrolled up, returns false so their scroll position is respected.
- */
 export function isScrolledNearBottom(element: HTMLElement | null, threshold = 80): boolean {
-  if (!element) return true;
-  const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
-  return distance <= threshold;
+  return !element || element.scrollHeight - element.scrollTop - element.clientHeight <= threshold;
 }
-
-/**
- * Smoothly scrolls element to bottom only if user was already near the bottom,
- * or if forceBottom is true (e.g. user submitted a new query).
- */
 export function autoScrollPreservingUser(
   element: HTMLElement | null,
   forceBottom = false,
   threshold = 80,
 ) {
-  if (!element) return;
-  if (forceBottom || isScrolledNearBottom(element, threshold)) {
-    if (typeof element.scrollTo === "function") {
-      element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
-    } else {
-      element.scrollTop = element.scrollHeight;
-    }
-  }
+  if (!element || (!forceBottom && !isScrolledNearBottom(element, threshold))) return;
+  if (typeof element.scrollTo === "function")
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  else element.scrollTop = element.scrollHeight;
 }
-
 export type StreamingState = {
   text: string;
   isStreaming: boolean;
@@ -36,16 +23,27 @@ export type StreamingState = {
   error: string | null;
   partialTokens: number;
 };
-
-/**
- * Throttle interval in milliseconds (~50ms) to prevent excessive React re-renders
- */
 export const STREAMING_THROTTLE_MS = 50;
+type Source = AsyncIterable<string> | string;
+async function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  signal.throwIfAborted();
+  let abort = () => {};
+  const cancellation = new Promise<never>((_, reject) => {
+    abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+  });
+  try {
+    return await Promise.race([promise, cancellation]);
+  } finally {
+    signal.removeEventListener("abort", abort);
+  }
+}
+type Run = {
+  controller: AbortController;
+  text: string;
+  timer?: ReturnType<typeof setTimeout> | undefined;
+};
 
-/**
- * Hook to stream text progressively with ~50ms throttle, stop button support,
- * partial text preservation on error or cancellation, and scroll position preservation.
- */
 export function useStreamingText(options?: {
   onChunk?: (partial: string) => void;
   onFinish?: (fullText: string) => void;
@@ -58,162 +56,121 @@ export function useStreamingText(options?: {
     error: null,
     partialTokens: 0,
   });
-
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const bufferRef = useRef("");
-  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isStreamingRef = useRef(false);
-
-  const flushBuffer = useCallback(() => {
-    if (throttleTimerRef.current) {
-      clearTimeout(throttleTimerRef.current);
-      throttleTimerRef.current = null;
-    }
-    setState((prev) => {
-      if (prev.text === bufferRef.current) return prev;
-      return { ...prev, text: bufferRef.current };
-    });
-    if (options?.scrollRef?.current) {
-      autoScrollPreservingUser(options.scrollRef.current);
-    }
-  }, [options?.scrollRef]);
-
-  const scheduleFlush = useCallback(() => {
-    if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-      flushBuffer();
-      return;
-    }
-    if (throttleTimerRef.current) return;
-    throttleTimerRef.current = setTimeout(() => {
-      flushBuffer();
-    }, STREAMING_THROTTLE_MS);
-  }, [flushBuffer]);
-
-  const stop = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    isStreamingRef.current = false;
-    flushBuffer();
-    setState((prev) => ({
-      ...prev,
-      isStreaming: false,
-      isStopped: true,
+  const active = useRef<Run | null>(null);
+  const mounted = useRef(true);
+  const callbacks = useRef(options);
+  callbacks.current = options;
+  const flush = useCallback((run: Run) => {
+    clearTimeout(run.timer);
+    run.timer = undefined;
+    if (!mounted.current || active.current !== run) return;
+    const element = callbacks.current?.scrollRef?.current ?? null;
+    const follow = isScrolledNearBottom(element);
+    setState((previous) => ({
+      ...previous,
+      text: run.text,
+      partialTokens: Math.ceil(run.text.length / 4),
     }));
-  }, [flushBuffer]);
-
+    if (element && follow && typeof requestAnimationFrame === "function")
+      requestAnimationFrame(() => {
+        if (mounted.current && active.current === run) autoScrollPreservingUser(element, true);
+      });
+  }, []);
+  const stop = useCallback(() => {
+    const run = active.current;
+    if (!run) return;
+    run.controller.abort();
+    flush(run);
+    if (mounted.current)
+      setState((previous) => ({ ...previous, isStreaming: false, isStopped: true }));
+  }, [flush]);
   const start = useCallback(
-    async (
-      source: AsyncIterable<string> | string,
-      initialText = "",
-    ): Promise<{ text: string; stopped: boolean; error: string | null }> => {
-      stop();
-
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      isStreamingRef.current = true;
-      bufferRef.current = initialText;
-
+    async (source: Source | ((signal: AbortSignal) => Promise<Source>), initialText = "") => {
+      const previous = active.current;
+      if (previous) {
+        previous.controller.abort();
+        clearTimeout(previous.timer);
+      }
+      const run: Run = { controller: new AbortController(), text: initialText };
+      active.current = run;
+      const signal = run.controller.signal;
       setState({
         text: initialText,
         isStreaming: true,
         isStopped: false,
         error: null,
-        partialTokens: Math.ceil(initialText.length / 4),
+        partialTokens: 0,
       });
-
-      // Force scroll to bottom on start of new answer
-      if (options?.scrollRef?.current) {
-        autoScrollPreservingUser(options.scrollRef.current, true);
-      }
-
+      autoScrollPreservingUser(callbacks.current?.scrollRef?.current ?? null, true);
+      let error: string | null = null;
+      const append = (chunk: string) => {
+        if (signal.aborted || active.current !== run) return;
+        run.text += chunk;
+        callbacks.current?.onChunk?.(run.text);
+        if (!run.timer) run.timer = setTimeout(() => flush(run), STREAMING_THROTTLE_MS);
+      };
       try {
-        if (typeof source === "string") {
-          // If string, simulate chunked streaming with ~50ms intervals
-          const words = source.split(/(\s+)/);
-          let currentIdx = 0;
-
-          while (currentIdx < words.length && !controller.signal.aborted) {
-            const batchSize = Math.max(1, Math.min(3, words.length - currentIdx));
-            const chunk = words.slice(currentIdx, currentIdx + batchSize).join("");
-            currentIdx += batchSize;
-
-            bufferRef.current += chunk;
-            scheduleFlush();
-            options?.onChunk?.(bufferRef.current);
-
-            const throttleMs =
-              typeof process !== "undefined" && process.env.NODE_ENV === "test"
-                ? 0
-                : STREAMING_THROTTLE_MS;
-            if (throttleMs > 0) {
-              await new Promise((resolve) => setTimeout(resolve, throttleMs));
+        const resolved =
+          typeof source === "function" ? await abortable(source(signal), signal) : source;
+        if (typeof resolved === "string")
+          append(resolved); // Cached/full responses appear immediately.
+        else {
+          const iterator = resolved[Symbol.asyncIterator]();
+          try {
+            while (!signal.aborted) {
+              let abort: () => void = () => {};
+              const interrupted = new Promise<IteratorResult<string>>((resolve) => {
+                abort = () => resolve({ done: true, value: undefined });
+                signal.addEventListener("abort", abort, { once: true });
+              });
+              const next = await Promise.race([iterator.next(), interrupted]).finally(() =>
+                signal.removeEventListener("abort", abort),
+              );
+              if (next.done) break;
+              append(next.value);
             }
-          }
-        } else {
-          // AsyncIterable stream from server
-          for await (const chunk of source) {
-            if (controller.signal.aborted) break;
-            bufferRef.current += chunk;
-            scheduleFlush();
-            options?.onChunk?.(bufferRef.current);
+          } finally {
+            if (signal.aborted) void iterator.return?.().catch(() => {});
           }
         }
-
-        flushBuffer();
-
-        const finalText = bufferRef.current;
-        const stopped = controller.signal.aborted;
-
-        setState((prev) => ({
-          ...prev,
-          text: finalText,
-          isStreaming: false,
-          isStopped: stopped,
-        }));
-
-        isStreamingRef.current = false;
-        options?.onFinish?.(finalText);
-
-        return { text: finalText, stopped, error: null };
-      } catch (err: unknown) {
-        flushBuffer();
-        const errorMsg =
-          err instanceof Error
-            ? err.message
-            : "A conexão com a IA foi interrompida durante a resposta.";
-
-        setState((prev) => ({
-          ...prev,
-          isStreaming: false,
-          error: errorMsg,
-        }));
-        isStreamingRef.current = false;
-
-        return { text: bufferRef.current, stopped: false, error: errorMsg };
+      } catch (cause) {
+        if (!signal.aborted)
+          error =
+            cause instanceof Error
+              ? cause.message
+              : "A conexão foi interrompida. O texto recebido foi preservado.";
+      } finally {
+        flush(run);
+        if (mounted.current && active.current === run) {
+          setState((previous) => ({
+            ...previous,
+            text: run.text,
+            isStreaming: false,
+            isStopped: signal.aborted,
+            error,
+          }));
+          callbacks.current?.onFinish?.(run.text);
+        }
       }
+      return { text: run.text, stopped: signal.aborted, error };
     },
-    [flushBuffer, options, scheduleFlush, stop],
+    [flush],
   );
-
   useEffect(() => {
+    mounted.current = true;
     return () => {
-      if (abortControllerRef.current) abortControllerRef.current.abort();
-      if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
+      mounted.current = false;
+      active.current?.controller.abort();
+      clearTimeout(active.current?.timer);
     };
   }, []);
-
   return {
-    text: state.text,
-    isStreaming: state.isStreaming,
-    isStopped: state.isStopped,
-    error: state.error,
+    ...state,
     start,
     stop,
-    setText: (t: string) => {
-      bufferRef.current = t;
-      setState((prev) => ({ ...prev, text: t }));
+    setText: (text: string) => {
+      if (active.current) active.current.text = text;
+      setState((previous) => ({ ...previous, text }));
     },
   };
 }

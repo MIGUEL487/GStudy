@@ -38,22 +38,24 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  min-height: 36px;
+  min-height: 44px;
   border-radius: 8px;
   border: 1px solid var(--border, #d7c6af);
   background: var(--card, #fffaf2);
   color: var(--muted-foreground, #74583d);
-  font-size: 11px;
+  font-size: 13px;
   font-family: var(--font-serif);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s var(--ease);
+  transition:
+    background-color 0.2s var(--ease),
+    color 0.2s var(--ease),
+    border-color 0.2s var(--ease);
 }
 
 .streaming-stop-btn:hover {
-  background: var(--destructive-bg, #fde8e8);
-  border-color: var(--destructive, #c53030);
-  color: var(--destructive, #c53030);
+  background: var(--muted);
+  color: var(--foreground);
 }
 
 .streaming-notice {
@@ -68,9 +70,9 @@
   gap: 6px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: #fff3f0;
-  border: 1px solid #f2cfc7;
-  color: #a13d2d;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  color: var(--foreground);
   margin-top: 8px;
 }
 
@@ -96,19 +98,20 @@
   gap: 6px;
   margin-top: 4px;
   padding: 6px 14px;
-  min-height: 36px;
+  min-height: 44px;
   border-radius: 8px;
-  border: 1px solid #a13d2d;
-  background: #a13d2d;
-  color: #fff;
-  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .streaming-retry-btn:hover {
-  background: #842e20;
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 @media (prefers-reduced-motion: reduce) {

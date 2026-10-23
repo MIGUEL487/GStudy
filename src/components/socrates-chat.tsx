@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowUp,
@@ -27,6 +27,7 @@ import { SocratesIcon } from "./socrates-icon";
 import { prepareStudyPhoto } from "@/lib/study-photo";
 import { StreamingMessage } from "./streaming-message";
 import { autoScrollPreservingUser, useStreamingText } from "@/lib/streaming-ai";
+import { readAiText } from "@/lib/ai-event-stream";
 const number = (value: number) => value.toLocaleString("pt-BR");
 type SocratesAttachment = {
   name: string;
@@ -40,6 +41,29 @@ const readPdf = (file: File) =>
     reader.onerror = () => reject(new Error("Não foi possível ler este PDF."));
     reader.readAsDataURL(file);
   });
+
+const SocratesMessages = memo(function SocratesMessages({
+  messages,
+}: {
+  messages: SocratesMessage[];
+}) {
+  return (
+    <>
+      {messages.map((message) => (
+        <article key={message.id} className={`socrates-message is-${message.role}`}>
+          <small>{message.role === "assistant" ? "Sócrates" : "Você"}</small>
+          <p>{message.text}</p>
+          {message.question && (
+            <p className="socrates-question">
+              <MessageCircleQuestion size={16} aria-hidden="true" />
+              {message.question}
+            </p>
+          )}
+        </article>
+      ))}
+    </>
+  );
+});
 export function SocratesChat({ userId }: { userId: string }) {
   const { data } = useStudy();
   const history = useSocratesConversations(userId);
@@ -64,16 +88,19 @@ export function SocratesChat({ userId }: { userId: string }) {
     scroll = useRef<HTMLDivElement>(null),
     fileInput = useRef<HTMLInputElement>(null);
   const conversation = history.conversations.find((item) => item.id === selected);
-  const messages = [
-    ...(conversation?.messages ?? []),
-    ...(unsaved?.conversationId === selected
-      ? unsaved.messages.filter(
-          (item) => !conversation?.messages.some((saved) => saved.id === item.id),
-        )
-      : pending
-        ? [pending]
-        : []),
-  ];
+  const messages = useMemo(
+    () => [
+      ...(conversation?.messages ?? []),
+      ...(unsaved?.conversationId === selected
+        ? unsaved.messages.filter(
+            (item) => !conversation?.messages.some((saved) => saved.id === item.id),
+          )
+        : pending
+          ? [pending]
+          : []),
+    ],
+    [conversation?.messages, unsaved, selected, pending],
+  );
   const loadQuota = async () => {
     try {
       const result = await readQuota();
@@ -127,15 +154,21 @@ export function SocratesChat({ userId }: { userId: string }) {
       setError(cause instanceof Error ? cause.message : "Não foi possível salvar a resposta.");
     }
   };
-  const send = async () => {
-    if (lock.current || unsaved || !quota || !quota.remaining || (!draft.trim() && !attachment))
+  const send = async (continuation?: string) => {
+    if (
+      lock.current ||
+      unsaved ||
+      !quota ||
+      !quota.remaining ||
+      (!continuation && !draft.trim() && !attachment)
+    )
       return;
     lock.current = true;
     setBusy(true);
     setError("");
     setWarning("");
     const visibleText = [
-      draft.trim(),
+      continuation ?? draft.trim(),
       attachment
         ? `[${attachment.mediaType === "application/pdf" ? "PDF" : "Imagem"}: ${attachment.name}]`
         : "",
@@ -153,37 +186,45 @@ export function SocratesChat({ userId }: { userId: string }) {
       setSelected(current.id);
       setPending(userMessage);
       autoScrollPreservingUser(scroll.current, true);
-      const result = await reply({
-        data: {
-          accountId: userId,
-          subject: current.subject,
-          message: userMessage.text,
-          attachment: attachment ?? undefined,
-          history: recentSocratesHistory(current.messages),
-        },
+      let completedAnswer:
+        | { explanation: string; question: string; quota: SocratesQuota; warning?: string }
+        | undefined;
+      const streamResult = await startStream(async (signal) => {
+        const result = await reply({
+          signal,
+          data: {
+            stream: true,
+            accountId: userId,
+            subject: current.subject,
+            message: userMessage.text,
+            attachment: attachment ?? undefined,
+            history: recentSocratesHistory(current.messages),
+          },
+        });
+        if (result instanceof Response)
+          return readAiText(result, (answer: NonNullable<typeof completedAnswer>) => {
+            completedAnswer = answer;
+            setQuota(answer.quota);
+          });
+        if ("quota" in result && result.quota) setQuota(result.quota);
+        if (!result.ok) {
+          throw new Error(result.error);
+        }
+        completedAnswer = result;
+        return `${result.explanation}\n\n**Pergunta:** ${result.question}`;
       });
-      if ("quota" in result && result.quota) setQuota(result.quota);
-      if (!result.ok) {
-        setError(result.error);
-        void loadQuota();
-        return;
-      }
+      if (!streamResult.text)
+        throw new Error(streamResult.error ?? "Resposta interrompida. Sua pergunta continua aqui.");
       setDraft("");
       setAttachment(null);
-      if (result.warning) setWarning(result.warning);
-
-      const fullAssistantText = result.question
-        ? `${result.explanation}\n\n**Pergunta:** ${result.question}`
-        : result.explanation;
-
-      const streamResult = await startStream(fullAssistantText);
-      const assistantText = streamResult.text || result.explanation;
+      if (completedAnswer?.warning) setWarning(completedAnswer.warning);
 
       const assistant: SocratesMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        text: assistantText,
-        question: streamResult.stopped ? undefined : result.question,
+        text: completedAnswer?.explanation ?? streamResult.text,
+        question:
+          streamResult.stopped || streamResult.error ? undefined : completedAnswer?.question,
         createdAt: new Date().toISOString(),
       };
       const completed = { conversationId: current.id, messages: [userMessage, assistant] };
@@ -204,6 +245,7 @@ export function SocratesChat({ userId }: { userId: string }) {
           : "Sócrates não conseguiu responder agora. Sua pergunta continua aqui.",
       );
     } finally {
+      void loadQuota();
       setPending(null);
       lock.current = false;
       setBusy(false);
@@ -352,18 +394,7 @@ export function SocratesChat({ userId }: { userId: string }) {
               </div>
             </div>
           )}
-          {messages.map((message) => (
-            <article key={message.id} className={`socrates-message is-${message.role}`}>
-              <small>{message.role === "assistant" ? "Sócrates" : "Você"}</small>
-              <p>{message.text}</p>
-              {message.question && (
-                <p className="socrates-question">
-                  <MessageCircleQuestion size={16} aria-hidden="true" />
-                  {message.question}
-                </p>
-              )}
-            </article>
-          ))}
+          <SocratesMessages messages={messages} />
           {isStreaming && (
             <article className="socrates-message is-assistant">
               <small>Sócrates</small>
@@ -375,6 +406,18 @@ export function SocratesChat({ userId }: { userId: string }) {
                 onStop={stopStream}
               />
             </article>
+          )}
+          {!busy && (isStopped || streamError) && streamingText && (
+            <StreamingMessage
+              text=""
+              isStopped={isStopped}
+              error={streamError}
+              onRetry={() =>
+                void send(
+                  "Continue do ponto em que parou e termine com uma pergunta de compreensão.",
+                )
+              }
+            />
           )}
           {busy && !isStreaming && (
             <div className="socrates-thinking" role="status">
