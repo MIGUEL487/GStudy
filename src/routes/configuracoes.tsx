@@ -1,3 +1,4 @@
+import { isDndEnabled, setDndEnabled } from "@/lib/webrtc-voice-model";
 import { NotionPanel } from "@/components/notion-panel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -74,6 +75,7 @@ function resizeImage(file: File): Promise<string> {
 }
 
 function Settings() {
+  const [dnd, setDnd] = useState(isDndEnabled);
   const { data, update } = useStudy();
   const { user, signOut } = useAuth();
   const display = useDisplayName();
@@ -263,6 +265,36 @@ function Settings() {
                   {n}
                 </button>
               ))}
+            </div>
+          </section>
+
+          <section className="settings-section">
+            <h2>Comunicação e Chamadas</h2>
+            <div className="flex items-center justify-between gap-4 py-2">
+              <div>
+                <p className="font-semibold text-foreground mb-1">Modo Não Perturbar (DND)</p>
+                <p className="text-xs text-muted-foreground">
+                  Bloqueia convites e notificações de chamadas de voz de amigos para manter o foco
+                  ininterrupto nos estudos.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={dnd}
+                aria-label="Ativar Não Perturbar"
+                className={`day-chip ${dnd ? "on" : ""}`}
+                onClick={() => {
+                  const next = !dnd;
+                  setDnd(next);
+                  setDndEnabled(next);
+                  toast.success(
+                    next ? "Modo Não Perturbar ativado." : "Modo Não Perturbar desativado.",
+                  );
+                }}
+              >
+                {dnd ? "Ativado" : "Desativado"}
+              </button>
             </div>
           </section>
         </TabsContent>
