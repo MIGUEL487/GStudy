@@ -440,25 +440,27 @@ export function FeynmanLesson({
                   key={busy ? "thinking" : `${studentId}:${question}`}
                   className="feyn-answer-motion"
                 >
-                  isStreaming ? (
-                  <StreamingMessage
-                    text={streamingText}
-                    isStreaming={isStreaming}
-                    isStopped={isStopped}
-                    error={streamError}
-                    onStop={stopStream}
-                    onRetry={() => void send()}
-                  />
+                  {isStreaming ? (
+                    <StreamingMessage
+                      text={streamingText}
+                      isStreaming={isStreaming}
+                      isStopped={isStopped}
+                      error={streamError}
+                      onStop={stopStream}
+                      onRetry={() => void send()}
+                    />
                   ) : busy ? (
-                  <div role="status">
-                    <p>Estou olhando sua explicação. Já volto com uma pergunta!</p>
-                    <div className="dots" aria-hidden="true">
-                      <i />
-                      <i />
-                      <i />
+                    <div role="status">
+                      <p>Estou olhando sua explicação. Já volto com uma pergunta!</p>
+                      <div className="dots" aria-hidden="true">
+                        <i />
+                        <i />
+                        <i />
+                      </div>
                     </div>
-                  </div>
-                  ) : (<ReactMarkdown>{question}</ReactMarkdown>)
+                  ) : (
+                    <ReactMarkdown>{question}</ReactMarkdown>
+                  )}
                 </div>
               </div>
             </div>
@@ -551,29 +553,29 @@ export function FeynmanLesson({
                 </div>
               </div>
             ))}
-            isStreaming ? (
-            <div className="bubble-row assistant">
-              <span className="feyn-message-author">{student.name}</span>
-              <div className="bubble">
-                <StreamingMessage
-                  text={streamingText}
-                  isStreaming={isStreaming}
-                  isStopped={isStopped}
-                  error={streamError}
-                  onStop={stopStream}
-                />
+            {isStreaming ? (
+              <div className="bubble-row assistant">
+                <span className="feyn-message-author">{student.name}</span>
+                <div className="bubble">
+                  <StreamingMessage
+                    text={streamingText}
+                    isStreaming={isStreaming}
+                    isStopped={isStopped}
+                    error={streamError}
+                    onStop={stopStream}
+                  />
+                </div>
               </div>
-            </div>
             ) : busy ? (
-            <div className="bubble-row assistant">
-              <span className="feyn-message-author">{student.name}</span>
-              <div className="bubble typing">
-                <i />
-                <i />
-                <i />
+              <div className="bubble-row assistant">
+                <span className="feyn-message-author">{student.name}</span>
+                <div className="bubble typing">
+                  <i />
+                  <i />
+                  <i />
+                </div>
               </div>
-            </div>
-            ) : null
+            ) : null}
             <div ref={end} />
           </div>
         </section>

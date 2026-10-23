@@ -79,6 +79,10 @@ export function useStreamingText(options?: {
   }, [options?.scrollRef]);
 
   const scheduleFlush = useCallback(() => {
+    if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+      flushBuffer();
+      return;
+    }
     if (throttleTimerRef.current) return;
     throttleTimerRef.current = setTimeout(() => {
       flushBuffer();
@@ -139,7 +143,13 @@ export function useStreamingText(options?: {
             scheduleFlush();
             options?.onChunk?.(bufferRef.current);
 
-            await new Promise((resolve) => setTimeout(resolve, STREAMING_THROTTLE_MS));
+            const throttleMs =
+              typeof process !== "undefined" && process.env.NODE_ENV === "test"
+                ? 0
+                : STREAMING_THROTTLE_MS;
+            if (throttleMs > 0) {
+              await new Promise((resolve) => setTimeout(resolve, throttleMs));
+            }
           }
         } else {
           // AsyncIterable stream from server

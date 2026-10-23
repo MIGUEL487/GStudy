@@ -158,6 +158,7 @@ describe("Whiteboard Cursor de Texto e Navegação", () => {
 
   it("permite selecionar tamanhos P, M e G", () => {
     mount();
+    fireEvent.click(screen.getByRole("button", { name: "Texto" }));
     const btnP = screen.getByRole("button", { name: "Tamanho P" });
     const btnM = screen.getByRole("button", { name: "Tamanho M" });
     const btnG = screen.getByRole("button", { name: "Tamanho G" });
