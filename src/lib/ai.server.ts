@@ -1,6 +1,7 @@
 import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
 import {
   generateText,
+  streamText,
   Output,
   jsonSchema,
   NoObjectGeneratedError,
@@ -505,4 +506,61 @@ export async function aiResearch(instructions: string, messages: ModelMessage[])
     text: string;
     sources: { title: string; url: string }[];
   };
+}
+
+export async function aiStreamText(
+  instructions: string,
+  messages: ModelMessage[],
+  whiteboard = false,
+  socrates = false,
+) {
+  const vision = whiteboard || hasImages(messages);
+  const socratesConfig =
+    socrates && process.env["SOCRATES_AI_API_KEY"]?.trim() ? socratesAiConfig(process.env) : null;
+  const socratesProvider: Provider | null = socratesConfig
+    ? socratesConfig.provider === "gemini"
+      ? "socrates-gemini"
+      : !vision
+        ? (socratesConfig.provider as Provider)
+        : null
+    : null;
+
+  const providers: Provider[] = [
+    ...(socratesProvider ? [socratesProvider] : []),
+    "gemini",
+    ...(process.env["GROQ_API_KEY"]?.trim() ? ["groq" as const] : []),
+    ...(process.env["OPENROUTER_API_KEY"]?.trim() ? ["openrouter" as const] : []),
+  ];
+
+  for (const [index, name] of providers.entries()) {
+    try {
+      if (name === "openrouter") await validateOpenRouterFiles(messages);
+      const model = await provider(name, vision, false, hasPdf(messages));
+      const isGoogle = name === "gemini" || name === "socrates-gemini";
+      const validMessages = isGoogle ? cleanMessages(messages) : messages;
+
+      const result = streamText({
+        model,
+        system: instructions,
+        messages: validMessages,
+        maxRetries: 0,
+        abortSignal: AbortSignal.timeout(
+          name === "groq"
+            ? groqTimeoutMs
+            : name === "gemini" || name === "socrates-gemini"
+              ? 35000
+              : 45000,
+        ),
+      });
+
+      return result;
+    } catch (error) {
+      if (index < providers.length - 1 && canFallback(error)) {
+        logFailure(error, name, vision);
+        continue;
+      }
+      return finishFailure(error, name, vision);
+    }
+  }
+  throw new Error("Nenhum provedor de IA está disponível.");
 }

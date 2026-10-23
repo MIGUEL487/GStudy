@@ -25,6 +25,8 @@ import { students, studentOf, type StudentId } from "@/lib/students";
 import { LessonShell } from "@/components/lesson";
 import { Whiteboard, type Board } from "@/components/whiteboard";
 import { StudentIllustration } from "@/components/student-illustration";
+import { StreamingMessage } from "@/components/streaming-message";
+import { autoScrollPreservingUser, useStreamingText } from "@/lib/streaming-ai";
 import "@/styles/feynman-polish.css";
 
 export const Route = createFileRoute("/aprender/feynman")({
@@ -117,16 +119,26 @@ export function FeynmanLesson({
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const student = studentOf(studentId);
+  const {
+    text: streamingText,
+    isStreaming,
+    isStopped,
+    error: streamError,
+    start: startStream,
+    stop: stopStream,
+  } = useStreamingText({
+    scrollRef: end,
+  });
 
   useEffect(() => {
     if (!started && lesson.ready && lesson.context?.topic) setTopic(lesson.context.topic);
   }, [started, lesson.ready, lesson.context?.topic]);
   useEffect(() => {
     const chat = end.current?.parentElement;
-    if (chat && typeof chat.scrollTo === "function") {
-      chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
+    if (chat) {
+      autoScrollPreservingUser(chat);
     }
-  }, [msgs, busy, historyOpen]);
+  }, [msgs, busy, historyOpen, isStreaming]);
   useEffect(() => {
     if (started && !busy) input.current?.focus({ preventScroll: true });
   }, [started, busy]);
@@ -204,9 +216,11 @@ export function FeynmanLesson({
       });
       if (token) attempt.succeed(token);
       successfulSession.current = true;
-      setMsgs((messages) => [...messages, { role: "assistant", text: result.text, studentId }]);
       board.current?.clear();
-      const grade = /NOTA:\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i.exec(result.text);
+      const streamResult = await startStream(result.text);
+      const finalText = streamResult.text || result.text;
+      setMsgs((messages) => [...messages, { role: "assistant", text: finalText, studentId }]);
+      const grade = /NOTA:\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i.exec(finalText);
       if (grade && score === null) {
         const value = Math.min(10, Math.max(0, Number(grade[1]!.replace(",", "."))));
         setScore(value);
@@ -426,18 +440,25 @@ export function FeynmanLesson({
                   key={busy ? "thinking" : `${studentId}:${question}`}
                   className="feyn-answer-motion"
                 >
-                  {busy ? (
-                    <div role="status">
-                      <p>Estou olhando sua explicação. Já volto com uma pergunta!</p>
-                      <div className="dots" aria-hidden="true">
-                        <i />
-                        <i />
-                        <i />
-                      </div>
+                  isStreaming ? (
+                  <StreamingMessage
+                    text={streamingText}
+                    isStreaming={isStreaming}
+                    isStopped={isStopped}
+                    error={streamError}
+                    onStop={stopStream}
+                    onRetry={() => void send()}
+                  />
+                  ) : busy ? (
+                  <div role="status">
+                    <p>Estou olhando sua explicação. Já volto com uma pergunta!</p>
+                    <div className="dots" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
                     </div>
-                  ) : (
-                    <ReactMarkdown>{question}</ReactMarkdown>
-                  )}
+                  </div>
+                  ) : (<ReactMarkdown>{question}</ReactMarkdown>)
                 </div>
               </div>
             </div>
@@ -530,16 +551,29 @@ export function FeynmanLesson({
                 </div>
               </div>
             ))}
-            {busy && (
-              <div className="bubble-row assistant">
-                <span className="feyn-message-author">{student.name}</span>
-                <div className="bubble typing">
-                  <i />
-                  <i />
-                  <i />
-                </div>
+            isStreaming ? (
+            <div className="bubble-row assistant">
+              <span className="feyn-message-author">{student.name}</span>
+              <div className="bubble">
+                <StreamingMessage
+                  text={streamingText}
+                  isStreaming={isStreaming}
+                  isStopped={isStopped}
+                  error={streamError}
+                  onStop={stopStream}
+                />
               </div>
-            )}
+            </div>
+            ) : busy ? (
+            <div className="bubble-row assistant">
+              <span className="feyn-message-author">{student.name}</span>
+              <div className="bubble typing">
+                <i />
+                <i />
+                <i />
+              </div>
+            </div>
+            ) : null
             <div ref={end} />
           </div>
         </section>
