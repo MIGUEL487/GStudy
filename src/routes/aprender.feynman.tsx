@@ -109,6 +109,7 @@ export function FeynmanLesson({
   const [score, setScore] = useState<number | null>(null);
   const [progressSaved, setProgressSaved] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"board" | "explanation">("board");
   const successfulSession = useRef(false);
   const sending = useRef(false);
   const awarded = useRef(false);
@@ -122,7 +123,9 @@ export function FeynmanLesson({
   }, [started, lesson.ready, lesson.context?.topic]);
   useEffect(() => {
     const chat = end.current?.parentElement;
-    if (chat) chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
+    if (chat && typeof chat.scrollTo === "function") {
+      chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
+    }
   }, [msgs, busy, historyOpen]);
   useEffect(() => {
     if (started && !busy) input.current?.focus({ preventScroll: true });
@@ -178,6 +181,9 @@ export function FeynmanLesson({
     setText("");
     setError("");
     setBusy(true);
+    if (typeof window !== "undefined" && window.innerWidth <= 900) {
+      setMobileTab("explanation");
+    }
     try {
       const historyToSend = next
         .slice(1)
@@ -304,8 +310,35 @@ export function FeynmanLesson({
           {turns > 0 && <span aria-hidden="true">{turns}</span>}
         </button>
       </header>
+
+      <div className="feyn-mobile-tabs" role="tablist" aria-label="Visualização da aula">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === "board"}
+          className={`feyn-tab-btn ${mobileTab === "board" ? "is-active" : ""}`}
+          onClick={() => setMobileTab("board")}
+        >
+          <BookOpen size={16} />
+          <span>Lousa</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === "explanation"}
+          className={`feyn-tab-btn ${mobileTab === "explanation" ? "is-active" : ""}`}
+          onClick={() => setMobileTab("explanation")}
+        >
+          <MessageCircle size={16} />
+          <span>Explicação</span>
+          {busy && <span className="feyn-tab-busy-dot" aria-hidden="true" />}
+        </button>
+      </div>
+
       <div className="feyn-stage">
-        <div className="feyn-board-area">
+        <div
+          className={`feyn-board-area ${mobileTab === "board" ? "is-active-tab" : "is-hidden-tab"}`}
+        >
           <form
             className="feyn-studio-compose"
             onSubmit={(event) => {
@@ -361,7 +394,10 @@ export function FeynmanLesson({
           </form>
           <Whiteboard ref={board} disabled={busy} variant="paper" />
         </div>
-        <aside className="feyn-student-column" aria-label="Seu aluno virtual">
+        <aside
+          className={`feyn-student-column ${mobileTab === "explanation" ? "is-active-tab" : "is-hidden-tab"}`}
+          aria-label="Seu aluno virtual"
+        >
           <StudentPicker selected={studentId} disabled={busy} onChange={chooseStudent} />
           <section
             key={studentId}

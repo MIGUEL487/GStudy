@@ -47,6 +47,28 @@
   color: #fcf7ec;
 }
 
+.wb-brush-group {
+  gap: 4px;
+}
+
+.wb-brush-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  min-width: 44px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.wb-brush-dot {
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
 /* Overlay text editor */
 .wb-text-overlay {
   position: absolute;

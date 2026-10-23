@@ -222,8 +222,35 @@ export function learningReference(context: ActivityContext | undefined, memory: 
 }
 
 export const studentPersonas = {
-  gui: { name: "Gui", style: "é curioso e pede exemplos do cotidiano" },
-  lia: { name: "Lia", style: "é observadora e pergunta por que as coisas funcionam" },
-  rafa: { name: "Rafa", style: "gosta de experimentar e pede uma aplicação prática" },
-  maya: { name: "Maya", style: "pensa visualmente e pergunta sobre desenhos e analogias" },
+  gui: {
+    name: "Gui",
+    archetype: "criança de 8 anos curiosa",
+    style:
+      "tem 8 anos, é extremamente curioso, usa linguagem simples e inocente, adora metáforas lúdicas, desenhos e historinhas, e faz perguntas diretas tipo 'por que o céu é azul?' quando você usa jargões sem explicar",
+    evaluationCriteria:
+      "avalia se a explicação foi simples o suficiente para uma criança de 8 anos entender sem jargões",
+  },
+  lia: {
+    name: "Lia",
+    archetype: "colega de classe com dúvidas práticas",
+    style:
+      "é sua colega de classe focada no vestibular e exercícios práticos: pergunta como isso cai na prova, pede macetes, aponta armadilhas comuns e quer aplicação imediata",
+    evaluationCriteria:
+      "avalia se a explicação foi prática, esclarecedora para provas e com exemplos aplicáveis",
+  },
+  maya: {
+    name: "Maya",
+    archetype: "professora sênior exigente",
+    style:
+      "é uma professora sênior exigente e meticulosa: valoriza rigor conceitual, cobra definições formais, aponta lacunas lógicas e faz perguntas profundas para testar contraexemplos",
+    evaluationCriteria:
+      "avalia com alto rigor conceitual, exigindo coerência lógica, clareza e precisão terminológica",
+  },
+  rafa: {
+    name: "Rafa",
+    archetype: "colega de experimentos",
+    style:
+      "é o colega prático que gosta de experimentos e desafios do cotidiano, pedindo situações reais para testar a teoria",
+    evaluationCriteria: "avalia se a explicação demonstra domínio prático e intuitivo",
+  },
 } as const;

@@ -43,6 +43,11 @@ import {
   type Point,
   type Tool,
 } from "@/lib/whiteboard-model";
+import {
+  convertToPerfectShape,
+  SHAPE_HOLD_DELAY_MS,
+  SHAPE_STATIONARY_RADIUS,
+} from "@/lib/shape-detector";
 import "@/styles/whiteboard-images.css";
 import { useTheme } from "@/lib/theme-provider";
 import "@/styles/whiteboard-math.css";
@@ -102,6 +107,12 @@ const SIZES = [
   { id: "G", px: 40 },
 ] as const;
 
+export const BRUSH_THICKNESSES = [
+  { id: "fino", label: "Fino", px: 2 },
+  { id: "medio", label: "Médio", px: 4 },
+  { id: "grosso", label: "Grosso", px: 8 },
+] as const;
+
 export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "chalk" | "paper" }>(
   function Whiteboard({ disabled = false, variant = "chalk" }, ref) {
     const { theme } = useTheme();
@@ -130,6 +141,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       [color, setColor] = useState(colors[0]!.value),
       [text, setText] = useState(""),
       [size, setSize] = useState(28),
+      [brushThickness, setBrushThickness] = useState<number>(4),
       [formulasEnabled, setFormulasEnabled] = useState(true);
 
     const [selected, setSelected] = useState<string | null>(null),
@@ -138,6 +150,13 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
     const [history, setHistory] = useState({ undo: 0, redo: 0 });
     const [textSession, setTextSession] = useState<TextSession | null>(null);
+
+    const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastStationaryPoint = useRef<Point | null>(null);
+    const shapeConversion = useRef<{
+      originalMark: DrawMark;
+      convertedMark: DrawMark;
+    } | null>(null);
 
     const selectedImage = marks.current.find(
       (mark): mark is ImageMark => mark.tool === "image" && mark.id === selected,
@@ -252,11 +271,36 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
     useEffect(() => {
       alive.current = true;
       const uploadRef = upload;
+      const timerRef = holdTimer;
       return () => {
         alive.current = false;
         uploadRef.current++;
+        if (timerRef.current) clearTimeout(timerRef.current);
       };
     }, []);
+
+    useEffect(() => {
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (disabledRef.current) return;
+        const target = e.target as HTMLElement | null;
+        if (
+          target &&
+          (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+        ) {
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) redo();
+          else undo();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          redo();
+        }
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    });
 
     useEffect(() => {
       if (disabled) {
@@ -446,15 +490,52 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         finishTextSession();
       }
 
-      const mark: DrawMark = { tool, color, size, points: [point], text: "" };
+      const mark: DrawMark = {
+        tool,
+        color,
+        size,
+        strokeWidth: brushThickness,
+        points: [point],
+        text: "",
+      };
+      if (holdTimer.current) {
+        clearTimeout(holdTimer.current);
+        holdTimer.current = null;
+      }
+      shapeConversion.current = null;
+      lastStationaryPoint.current = point;
+
       e.currentTarget.setPointerCapture(e.pointerId);
       gesture.current = { pointerId: e.pointerId, kind: "draw", mark };
+
+      if (tool === "pen") {
+        holdTimer.current = setTimeout(() => {
+          checkAndConvertShape();
+        }, SHAPE_HOLD_DELAY_MS);
+      }
 
       if (tool === "eraser") {
         eraseAtPoint(point);
       }
 
       refresh();
+    };
+
+    const checkAndConvertShape = () => {
+      const current = gesture.current;
+      if (!current || current.kind !== "draw" || current.mark.tool !== "pen") return;
+      const detected = convertToPerfectShape(current.mark);
+      if (detected) {
+        shapeConversion.current = {
+          originalMark: {
+            ...current.mark,
+            points: current.mark.points.map((p) => ({ ...p })),
+          },
+          convertedMark: detected,
+        };
+        current.mark = detected;
+        refresh();
+      }
     };
 
     const eraseAtPoint = (point: Point) => {
@@ -478,6 +559,22 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
           if (previous.x !== point.x || previous.y !== point.y) current.mark.points.push(point);
           if (current.mark.tool === "eraser") {
             eraseAtPoint(point);
+          } else if (current.mark.tool === "pen") {
+            if (lastStationaryPoint.current) {
+              const moved = Math.hypot(
+                point.x - lastStationaryPoint.current.x,
+                point.y - lastStationaryPoint.current.y,
+              );
+              if (moved > SHAPE_STATIONARY_RADIUS) {
+                lastStationaryPoint.current = point;
+                if (holdTimer.current) {
+                  clearTimeout(holdTimer.current);
+                }
+                holdTimer.current = setTimeout(() => {
+                  checkAndConvertShape();
+                }, SHAPE_HOLD_DELAY_MS);
+              }
+            }
           }
         } else {
           current.mark.points = [current.mark.points[0]!, point];
@@ -503,6 +600,10 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
     const up = (e: RPointerEvent<HTMLCanvasElement>) => {
       const current = gesture.current;
+      if (holdTimer.current) {
+        clearTimeout(holdTimer.current);
+        holdTimer.current = null;
+      }
       if (!current || current.pointerId !== e.pointerId) return;
       extend(e);
       gesture.current = null;
@@ -517,6 +618,21 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             marks.current.map((mark) => (mark.tool === "image" && mark.id === a.id ? b : mark)),
           );
         else refresh();
+        return;
+      }
+
+      // If converted to perfect shape by holding stationary:
+      if (shapeConversion.current) {
+        // Push original freehand stroke into past history so Ctrl+Z undoes the conversion back to freehand first!
+        past.current = [
+          ...past.current.slice(-39),
+          [...marks.current, shapeConversion.current.originalMark],
+        ];
+        future.current = [];
+        marks.current = [...marks.current, shapeConversion.current.convertedMark];
+        shapeConversion.current = null;
+        refresh();
+        changed();
         return;
       }
 
@@ -535,6 +651,11 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
     };
 
     const cancel = () => {
+      if (holdTimer.current) {
+        clearTimeout(holdTimer.current);
+        holdTimer.current = null;
+      }
+      shapeConversion.current = null;
       gesture.current = null;
       refresh();
     };
@@ -567,7 +688,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       if (!file || disabledRef.current || loadingRef.current) return;
       if (marks.current.filter((mark) => mark.tool === "image").length >= 6) {
         setImageError(
-          "A lousa aceita até 6 imagens por vez. Remova uma imagem para adicionar outra.",
+          "A lousa aceita atÃ© 6 imagens por vez. Remova uma imagem para adicionar outra.",
         );
         return;
       }
@@ -593,7 +714,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       } catch (error) {
         if (alive.current && request === upload.current)
           setImageError(
-            error instanceof Error ? error.message : "Não foi possível inserir a imagem.",
+            error instanceof Error ? error.message : "NÃ£o foi possÃ­vel inserir a imagem.",
           );
       } finally {
         if (alive.current && request === upload.current) {
@@ -653,7 +774,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       tool === "select"
         ? "Toque na imagem para selecionar. Arraste para mover e puxe o canto para ajustar."
         : tool === "text"
-          ? "Clique na lousa para abrir o cursor. Digite texto ou fórmulas matemáticas."
+          ? "Clique na lousa para abrir o cursor. Digite texto ou fÃ³rmulas matemÃ¡ticas."
           : tool === "pen" || tool === "eraser"
             ? "Desenhe com o mouse ou com o dedo."
             : "Arraste para desenhar a forma.";
@@ -731,27 +852,58 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
               </span>
             </button>
 
-            <div className="wb-size-group" role="group" aria-label="Tamanho do traço e texto">
-              {SIZES.map(({ id, px }) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={locked}
-                  title={`Tamanho ${id} (${px}px)`}
-                  aria-label={`Tamanho ${id}`}
-                  aria-pressed={size === px}
-                  className={`wb-size-btn ${size === px ? "on" : ""}`}
-                  onClick={() => {
-                    setSize(px);
-                    if (textSession) {
-                      setTextSession({ ...textSession, size: px });
-                    }
-                  }}
-                >
-                  {id}
-                </button>
-              ))}
-            </div>
+            {tool === "text" ? (
+              <div className="wb-size-group" role="group" aria-label="Tamanho do texto">
+                {SIZES.map(({ id, px }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={locked}
+                    title={`Tamanho ${id} (${px}px)`}
+                    aria-label={`Tamanho ${id}`}
+                    aria-pressed={size === px}
+                    className={`wb-size-btn ${size === px ? "on" : ""}`}
+                    onClick={() => {
+                      setSize(px);
+                      if (textSession) {
+                        setTextSession({ ...textSession, size: px });
+                      }
+                    }}
+                  >
+                    {id}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="wb-size-group wb-brush-group"
+                role="group"
+                aria-label="Espessura do traço"
+              >
+                {BRUSH_THICKNESSES.map(({ id, label, px }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={locked}
+                    title={`Espessura ${label} (${px}px)`}
+                    aria-label={`Espessura ${label}`}
+                    aria-pressed={brushThickness === px}
+                    className={`wb-size-btn wb-brush-btn ${brushThickness === px ? "on" : ""}`}
+                    onClick={() => setBrushThickness(px)}
+                  >
+                    <span
+                      className="wb-brush-dot"
+                      style={{
+                        width: `${Math.max(4, px * 1.5)}px`,
+                        height: `${Math.max(4, px * 1.5)}px`,
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             <span className="wb-divider" />
 
@@ -813,7 +965,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
         {loading && (
           <p className="wb-image-notice" role="status">
-            Preparando a imagem…{" "}
+            Preparando a imagemâ€¦{" "}
             <span className="dots" aria-hidden="true">
               <i />
               <i />
@@ -867,7 +1019,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             >
               <Trash2 size={16} />
             </button>
-            <small>Arraste para mover · Puxe o canto para redimensionar</small>
+            <small>Arraste para mover Â· Puxe o canto para redimensionar</small>
           </div>
         )}
 
@@ -913,7 +1065,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             width={paper ? 1200 : 720}
             height={paper ? 720 : 420}
             aria-label="Lousa para desenhar, inserir texto e formas"
-            aria-description="Também aceita imagens: use Inserir imagem e Mover imagem."
+            aria-description="TambÃ©m aceita imagens: use Inserir imagem e Mover imagem."
             aria-disabled={locked}
             className={tool === "select" ? "is-selecting-image" : undefined}
             onPointerDown={down}
@@ -935,7 +1087,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                   type="text"
                   className="wb-text-overlay-input"
                   value={textSession.text}
-                  placeholder="Texto ou fórmula..."
+                  placeholder="Texto ou fÃ³rmula..."
                   aria-label="Cursor de texto da lousa"
                   style={{ color: textSession.color }}
                   onChange={(e) => {
@@ -1014,7 +1166,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                   type="button"
                   className="wb-text-overlay-done"
                   onClick={finishTextSession}
-                  title="Concluir edição de texto"
+                  title="Concluir ediÃ§Ã£o de texto"
                 >
                   Concluir
                 </button>
@@ -1022,7 +1174,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
               {formulasEnabled && textSession.text.trim() && (
                 <div className="wb-text-overlay-preview" aria-live="polite">
-                  <span className="wb-preview-badge">Prévia:</span>
+                  <span className="wb-preview-badge">PrÃ©via:</span>
                   <span>{formatMathPreview(textSession.text, true)}</span>
                 </div>
               )}
@@ -1033,7 +1185,9 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         <div className={paper ? "wb-status" : "wb-tools"}>
           {!paper && palette}
           <small className="wb-hint">{hint}</small>
-          {paper && <span className="wb-paper-caption">Um espaço para organizar suas ideias.</span>}
+          {paper && (
+            <span className="wb-paper-caption">Um espaÃ§o para organizar suas ideias.</span>
+          )}
         </div>
       </div>
     );
