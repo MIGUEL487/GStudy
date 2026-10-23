@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { generateActivity } from "@/lib/learn.functions";
+import type { Quiz, Cards, Explain } from "@/lib/learn.functions";
 import { idsFrom } from "@/lib/learn-client";
 import { useDailyAttempt } from "@/hooks/use-daily-attempt";
 import type { LearningContext } from "@/lib/learning-model";
 
-type Activity = Awaited<ReturnType<typeof generateActivity>>;
+type Activity =
+  | { mode: "quiz"; quiz: Quiz }
+  | { mode: "flashcards"; cards: Cards }
+  | { mode: "explain"; explain: Explain };
 type Mode = "quiz" | "flashcards" | "explain";
 
 export function useGeneratedActivity(
@@ -51,14 +55,14 @@ export function useGeneratedActivity(
           const quota = dailyRef.current;
           const token = quota.begin();
           try {
-            const activity = await generateRef.current({
+            const activity = (await generateRef.current({
               data: {
                 mode,
                 ids: idsFrom(materials),
                 ...(context ? { context } : {}),
                 ...(forceRegenerate ? { regenerate: true } : {}),
               },
-            });
+            })) as Activity;
             if (activity.mode !== mode)
               throw new Error("A IA retornou outra atividade. Tente gerar novamente.");
             const count =

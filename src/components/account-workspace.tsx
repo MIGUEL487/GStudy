@@ -6,6 +6,7 @@ import { mergeNotionPages } from "@/lib/notion-model";
 import { LearningProvider } from "./learning-provider";
 import { RecallSessionProvider } from "./recall-session-provider";
 import { AccountSyncProvider } from "./account-sync-provider";
+import { HeartsProvider } from "./hearts-provider";
 
 export function AccountWorkspace({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -15,7 +16,7 @@ export function AccountWorkspace({ children }: { children: ReactNode }) {
         <LearningProvider>
           <RecallSessionProvider userId={user.id}>
             <NotionHydrator />
-            {children}
+            <HeartsProvider userId={user.id}>{children}</HeartsProvider>
           </RecallSessionProvider>
         </LearningProvider>
       </StudyProvider>

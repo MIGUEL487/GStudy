@@ -1,124 +1,94 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { HeartsProvider } from "@/components/hearts-provider";
 import {
   useLessonHearts,
   LessonHeartsIndicator,
   BreathPauseScreen,
   Finish,
 } from "@/components/lesson";
-
+const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: mocks.rpc } }));
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({
-    children,
-    to,
-    ...props
-  }: {
-    children: React.ReactNode;
-    to: string;
-    [key: string]: unknown;
-  }) => (
+  Link: ({ children, to, ...props }: { children: React.ReactNode; to: string }) => (
     <a href={to} {...props}>
       {children}
     </a>
   ),
-  useNavigate: () => vi.fn(),
-  useLocation: () => ({ pathname: "/aprender" }),
 }));
-
-function HeartsTestHarness() {
-  const { hearts, shaking, isExhausted, deductHeart, rechargeHearts } = useLessonHearts(5);
-
+const eventId = "11111111-1111-4111-8111-111111111111";
+const state = (hearts: number) => ({
+  hearts,
+  max: 3,
+  regen_minutes: 120,
+  server_now: new Date().toISOString(),
+  next_at: hearts === 3 ? null : new Date(Date.now() + 7200000).toISOString(),
+});
+function Harness() {
+  const h = useLessonHearts();
   return (
-    <div>
-      <LessonHeartsIndicator hearts={hearts} shaking={shaking} />
-      <button onClick={deductHeart}>Errar</button>
-      <button onClick={rechargeHearts}>Recarregar</button>
-      {isExhausted && <div data-testid="exhausted">Sem vidas</div>}
-    </div>
+    <>
+      <LessonHeartsIndicator hearts={h.hearts} />
+      <span>{h.error}</span>
+      <button onClick={() => void h.deductHeart(eventId)}>Errar</button>
+      <button onClick={h.rechargeHearts}>Atualizar</button>
+    </>
   );
 }
-
-describe("Bloco 4: Sistema de Vidas (Corações) e Troféu de XP", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+const open = () =>
+  render(
+    <HeartsProvider userId="student">
+      <Harness />
+    </HeartsProvider>,
+  );
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.rpc.mockResolvedValue({ data: state(3), error: null });
+});
+describe("Corações confirmados pelo servidor", () => {
+  it("consulta 3 corações, envia um ID de resposta e não inventa recarga", async () => {
+    open();
+    await screen.findByLabelText("3 vidas restantes");
+    mocks.rpc.mockResolvedValueOnce({ data: state(2), error: null });
+    fireEvent.click(screen.getByText("Errar"));
+    await screen.findByLabelText("2 vidas restantes");
+    expect(mocks.rpc).toHaveBeenLastCalledWith("lose_learning_heart", { p_event_id: eventId });
+    mocks.rpc.mockResolvedValueOnce({ data: state(2), error: null });
+    fireEvent.click(screen.getByText("Atualizar"));
+    await waitFor(() => expect(mocks.rpc).toHaveBeenLastCalledWith("get_learning_hearts", {}));
+    expect(screen.getByLabelText("2 vidas restantes")).toBeInTheDocument();
   });
-
-  describe("Sistema de Vidas (Corações)", () => {
-    it("inicia com 5 corações e desconta 1 vida a cada erro", () => {
-      render(<HeartsTestHarness />);
-
-      expect(screen.getByLabelText("5 vidas restantes")).toBeInTheDocument();
-
-      // 1º erro
-      fireEvent.click(screen.getByText("Errar"));
-      expect(screen.getByLabelText("4 vidas restantes")).toBeInTheDocument();
-
-      // 2º erro
-      fireEvent.click(screen.getByText("Errar"));
-      expect(screen.getByLabelText("3 vidas restantes")).toBeInTheDocument();
+  it("não desconta localmente quando o servidor falha", async () => {
+    open();
+    await screen.findByLabelText("3 vidas restantes");
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: "PGRST202", message: "function missing" },
     });
-
-    it("ativa tela de pausa ao zerar vidas e permite recarregar", () => {
-      render(<HeartsTestHarness />);
-
-      // Erra 5 vezes
-      for (let i = 0; i < 5; i++) {
-        fireEvent.click(screen.getByText("Errar"));
-      }
-
-      expect(screen.getByLabelText("0 vidas restantes")).toBeInTheDocument();
-      expect(screen.getByTestId("exhausted")).toBeInTheDocument();
-
-      // Recarrega
-      fireEvent.click(screen.getByText("Recarregar"));
-      expect(screen.getByLabelText("5 vidas restantes")).toBeInTheDocument();
-      expect(screen.queryByTestId("exhausted")).not.toBeInTheDocument();
-    });
+    fireEvent.click(screen.getByText("Errar"));
+    await screen.findByText(/aguardando uma atualização/);
+    expect(screen.getByLabelText("3 vidas restantes")).toBeInTheDocument();
   });
-
-  describe("Tela Pausa para Respirar (BreathPauseScreen)", () => {
-    it("exibe mensagem encorajadora e botão para recarregar revisando o caderno", () => {
-      const onRecharge = vi.fn();
-
-      render(<BreathPauseScreen onRecharge={onRecharge} backTo="/aprender" />);
-
-      expect(screen.getByText("Pausa para respirar")).toBeInTheDocument();
-      expect(
-        screen.getByText(/Errar é a forma como o cérebro mapeia onde precisa de mais atenção/i),
-      ).toBeInTheDocument();
-
-      const rechargeBtn = screen.getByRole("button", {
-        name: /Recarregar revisando o caderno/i,
-      });
-      fireEvent.click(rechargeBtn);
-      expect(onRecharge).toHaveBeenCalledTimes(1);
-
-      expect(screen.getByText("Voltar à trilha")).toBeInTheDocument();
-    });
+  it("oferece revisão gratuita e consulta, sem botão de recarga instantânea", () => {
+    const review = vi.fn(),
+      refresh = vi.fn();
+    render(
+      <BreathPauseScreen
+        onReview={review}
+        onRecharge={refresh}
+        countdown="Próximo coração em 1 h 24 min"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Revisar erros sem custo" }));
+    expect(review).toHaveBeenCalledOnce();
+    expect(screen.getByText("Próximo coração em 1 h 24 min")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Recarregar/ })).not.toBeInTheDocument();
   });
-
-  describe("Troféu de XP Comemorativo (Finish)", () => {
-    it("renderiza o troféu, contagem de XP e foca no botão Continuar jornada", () => {
-      const again = vi.fn();
-
-      render(
-        <Finish
-          xp={50}
-          title="Excelente trabalho!"
-          line="Você concluiu todas as questões com foco e calma."
-          again={again}
-          summary="Fixação do conceito de Termodinâmica concluída."
-        />,
-      );
-
-      expect(screen.getByText("Excelente trabalho!")).toBeInTheDocument();
-      expect(
-        screen.getByText("Fixação do conceito de Termodinâmica concluída."),
-      ).toBeInTheDocument();
-      expect(screen.getByLabelText("Ganhos: 50 pontos de experiência")).toBeInTheDocument();
-
-      const continueBtn = screen.getByRole("link", { name: /Continuar jornada/i });
-      expect(continueBtn).toBeInTheDocument();
-    });
+  it("mostra pontuação da prática sem alegar XP ainda não confirmado", () => {
+    render(
+      <Finish xp={50} title="Prática concluída" line="Seu progresso foi salvo." again={vi.fn()} />,
+    );
+    expect(screen.getByLabelText("Pontuação desta prática: 50")).toBeInTheDocument();
+    expect(screen.getByText(/XP e ofensiva são registrados pelo servidor/)).toBeInTheDocument();
   });
 });

@@ -25,6 +25,7 @@ import { SyncStatus } from "./account-sync-provider";
 import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from "./study-session-controls";
 import { isSocialFeatureEnabled } from "@/lib/social-model";
 import { ThemeToggle } from "./theme-toggle";
+import { HeartsStatus } from "./learning-status";
 import { toast } from "sonner";
 import { FriendsDrawer } from "./friends-drawer";
 import { NotificationsPopover } from "./notifications-popover";
@@ -203,6 +204,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
             <span>{pageName}</span>
           </div>
           <div className="topbar-right">
+            <HeartsStatus />
             <SyncStatus />
             <Leaf size={14} className="desktop-crumb" />
             <span>Seu ritmo. Sua jornada.</span>

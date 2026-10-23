@@ -256,6 +256,80 @@ describe("PostgreSQL Migrations & RLS Harness (PGlite)", () => {
     await db.exec(
       fs.readFileSync(path.join(migrationsDir, "0013_social_security_hardening.sql"), "utf8"),
     );
+    await db.exec(`set role authenticated; set request.jwt.claim.sub = '${userA}'`);
+    const hearts = async () =>
+      (
+        await db.query<{ state: { hearts: number; max: number; next_at: string | null } }>(
+          `select public.get_learning_hearts() as state`,
+        )
+      ).rows[0]!.state;
+    expect(await hearts()).toMatchObject({ hearts: 3, max: 3, next_at: null });
+    await expect(
+      db.exec(`update public.learning_hearts set hearts = 100 where user_id = '${userA}'`),
+    ).rejects.toThrow();
+    await expect(db.exec(`update public.learning_rules set hearts_max = 100`)).rejects.toThrow();
+    const eventId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await db.query(`select public.lose_learning_heart('${eventId}')`);
+    await db.query(`select public.lose_learning_heart('${eventId}')`);
+    expect((await hearts()).hearts).toBe(2);
+    await db.exec(
+      `reset role; update public.learning_hearts set hearts_updated_at = now() - interval '119 minutes' where user_id = '${userA}'; set role authenticated`,
+    );
+    expect((await hearts()).hearts).toBe(2);
+    await db.exec(
+      `reset role; update public.learning_hearts set hearts_updated_at = now() - interval '121 minutes' where user_id = '${userA}'; set role authenticated`,
+    );
+    expect(await hearts()).toMatchObject({ hearts: 3, next_at: null });
+    await db.query(`select public.lose_learning_heart(gen_random_uuid())`);
+    await db.query(`select public.lose_learning_heart(gen_random_uuid())`);
+    expect((await hearts()).hearts).toBe(1);
+    await db.exec(
+      `reset role; update public.learning_hearts set hearts_updated_at = now() - interval '241 minutes' where user_id = '${userA}'; set role authenticated`,
+    );
+    expect(await hearts()).toMatchObject({ hearts: 3, next_at: null });
+    await db.query(`select public.lose_learning_heart(gen_random_uuid())`);
+    const refreshed = await hearts();
+    expect(refreshed.hearts).toBe(2);
+    expect(Date.parse(refreshed.next_at!) - Date.now()).toBeGreaterThan(119 * 60000);
+    await db.exec(`set request.jwt.claim.sub = '${userB}'`);
+    expect((await hearts()).hearts).toBe(3);
+    expect(
+      (await db.query(`select * from public.learning_hearts where user_id = '${userA}'`)).rows,
+    ).toHaveLength(0);
+
+    await db.exec(`set request.jwt.claim.sub = '${userA}'`);
+    const reward = await db.query<{ state: { xp: number; awarded: number } }>(
+      `select public.record_learning_reward('quiz', '${eventId}', 100000) as state`,
+    );
+    expect(reward.rows[0]!.state).toMatchObject({ xp: 100, awarded: 100 });
+    const repeated = await db.query<{ state: { xp: number; awarded: number } }>(
+      `select public.record_learning_reward('quiz', '${eventId}', 100000) as state`,
+    );
+    expect(repeated.rows[0]!.state).toMatchObject({ xp: 100, awarded: 0 });
+    for (let i = 0; i < 10; i++)
+      await db.query(`select public.record_learning_reward('quiz', gen_random_uuid(), 100)`);
+    expect(
+      (await db.query<{ xp: number }>(`select xp from public.learner_stats`)).rows[0]!.xp,
+    ).toBe(500);
+    await expect(db.exec(`update public.learner_stats set xp = 999999`)).rejects.toThrow();
+    expect(
+      (await db.query(`select * from public.get_learning_leaderboard('xp', 'week')`)).rows,
+    ).toHaveLength(1);
+    await db.exec(`reset role`);
+    await db.exec(
+      fs.readFileSync(path.join(migrationsDir, "0014_learning_hearts_and_rewards.sql"), "utf8"),
+    );
+    await db.exec(
+      `insert into public.user_daily_ai_usage(user_id,action,day,count) values('${userA}','game',(now() at time zone 'America/Sao_Paulo')::date,49); set role authenticated`,
+    );
+    const lastAllowed = await db.query<{
+      state: { allowed: boolean; count: number; limit: number };
+    }>(`select public.check_and_consume_ai_quota('game', 999999) as state`);
+    expect(lastAllowed.rows[0]!.state).toMatchObject({ allowed: true, count: 50, limit: 50 });
+    const blockedQuota = await db.query<{
+      state: { allowed: boolean; count: number; limit: number };
+    }>(`select public.check_and_consume_ai_quota('game', 999999) as state`);
+    expect(blockedQuota.rows[0]!.state).toMatchObject({ allowed: false, count: 50, limit: 50 });
     await db.close();
 
     console.log("PGlite harness concluído com sucesso: RLS e isolamento validados sem recursão!");

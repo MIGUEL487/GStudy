@@ -115,7 +115,8 @@
     opacity 0.2s;
 }
 .activity-lesson .duo-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
+  transform: none;
+  opacity: 0.92;
 }
 .activity-lesson .duo-btn:active:not(:disabled) {
   transform: translateY(0);
@@ -339,7 +340,7 @@
   overflow-wrap: anywhere;
 }
 .activity-lesson .choice:hover:not(:disabled) {
-  transform: translateX(3px);
+  transform: none;
 }
 .activity-lesson .choice.picked {
   box-shadow: inset 0 0 0 1px var(--primary);

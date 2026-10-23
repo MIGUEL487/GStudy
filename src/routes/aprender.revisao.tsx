@@ -199,7 +199,7 @@ export function ReviewLesson({ search }: { search: Search }) {
                 </p>
               </div>
               <p className="activity-quota">
-                Até 2 sessões por dia na sua conta. Disponíveis hoje: {quota.remaining}.
+                Estude no seu ritmo. Começar uma revisão não gasta corações.
               </p>
               {error && (
                 <p role="alert" className="activity-error">

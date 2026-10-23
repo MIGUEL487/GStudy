@@ -56,6 +56,7 @@ import {
 } from "@/lib/learning-model";
 import { normalizeStudyName } from "@/lib/notion-model";
 import { useDailyAttempt } from "@/hooks/use-daily-attempt";
+import { HeartsStatus, LearningTrophy } from "@/components/learning-status";
 import "@/styles/learning-path.css";
 
 export const Route = createFileRoute("/aprender/")({
@@ -189,6 +190,8 @@ export function LearnHub() {
           </p>
         </div>
         <div className="journey-stats">
+          <HeartsStatus />
+          <LearningTrophy />
           <span title="Dias seguidos">
             <Flame size={17} /> {stats.streak}
           </span>
@@ -572,7 +575,8 @@ function PlanTrail({ plan }: { plan: LearningPlan }) {
           <p>
             Seu ritmo importa.
             <small>
-              Até 2 tentativas de cada atividade por dia. Gerações que falham não contam.
+              Erros nas questões gastam corações. Você recupera um a cada duas horas e pode revisar
+              sem custo.
             </small>
           </p>
         </div>
@@ -696,7 +700,7 @@ function AttemptCount({ mode }: { mode: ActivityMode }) {
   const { remaining } = useDailyAttempt(mode);
   return (
     <em className={remaining ? "" : "quota-empty"}>
-      {remaining ? `${remaining} tentativa(s) hoje` : "Limite diário atingido · volte amanhã"}
+      {mode === "quiz" ? "Erros gastam corações · progresso salvo" : "Pratique no seu ritmo"}
     </em>
   );
 }

@@ -44,11 +44,21 @@ vi.mock("@/components/learning-provider", () => ({
   }),
 }));
 vi.mock("@/lib/learn-client", () => ({ awardXp: mocks.award }));
+vi.mock("@/components/hearts-provider", () => ({
+  useHearts: () => ({
+    userId: "learner",
+    state: { hearts: 3, max: 3, next_at: null },
+    error: "",
+    lose: async () => true,
+    refresh: async () => {},
+  }),
+}));
 import { FlashcardsLesson } from "@/components/flashcards-lesson";
 import { QuizLesson } from "@/components/quiz-lesson";
 import { ExplanationsLesson } from "@/routes/aprender.explicacoes";
 const search = { p: "plan-1", t: "topic-1" };
 beforeEach(() => {
+  localStorage.clear();
   vi.clearAllMocks();
   mocks.ready = true;
   mocks.allowed = true;
@@ -100,7 +110,7 @@ describe("Atividades conectadas à trilha", () => {
     expect(mocks.award).not.toHaveBeenCalled();
   });
 
-  it("continua o quiz depois de três erros e conclui após revisar todas as respostas", async () => {
+  it("aguarda a sincronização de cada erro e conclui após revisar as respostas", async () => {
     mocks.generated = {
       mode: "quiz",
       quiz: {
@@ -119,12 +129,12 @@ describe("Atividades conectadas à trilha", () => {
       fireEvent.click(screen.getByRole("button", { name: "Conferir resposta" }));
       expect(screen.getByRole("status")).toHaveTextContent(`Explicação ${i}.`);
       fireEvent.click(
-        screen.getByRole("button", { name: i === 4 ? "Concluir quiz" : "Próxima pergunta" }),
+        await screen.findByRole("button", { name: i === 4 ? "Concluir quiz" : "Próxima pergunta" }),
       );
     }
     expect(await screen.findByText("Cada tentativa ensina.")).toBeInTheDocument();
     expect(mocks.complete).toHaveBeenCalledExactlyOnceWith("quiz");
-    expect(mocks.award).toHaveBeenCalledExactlyOnceWith(5);
+    expect(mocks.award).toHaveBeenCalledExactlyOnceWith(5, "quiz", expect.any(String));
   });
 
   it("conclui explicações depois da leitura do último conceito", async () => {

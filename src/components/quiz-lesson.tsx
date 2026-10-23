@@ -1,119 +1,158 @@
-import { generateActivity } from "@/lib/learn.functions";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, CircleCheck, Compass, Lightbulb } from "lucide-react";
 import { awardXp } from "@/lib/learn-client";
-import { type LearningSearch } from "@/lib/learning-model";
-import { useLessonContext } from "@/components/learning-provider";
+import type { LearningSearch } from "@/lib/learning-model";
+import { readQuizProgress, writeQuizProgress, type QuizProgress } from "@/lib/quiz-progress";
+import { useLessonContext } from "./learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
-import {
-  LessonShell,
-  Finish,
-  ErrorBox,
-  UnavailableLesson,
-  useLessonHearts,
-  BreathPauseScreen,
-} from "@/components/lesson";
-import { QuizSkeleton } from "@/components/activity-skeletons";
+import { LessonShell, Finish, ErrorBox, UnavailableLesson, BreathPauseScreen } from "./lesson";
+import { QuizSkeleton } from "./activity-skeletons";
+import { useHearts } from "./hearts-provider";
 
-export type QuizQuestion = {
-  question: string;
-  options: string[];
-  answer: number;
-  why: string;
-};
-
-/**
- * Filtra perguntas com índice de resposta inválido (não corrige com clamp)
- * e embaralha as opções no cliente ajustando o índice da correta.
- */
-export function prepareQuizQuestions(
-  rawQuestions: QuizQuestion[],
-  randomFn = Math.random,
-): QuizQuestion[] {
-  const valid = rawQuestions.filter(
-    (q) =>
-      Number.isInteger(q.answer) &&
-      q.answer >= 0 &&
-      q.answer < q.options.length &&
-      q.options.length >= 2,
-  );
-
-  return valid.map((q) => {
-    const paired = q.options.map((opt, idx) => ({
-      opt,
-      isCorrect: idx === q.answer,
-    }));
-
-    // Fisher-Yates shuffle
-    for (let k = paired.length - 1; k > 0; k--) {
-      const j = Math.floor(randomFn() * (k + 1));
-      const temp = paired[k]!;
-      paired[k] = paired[j]!;
-      paired[j] = temp;
-    }
-
-    const newAnswer = paired.findIndex((p) => p.isCorrect);
-
-    return {
-      ...q,
-      options: paired.map((p) => p.opt),
-      answer: newAnswer >= 0 ? newAnswer : 0,
-    };
-  });
+export type QuizQuestion = { question: string; options: string[]; answer: number; why: string };
+export function prepareQuizQuestions(raw: QuizQuestion[], random = Math.random): QuizQuestion[] {
+  return raw
+    .filter(
+      (q) =>
+        Number.isInteger(q.answer) &&
+        q.answer >= 0 &&
+        q.answer < q.options.length &&
+        q.options.length >= 2,
+    )
+    .map((q) => {
+      const options = q.options.map((text, i) => ({ text, correct: i === q.answer }));
+      for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [options[i], options[j]] = [options[j]!, options[i]!];
+      }
+      return {
+        ...q,
+        options: options.map((o) => o.text),
+        answer: options.findIndex((o) => o.correct),
+      };
+    });
 }
 
 export function QuizLesson({ search }: { search: LearningSearch }) {
+  const account = useHearts();
+  const storageKey = `gstudy.quiz.v2:${account?.userId ?? "signed-out"}:${JSON.stringify(search)}`;
+  return <QuizSession key={storageKey} search={search} storageKey={storageKey} />;
+}
+
+function QuizSession({ search, storageKey }: { search: LearningSearch; storageKey: string }) {
   const lesson = useLessonContext(search);
+  const hearts = useHearts();
+  const [restored] = useState(() => readQuizProgress(storageKey));
+  const [usingSaved, setUsingSaved] = useState(Boolean(restored.value));
+  const [session, setSession] = useState<QuizProgress | null>(restored.value);
+  const current = useRef(session);
+  const [localError, setLocalError] = useState(restored.error);
+  const [review, setReview] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const syncLock = useRef(false);
   const enabled = lesson.ready && lesson.allowed && (!search.p || Boolean(lesson.context));
-  const {
-    result,
-    error,
-    reload: load,
-  } = useGeneratedActivity("quiz", search.m, lesson.context, enabled);
-  const quiz = result?.mode === "quiz" ? result.quiz : null;
-
-  const questions = useMemo(
-    () => (quiz?.questions ? prepareQuizQuestions(quiz.questions) : []),
-    [quiz],
+  const generated = useGeneratedActivity(
+    "quiz",
+    search.m,
+    lesson.context,
+    enabled && !usingSaved && !restored.error,
   );
-
-  const [i, setI] = useState(0);
-  const [pick, setPick] = useState<number | null>(null);
-  const [checked, setChecked] = useState(false);
-  const [right, setRight] = useState(0);
-  const [done, setDone] = useState(false);
-  const action = useRef(false);
-  const { hearts, shaking, isExhausted, deductHeart, rechargeHearts } = useLessonHearts(5);
-
+  const persist = useCallback(
+    (next: QuizProgress) => {
+      if (!writeQuizProgress(storageKey, next)) {
+        setLocalError(
+          "Não foi possível salvar sua resposta. Libere espaço no navegador e tente novamente.",
+        );
+        return false;
+      }
+      current.current = next;
+      setSession(next);
+      setLocalError("");
+      return true;
+    },
+    [storageKey],
+  );
   useEffect(() => {
-    setI(0);
-    setPick(null);
-    setChecked(false);
-    setRight(0);
-    setDone(false);
-    action.current = false;
-  }, [quiz]);
-
-  useEffect(() => {
-    action.current = false;
-  }, [i, checked]);
-
-  useEffect(() => {
-    if (done && lesson.next) {
-      void generateActivity({
-        data: {
-          mode: "flashcards",
-          ids: (search.m ?? "")
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean),
-          ...(lesson.context ? { context: lesson.context } : {}),
-        },
-      }).catch(() => {});
+    if (session || !enabled || generated.result?.mode !== "quiz") return;
+    const questions = prepareQuizQuestions(generated.result.quiz.questions);
+    if (!questions.length) {
+      setLocalError("Nenhuma pergunta válida foi encontrada. Tente gerar novamente.");
+      return;
     }
-  }, [done, lesson.next, search.m, lesson.context]);
+    persist({
+      sessionId: crypto.randomUUID(),
+      questions,
+      index: 0,
+      pick: null,
+      checked: false,
+      right: 0,
+      done: false,
+      mistakes: [],
+      pendingHeartId: null,
+    });
+  }, [session, generated.result, enabled, persist]);
 
+  const synchronize = useCallback(async () => {
+    const eventId = current.current?.pendingHeartId;
+    if (!eventId || !hearts || syncLock.current) return;
+    syncLock.current = true;
+    setSyncing(true);
+    try {
+      if (await hearts.lose(eventId)) {
+        const latest = current.current;
+        if (latest?.pendingHeartId === eventId) persist({ ...latest, pendingHeartId: null });
+      }
+    } finally {
+      syncLock.current = false;
+      setSyncing(false);
+    }
+  }, [hearts?.lose, persist]);
+  useEffect(() => {
+    if (session?.pendingHeartId) void synchronize();
+  }, [session?.pendingHeartId, synchronize]);
+
+  const restart = () => {
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      setLocalError("Não foi possível iniciar outro quiz. Seu resultado foi preservado.");
+      return;
+    }
+    current.current = null;
+    setSession(null);
+    setUsingSaved(false);
+    setLocalError("");
+    setReview(false);
+    generated.reload();
+  };
   const shell = { title: "Quiz", backSearch: lesson.backSearch, backTo: lesson.backTo };
+  const questions = session?.questions ?? [];
+  const mistakes = useMemo(
+    () => session?.mistakes.map((index) => questions[index]!).filter(Boolean) ?? [],
+    [session?.mistakes, questions],
+  );
+  const reviewContent = (
+    <section aria-label="Revisão dos erros" className="quiz-error-review">
+      <h2>Vamos rever suas respostas</h2>
+      {mistakes.length ? (
+        mistakes.map((q, index) => (
+          <article key={index}>
+            <h3>{q.question}</h3>
+            <p>
+              <b>Resposta: </b>
+              {q.options[q.answer]}
+            </p>
+            <p>{q.why}</p>
+          </article>
+        ))
+      ) : (
+        <p>Você ainda não tem erros neste quiz.</p>
+      )}
+      <button type="button" className="duo-btn ghost" onClick={() => setReview(false)}>
+        Voltar ao quiz
+      </button>
+    </section>
+  );
 
   if (lesson.ready && !enabled)
     return (
@@ -121,139 +160,173 @@ export function QuizLesson({ search }: { search: LearningSearch }) {
         <UnavailableLesson backSearch={lesson.backSearch} backTo={lesson.backTo} />
       </LessonShell>
     );
-
-  if (error)
+  if (review)
     return (
-      <LessonShell progress={0} {...shell}>
-        <ErrorBox message={error} retry={load} />
+      <LessonShell progress={(session?.index ?? 0) / Math.max(1, questions.length)} {...shell}>
+        {reviewContent}
       </LessonShell>
     );
-
-  if (!quiz)
+  if (restored.error || localError || generated.error)
+    return (
+      <LessonShell progress={0} {...shell}>
+        <ErrorBox
+          message={restored.error || localError || generated.error}
+          retry={
+            restored.error
+              ? () => window.location.reload()
+              : session
+                ? () => persist(session)
+                : generated.reload
+          }
+        />
+      </LessonShell>
+    );
+  if (!session)
     return (
       <LessonShell progress={0} {...shell}>
         <QuizSkeleton backTo={lesson.backTo || "/aprender"} backSearch={lesson.backSearch ?? {}} />
       </LessonShell>
     );
-
-  if (questions.length === 0)
-    return (
-      <LessonShell progress={0} {...shell}>
-        <ErrorBox
-          message="Nenhuma pergunta válida foi encontrada neste quiz. Tente gerar novamente."
-          retry={load}
-        />
-      </LessonShell>
-    );
-
-  const q = questions[i];
-  if (done || !q)
+  if (session.done)
     return (
       <LessonShell progress={1} {...shell}>
         <Finish
-          xp={right * 10 + 5}
+          xp={session.right * 10 + 5}
           title="Cada tentativa ensina."
-          line={`Você acertou ${right} de ${questions.length} perguntas e revisou as explicações. Continue construindo sua compreensão.`}
-          again={load}
+          line={`Você acertou ${session.right} de ${questions.length} perguntas. Seu progresso está salvo.`}
+          again={restart}
           next={lesson.next}
           backSearch={lesson.backSearch}
           backTo={lesson.backTo}
         />
+        <button className="text-action" onClick={() => setReview(true)}>
+          Revisar erros sem custo
+        </button>
       </LessonShell>
     );
-
-  if (isExhausted) {
+  if (!hearts?.state)
     return (
-      <LessonShell progress={i / questions.length} hearts={0} {...shell}>
+      <LessonShell progress={session.index / questions.length} {...shell}>
+        <ErrorBox
+          message={hearts?.error || "Consultando seus corações…"}
+          retry={() => void hearts?.refresh()}
+        />
+        <button className="text-action" onClick={() => setReview(true)}>
+          Revisar erros sem custo
+        </button>
+      </LessonShell>
+    );
+  if (hearts.state.hearts === 0 && !session.checked)
+    return (
+      <LessonShell progress={session.index / questions.length} hearts={0} {...shell}>
         <BreathPauseScreen
-          onRecharge={rechargeHearts}
+          countdown={hearts.countdown}
+          onRecharge={() => void hearts.refresh()}
+          onReview={() => setReview(true)}
           backTo={lesson.backTo}
           backSearch={lesson.backSearch}
         />
       </LessonShell>
     );
-  }
 
-  const ok = pick === q.answer;
-
+  const q = questions[session.index]!;
+  const correct = session.pick === q.answer;
   const check = () => {
-    if (pick === null || action.current) return;
-    action.current = true;
-    setChecked(true);
-    if (ok) {
-      setRight((n) => n + 1);
-    } else {
-      deductHeart();
-    }
+    const latest = current.current;
+    if (
+      !latest ||
+      latest.checked ||
+      latest.pick === null ||
+      latest.pendingHeartId ||
+      hearts.state!.hearts <= 0
+    )
+      return;
+    const right = latest.pick === q.answer;
+    persist({
+      ...latest,
+      checked: true,
+      right: latest.right + Number(right),
+      mistakes: right ? latest.mistakes : [...latest.mistakes, latest.index],
+      pendingHeartId: right ? null : crypto.randomUUID(),
+    });
   };
-
   const next = () => {
-    if (action.current) return;
-    action.current = true;
-    if (i + 1 >= questions.length) {
-      if (search.p && !lesson.complete("quiz")) {
-        action.current = false;
-        return;
-      }
-      setDone(true);
-      void awardXp(right * 10 + 5);
-    } else {
-      setI((n) => n + 1);
-      setPick(null);
-      setChecked(false);
-    }
+    const latest = current.current;
+    if (!latest?.checked || latest.pendingHeartId || syncing) return;
+    if (latest.index + 1 === questions.length) {
+      if (search.p && !lesson.complete("quiz")) return;
+      if (persist({ ...latest, done: true }))
+        void awardXp(latest.right * 10 + 5, "quiz", latest.sessionId);
+    } else persist({ ...latest, index: latest.index + 1, pick: null, checked: false });
   };
-
   return (
-    <LessonShell progress={i / questions.length} hearts={hearts} shakingHearts={shaking} {...shell}>
-      <div className="lesson-body" key={i}>
+    <LessonShell
+      progress={session.index / questions.length}
+      hearts={hearts.state.hearts}
+      shakingHearts={session.checked && !correct}
+      {...shell}
+    >
+      <div className="lesson-body">
         <div className="activity-intro">
           <Compass size={18} aria-hidden="true" />
           <span>Errar também faz parte de aprender.</span>
         </div>
         <small className="lesson-kicker">
-          PERGUNTA {i + 1} DE {questions.length}
+          Pergunta {session.index + 1} de {questions.length}
           {lesson.topic ? ` · ${lesson.topic.title}` : ""}
         </small>
         <h1 className="lesson-q">{q.question}</h1>
         <div className="choices" role="group" aria-label="Alternativas">
-          {q.options.map((option, k) => (
+          {q.options.map((option, index) => (
             <button
-              key={k}
-              disabled={checked}
-              aria-pressed={pick === k}
-              onClick={() => setPick(k)}
-              className={`choice ${pick === k ? "picked" : ""} ${checked && k === q.answer ? "right" : ""} ${checked && pick === k && !ok ? "wrong" : ""}`}
+              key={index}
+              disabled={session.checked}
+              aria-pressed={session.pick === index}
+              onClick={() => persist({ ...session, pick: index })}
+              className={`choice ${session.pick === index ? "picked" : ""} ${session.checked && index === q.answer ? "right" : ""} ${session.checked && session.pick === index && !correct ? "wrong" : ""}`}
             >
-              <kbd aria-hidden="true">{String.fromCharCode(65 + k)}</kbd>
+              <kbd aria-hidden="true">{String.fromCharCode(65 + index)}</kbd>
               <span>{option}</span>
-              {checked && k === q.answer && (
+              {session.checked && index === q.answer && (
                 <Check className="choice-status" size={18} aria-label="Resposta correta" />
               )}
             </button>
           ))}
         </div>
       </div>
-      <div className={`lesson-foot ${checked ? (ok ? "good" : "bad") : ""}`}>
-        {checked && (
+      <div className={`lesson-foot ${session.checked ? (correct ? "good" : "bad") : ""}`}>
+        {session.checked && (
           <div className="foot-msg" role="status">
             <b>
-              {ok ? (
-                <CircleCheck size={20} aria-hidden="true" />
-              ) : (
-                <Lightbulb size={20} aria-hidden="true" />
-              )}
-              {ok ? "Você fez a conexão!" : "Vamos entender o porquê."}
+              {correct ? <CircleCheck size={20} /> : <Lightbulb size={20} />}
+              {correct ? "Você fez a conexão!" : "Vamos entender o porquê."}
             </b>
             <span>{q.why}</span>
           </div>
         )}
-        <button className="duo-btn" disabled={pick === null} onClick={checked ? next : check}>
-          {checked
-            ? i + 1 === questions.length
-              ? "Concluir quiz"
-              : "Próxima pergunta"
-            : "Conferir resposta"}
+        {session.pendingHeartId && !syncing && (
+          <ErrorBox
+            message={hearts.error || "Sua resposta está salva. Falta sincronizar o coração."}
+            retry={() => void synchronize()}
+          />
+        )}
+        <button
+          className="duo-btn"
+          disabled={
+            session.pick === null ||
+            Boolean(session.pendingHeartId) ||
+            syncing ||
+            (!session.checked && Boolean(hearts.error))
+          }
+          onClick={session.checked ? next : check}
+        >
+          {syncing
+            ? "Salvando…"
+            : session.checked
+              ? session.index + 1 === questions.length
+                ? "Concluir quiz"
+                : "Próxima pergunta"
+              : "Conferir resposta"}
           <ArrowRight size={17} aria-hidden="true" />
         </button>
       </div>

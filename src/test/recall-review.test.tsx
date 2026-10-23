@@ -274,7 +274,7 @@ describe("Active Recall com cinco minutos de leitura", () => {
     render(<RecallLesson search={search} />);
     expect(mocks.generateRecall).not.toHaveBeenCalled();
     expect(mocks.begin).not.toHaveBeenCalled();
-    expect(screen.getByText(/Disponíveis hoje: 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Começar uma sessão não gasta corações/)).toBeInTheDocument();
   });
   it("bloqueia a escrita até os cinco minutos terminarem e retira o material da tela", async () => {
     vi.useFakeTimers();
