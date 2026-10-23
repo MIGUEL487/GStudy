@@ -27,6 +27,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
   return (
     <div className={`streaming-message-container ${className}`}>
       <div className="streaming-message-body">
+        {!text && isStreaming && <p role="status">Preparando resposta…</p>}
         {markdown ? <ReactMarkdown>{text || ""}</ReactMarkdown> : <p>{text || ""}</p>}
         {isStreaming && <span className="streaming-cursor" aria-label="Digitando…" />}
       </div>
@@ -48,7 +49,14 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
 
       {isStopped && (
         <p className="streaming-notice is-stopped" role="status">
-          <small>Geração interrompida. Consumo registrado até a parada.</small>
+          <small>
+            Geração interrompida. O texto foi preservado e o pedido iniciado continua contabilizado.
+          </small>
+          {onRetry && (
+            <button type="button" className="streaming-retry-btn" onClick={onRetry}>
+              Continuar resposta
+            </button>
+          )}
         </p>
       )}
 

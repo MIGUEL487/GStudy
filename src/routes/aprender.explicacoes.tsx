@@ -8,6 +8,7 @@ import { useLessonContext } from "@/components/learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
 import { LessonShell, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
 import { ExplainSkeleton } from "@/components/activity-skeletons";
+import { ActivityStreamPreview } from "@/components/activity-stream-preview";
 
 export const Route = createFileRoute("/aprender/explicacoes")({
   validateSearch: learningSearch,
@@ -35,6 +36,9 @@ export function ExplanationsLesson({ search }: { search: LearningSearch }) {
     result,
     error,
     reload: load,
+    partialItems,
+    loading,
+    stop,
   } = useGeneratedActivity("explain", search.m, lesson.context, enabled);
   const data = result?.mode === "explain" ? result.explain : null;
   const [i, setI] = useState(0);
@@ -50,6 +54,18 @@ export function ExplanationsLesson({ search }: { search: LearningSearch }) {
         <UnavailableLesson backSearch={lesson.backSearch} />
       </LessonShell>
     );
+  if (partialItems?.length && !data)
+    return (
+      <LessonShell progress={0} {...shell}>
+        <ActivityStreamPreview
+          items={partialItems}
+          loading={loading}
+          error={error}
+          stop={stop}
+          retry={load}
+        />
+      </LessonShell>
+    );
   if (error)
     return (
       <LessonShell progress={0} {...shell}>
@@ -59,7 +75,9 @@ export function ExplanationsLesson({ search }: { search: LearningSearch }) {
   if (!data)
     return (
       <LessonShell progress={0} {...shell}>
-        <ExplainSkeleton backTo="/aprender" backSearch={lesson.backSearch ?? {}} />
+        <ActivityStreamPreview loading={loading} stop={stop}>
+          <ExplainSkeleton backTo="/aprender" backSearch={lesson.backSearch ?? {}} />
+        </ActivityStreamPreview>
       </LessonShell>
     );
   const topic = data.topics[i];

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ModelMessage } from "ai";
 import { z } from "zod";
@@ -20,6 +21,7 @@ type SocratesDatabase = Omit<AccountDatabase, "public"> & {
 };
 const replyInput = z
   .object({
+    stream: z.boolean().optional(),
     accountId: z.string().uuid(),
     subject: z.string().trim().max(100),
     message: z.string().trim().max(2000),
@@ -137,6 +139,57 @@ export const socratesReply = createServerFn({ method: "POST" })
       }
       return false;
     };
+    if (data.stream) {
+      const { aiStreamText } = await import("./ai.server");
+      const { aiEventResponse } = await import("./ai-event-stream.server");
+      const { partialJsonString } = await import("./ai-event-stream");
+      return aiEventResponse(async (emit, signal) => {
+        let raw = "",
+          displayed = "";
+        let usage: number | undefined;
+        let settled = false;
+        try {
+          for await (const chunk of aiStreamText(instructions, messages, false, true, {
+            signal,
+            schema,
+            maxOutputTokens: socratesOutputTokens,
+            onUsage: (tokens) => {
+              if (tokens !== undefined) usage = (usage ?? 0) + tokens;
+            },
+          })) {
+            raw += chunk;
+            const explanation = partialJsonString(raw, "explanation");
+            if (explanation.startsWith(displayed) && explanation.length > displayed.length) {
+              emit({ type: "text", delta: explanation.slice(displayed.length) });
+              displayed = explanation;
+            }
+          }
+          const answer = socratesAnswerSchema.parse(JSON.parse(raw));
+          const used = Math.min(reserved, Math.max(1, usage ?? reserved));
+          settled = await settle(used);
+          emit({ type: "text", delta: `\n\n**Pergunta:** ${answer.question}` });
+          emit({
+            type: "done",
+            value: {
+              ...answer,
+              quota,
+              ...(settled
+                ? {}
+                : {
+                    warning:
+                      "A resposta está pronta, mas a reserva inicial continua contabilizada até atualizar o consumo.",
+                  }),
+            },
+          });
+        } finally {
+          // An interrupted request can still incur input/output tokens. Never refund it as zero.
+          if (!settled)
+            await settle(
+              Math.min(reserved, Math.max(0, usage ?? (raw || signal.aborted ? reserved : 0))),
+            );
+        }
+      }, getRequest().signal);
+    }
     try {
       const { aiMeteredObject } = await import("./ai.server");
       const result = await aiMeteredObject(instructions, messages, schema, socratesOutputTokens);

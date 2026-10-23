@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ ai: vi.fn(), rpc: vi.fn() }));
+const mocks = vi.hoisted(() => ({ ai: vi.fn(), rpc: vi.fn(), stream: vi.fn() }));
 const accountId = "11111111-1111-4111-8111-111111111111";
-vi.mock("@/lib/ai.server", () => ({ aiMeteredObject: mocks.ai }));
+vi.mock("@/lib/ai.server", () => ({ aiMeteredObject: mocks.ai, aiStreamText: mocks.stream }));
+vi.mock("@tanstack/react-start/server", () => ({
+  getRequest: () => new Request("https://gstudy.test"),
+}));
 vi.mock("@/lib/study-auth-middleware", () => ({ requireStudyAuth: {} }));
 vi.mock("@tanstack/react-start", () => ({
   createServerFn: () => {
@@ -57,6 +60,47 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 describe("Sócrates: didática e cota no servidor", () => {
+  it("transmite a explicação antes de concluir, valida a pergunta e mantém o ticket só no servidor", async () => {
+    mocks.stream.mockImplementation(async function* (...args) {
+      yield JSON.stringify(answer).slice(0, 80);
+      yield JSON.stringify(answer).slice(80);
+      args[4].onUsage(1234);
+    });
+    const response = (await call({ ...input, stream: true })) as Response;
+    const body = await response.text();
+    expect(body).toContain('"type":"text"');
+    expect(body).toContain('"type":"done"');
+    expect(body).toContain(answer.question);
+    expect(body).not.toContain(mocks.rpc.mock.calls[0]![1].p_ticket);
+    expect(mocks.rpc).toHaveBeenLastCalledWith(
+      "settle_socrates_tokens",
+      expect.objectContaining({ p_used: 1234 }),
+    );
+  });
+
+  it("mantém consumo ao parar uma resposta parcial, sem devolver a reserva como zero", async () => {
+    mocks.stream.mockImplementation(async function* (...args) {
+      const signal = args[4].signal as AbortSignal;
+      yield '{"explanation":"Uma explicação parcial que já está chegando';
+      await new Promise<void>((resolve) =>
+        signal.addEventListener("abort", () => resolve(), { once: true }),
+      );
+      signal.throwIfAborted();
+    });
+    const response = (await call({ ...input, stream: true })) as Response;
+    const reader = response.body!.getReader();
+    await reader.read();
+    await reader.cancel();
+    await vi.waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith(
+        "settle_socrates_tokens",
+        expect.objectContaining({ p_used: expect.any(Number) }),
+      ),
+    );
+    const used = mocks.rpc.mock.calls.find(([name]) => name === "settle_socrates_tokens")![1]
+      .p_used;
+    expect(used).toBeGreaterThan(0);
+  });
   it("exige o porquê e uma pergunta, reserva antes da geração e cobra somente o consumo", async () => {
     const result = await call();
     expect(result).toMatchObject({ ok: true, ...answer, quota: quota(1234) });

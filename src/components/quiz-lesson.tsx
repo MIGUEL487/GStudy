@@ -7,6 +7,7 @@ import { useLessonContext } from "./learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
 import { LessonShell, Finish, ErrorBox, UnavailableLesson, BreathPauseScreen } from "./lesson";
 import { QuizSkeleton } from "./activity-skeletons";
+import { ActivityStreamPreview } from "./activity-stream-preview";
 import { useHearts } from "./hearts-provider";
 
 export type QuizQuestion = { question: string; options: string[]; answer: number; why: string };
@@ -166,6 +167,18 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
         {reviewContent}
       </LessonShell>
     );
+  if (!session && !restored.error && !localError && generated.partialItems?.length)
+    return (
+      <LessonShell progress={0} {...shell}>
+        <ActivityStreamPreview
+          items={generated.partialItems}
+          loading={generated.loading}
+          error={generated.error}
+          stop={generated.stop}
+          retry={generated.reload}
+        />
+      </LessonShell>
+    );
   if (restored.error || localError || generated.error)
     return (
       <LessonShell progress={0} {...shell}>
@@ -184,7 +197,16 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
   if (!session)
     return (
       <LessonShell progress={0} {...shell}>
-        <QuizSkeleton backTo={lesson.backTo || "/aprender"} backSearch={lesson.backSearch ?? {}} />
+        <ActivityStreamPreview
+          items={generated.partialItems}
+          loading={generated.loading}
+          stop={generated.stop}
+        >
+          <QuizSkeleton
+            backTo={lesson.backTo || "/aprender"}
+            backSearch={lesson.backSearch ?? {}}
+          />
+        </ActivityStreamPreview>
       </LessonShell>
     );
   if (session.done)

@@ -508,11 +508,17 @@ export async function aiResearch(instructions: string, messages: ModelMessage[])
   };
 }
 
-export async function aiStreamText(
+export async function* aiStreamText(
   instructions: string,
   messages: ModelMessage[],
   whiteboard = false,
   socrates = false,
+  options: {
+    signal?: AbortSignal;
+    maxOutputTokens?: number;
+    schema?: Record<string, unknown>;
+    onUsage?: (tokens: number | undefined) => void;
+  } = {},
 ) {
   const vision = whiteboard || hasImages(messages);
   const socratesConfig =
@@ -533,33 +539,100 @@ export async function aiStreamText(
   ];
 
   for (const [index, name] of providers.entries()) {
+    let emitted = false;
+    let tokens: number | undefined;
     try {
+      options.signal?.throwIfAborted();
       if (name === "openrouter") await validateOpenRouterFiles(messages);
-      const model = await provider(name, vision, false, hasPdf(messages));
+      const prepared =
+        name === "groq" || name === "deepseek" || name === "omniroute"
+          ? await fallbackMessages(messages)
+          : { messages, convertedPdf: false };
+      const model = await provider(
+        name,
+        hasImages(prepared.messages),
+        false,
+        hasPdf(prepared.messages),
+      );
       const isGoogle = name === "gemini" || name === "socrates-gemini";
-      const validMessages = isGoogle ? cleanMessages(messages) : messages;
+      const validMessages = isGoogle ? cleanMessages(prepared.messages) : prepared.messages;
+      const timeout = AbortSignal.timeout(
+        name === "groq" ? groqTimeoutMs : isGoogle ? 35000 : 45000,
+      );
+      const schema = options.schema;
+      const system =
+        instructions +
+        (prepared.convertedPdf || (name === "openrouter" && hasPdf(messages))
+          ? "\nVocê recebeu apenas texto extraído do PDF; não interprete nem invente imagens, diagramas ou ilustrações ausentes."
+          : "") +
+        (!isGoogle && schema
+          ? `\nResponda somente com um objeto JSON válido conforme este esquema, sem cercas de código:\n${JSON.stringify(schema)}`
+          : "");
 
       const result = streamText({
         model,
-        system: instructions,
+        system,
         messages: validMessages,
         maxRetries: 0,
-        abortSignal: AbortSignal.timeout(
-          name === "groq"
-            ? groqTimeoutMs
-            : name === "gemini" || name === "socrates-gemini"
-              ? 35000
-              : 45000,
-        ),
+        abortSignal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout,
+        ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
+        ...(schema
+          ? {
+              output: Output.object({
+                schema: jsonSchema(
+                  (isGoogle ? cleanSchemaForGemini(schema) : schema) as Parameters<
+                    typeof jsonSchema
+                  >[0],
+                ),
+              }),
+            }
+          : {}),
+        providerOptions: { ...(name === "groq" ? { groq: { structuredOutputs: false } } : {}) },
+        onError: () => {}, // Never let SDK logging expose request bodies or credentials.
       });
-
-      return result;
+      for await (const part of result.fullStream) {
+        if (part.type === "error") throw part.error;
+        if (part.type === "abort") throw new DOMException("Resposta interrompida", "AbortError");
+        if (part.type === "text-delta" && part.text) {
+          emitted = true;
+          yield part.text;
+        }
+        if (part.type === "finish") {
+          tokens = part.totalUsage.totalTokens;
+          if (part.finishReason === "content-filter")
+            throw Object.assign(new Error("Filtered"), { finishReason: "content-filter" });
+          if (part.finishReason === "length")
+            throw new AiSetupError(
+              "A resposta atingiu o limite antes de concluir. O texto recebido foi preservado.",
+            );
+          if (part.finishReason !== "stop")
+            throw new AiSetupError(
+              "A resposta foi interrompida antes de concluir. O texto recebido foi preservado.",
+            );
+        }
+      }
+      if (!emitted) throw Object.assign(new Error("Empty response"), { emptyResponse: true });
+      return;
     } catch (error) {
-      if (index < providers.length - 1 && canFallback(error)) {
+      if (options.signal?.aborted) throw options.signal.reason;
+      const failure = safeAiFailure(error, {
+        whiteboard: vision,
+        google: name === "gemini" || name === "socrates-gemini",
+      });
+      if (
+        !emitted &&
+        index < providers.length - 1 &&
+        (canFallback(error) ||
+          failure.status === 400 ||
+          failure.status === 422 ||
+          (error as { emptyResponse?: boolean })?.emptyResponse)
+      ) {
         logFailure(error, name, vision);
         continue;
       }
       return finishFailure(error, name, vision);
+    } finally {
+      options.onUsage?.(tokens);
     }
   }
   throw new Error("Nenhum provedor de IA está disponível.");

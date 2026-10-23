@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import {
@@ -23,6 +23,7 @@ import { useLessonContext } from "@/components/learning-provider";
 import { useDailyAttempt } from "@/hooks/use-daily-attempt";
 import { students, studentOf, type StudentId } from "@/lib/students";
 import { createStudentRotation } from "@/lib/student-rotation";
+import { readAiText } from "@/lib/ai-event-stream";
 import { LessonShell } from "@/components/lesson";
 import { Whiteboard, type Board } from "@/components/whiteboard";
 import { StudentIllustration } from "@/components/student-illustration";
@@ -48,7 +49,40 @@ export const Route = createFileRoute("/aprender/feynman")({
   component: FeynmanPage,
 });
 
-type Msg = { role: "user" | "assistant"; text: string; board?: string; studentId?: StudentId };
+type Msg = {
+  role: "user" | "assistant";
+  text: string;
+  board?: string | undefined;
+  studentId?: StudentId;
+};
+const FeynmanMessages = memo(function FeynmanMessages({ messages }: { messages: Msg[] }) {
+  return (
+    <>
+      {messages.map((message, index) => (
+        <div key={index} className={`bubble-row ${message.role}`}>
+          <span className="feyn-message-author">
+            {message.role === "assistant" ? studentOf(message.studentId ?? "gui").name : "Você"}
+          </span>
+          <div className="bubble">
+            {message.board && (
+              <img
+                src={message.board}
+                alt="Desenho enviado na explicação"
+                className="bubble-board"
+              />
+            )}
+            {message.text &&
+              (message.role === "assistant" ? (
+                <ReactMarkdown>{message.text}</ReactMarkdown>
+              ) : (
+                <p>{message.text}</p>
+              ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+});
 type LessonSearch = ReturnType<typeof learningSearch>;
 
 function FeynmanPage() {
@@ -121,6 +155,7 @@ export function FeynmanLesson({
   const board = useRef<Board>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
+  const chat = useRef<HTMLDivElement>(null);
   const student = studentOf(started ? speakerId : studentId);
   const {
     text: streamingText,
@@ -130,7 +165,7 @@ export function FeynmanLesson({
     start: startStream,
     stop: stopStream,
   } = useStreamingText({
-    scrollRef: end,
+    scrollRef: chat,
   });
 
   useEffect(() => {
@@ -171,14 +206,14 @@ export function FeynmanLesson({
       void awardXp(20 + Math.round(value * 3));
     }
   };
-  const send = async () => {
+  const send = async (continuation?: string) => {
     if (sending.current) return;
     if (board.current?.isLoading?.()) {
       setError("Aguarde a imagem terminar de carregar na lousa antes de enviar.");
       return;
     }
     const shot = board.current?.snapshot();
-    if (!text.trim() && !shot) return;
+    if (!continuation && !text.trim() && !shot) return;
     let token: string | undefined;
     try {
       if (!successfulSession.current) token = attempt.begin();
@@ -187,9 +222,13 @@ export function FeynmanLesson({
       return;
     }
     sending.current = true;
-    const turnStudentId = rotation.current.peek();
+    const turnStudentId = continuation ? speakerId : rotation.current.peek();
     setSpeakerId(turnStudentId);
-    const mine: Msg = { role: "user", text: text.trim(), ...(shot ? { board: shot } : {}) };
+    const mine: Msg = {
+      role: "user",
+      text: continuation ?? text.trim(),
+      ...(shot ? { board: shot } : {}),
+    };
     const next = [...msgs.map((m) => (m.board ? { ...m, board: undefined } : m)), mine];
     setMsgs(next);
     setText("");
@@ -203,31 +242,40 @@ export function FeynmanLesson({
         .slice(1)
         .slice(-30)
         .filter((message, index, history) => index >= history.findIndex((m) => m.role === "user"));
-      const result = await reply({
-        data: {
-          topic: topic.trim().slice(0, 200),
-          ids: idsFrom(search.m),
-          studentId: turnStudentId,
-          ...(lesson.context ? { context: lesson.context } : {}),
-          messages: historyToSend.map(({ role, text: messageText, board: image }, index) => ({
-            role,
-            text: messageText,
-            ...(image && index === historyToSend.length - 1 ? { board: image } : {}),
-          })),
-        },
+      const streamResult = await startStream(async (signal) => {
+        const result = await reply({
+          signal,
+          data: {
+            stream: true,
+            topic: topic.trim().slice(0, 200),
+            ids: idsFrom(search.m),
+            studentId: turnStudentId,
+            ...(lesson.context ? { context: lesson.context } : {}),
+            messages: historyToSend.map(({ role, text: messageText, board: image }, index) => ({
+              role,
+              text: messageText,
+              ...(image && index === historyToSend.length - 1 ? { board: image } : {}),
+            })),
+          },
+        });
+        return result instanceof Response ? readAiText(result) : result.text;
       });
+      const finalText = streamResult.text;
+      if (!finalText) {
+        if (streamResult.stopped)
+          throw new Error("Resposta interrompida. Sua explicação continua aqui.");
+        throw new Error(streamResult.error ?? "A IA não retornou uma resposta. Tente novamente.");
+      }
       if (token) attempt.succeed(token);
       successfulSession.current = true;
       board.current?.clear();
-      const streamResult = await startStream(result.text);
-      const finalText = streamResult.text || result.text;
-      rotation.current.commit();
+      if (!continuation) rotation.current.commit();
       setMsgs((messages) => [
         ...messages,
         { role: "assistant", text: finalText, studentId: turnStudentId },
       ]);
       const grade = /NOTA:\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i.exec(finalText);
-      if (grade && score === null) {
+      if (grade && score === null && !streamResult.stopped && !streamResult.error) {
         const value = Math.min(10, Math.max(0, Number(grade[1]!.replace(",", "."))));
         setScore(value);
         saveGrade(value);
@@ -452,14 +500,16 @@ export function FeynmanLesson({
                   key={busy ? "thinking" : `${speakerId}:${question}`}
                   className="feyn-answer-motion"
                 >
-                  {isStreaming ? (
+                  {isStreaming || ((isStopped || streamError) && streamingText) ? (
                     <StreamingMessage
                       text={streamingText}
                       isStreaming={isStreaming}
                       isStopped={isStopped}
                       error={streamError}
                       onStop={stopStream}
-                      onRetry={() => void send()}
+                      onRetry={() =>
+                        void send("Continue do ponto em que parou, sem repetir o que já explicou.")
+                      }
                     />
                   ) : busy ? (
                     <div role="status">
@@ -540,31 +590,8 @@ export function FeynmanLesson({
             </div>
             <p>Suas explicações e as perguntas da turma, no mesmo lugar.</p>
           </header>
-          <div className="feyn-chat">
-            {msgs.map((message, index) => (
-              <div key={index} className={`bubble-row ${message.role}`}>
-                <span className="feyn-message-author">
-                  {message.role === "assistant"
-                    ? studentOf(message.studentId ?? "gui").name
-                    : "Você"}
-                </span>
-                <div className="bubble">
-                  {message.board && (
-                    <img
-                      src={message.board}
-                      alt="Desenho enviado na explicação"
-                      className="bubble-board"
-                    />
-                  )}
-                  {message.text &&
-                    (message.role === "assistant" ? (
-                      <ReactMarkdown>{message.text}</ReactMarkdown>
-                    ) : (
-                      <p>{message.text}</p>
-                    ))}
-                </div>
-              </div>
-            ))}
+          <div className="feyn-chat" ref={chat}>
+            <FeynmanMessages messages={msgs} />
             {isStreaming ? (
               <div className="bubble-row assistant">
                 <span className="feyn-message-author">{student.name}</span>
