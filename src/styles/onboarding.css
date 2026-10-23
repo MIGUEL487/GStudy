@@ -1,0 +1,273 @@
+/* GStudy - Onboarding & Year Rollover (Dark Academia Style) */
+
+.onboarding-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: var(--background);
+  color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.onboarding-container {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.onboarding-header {
+  margin-bottom: 2rem;
+}
+
+.onboarding-progress-track {
+  width: 100%;
+  height: 4px;
+  background-color: var(--border);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.onboarding-progress-fill {
+  height: 100%;
+  background-color: var(--accent);
+  transform-origin: left center;
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.onboarding-top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.onboarding-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.onboarding-back-btn:hover:not(:disabled) {
+  color: var(--foreground);
+  background-color: var(--surface-hover);
+}
+
+.onboarding-step-counter {
+  font-size: 0.8125rem;
+  font-family: var(--font-sans);
+  color: var(--muted-foreground);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.onboarding-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 1.5rem 0 2rem;
+}
+
+.onboarding-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.625rem, 4vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--foreground);
+  margin-bottom: 0.5rem;
+}
+
+.onboarding-subtitle {
+  font-size: 0.9375rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+  margin-bottom: 1.75rem;
+}
+
+.onboarding-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.onboarding-input-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.onboarding-input-wrapper label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.onboarding-text-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.625rem 0.875rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  font-size: 1rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  box-sizing: border-box;
+}
+
+.onboarding-text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(196, 164, 132, 0.2);
+}
+
+.onboarding-input-status {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.onboarding-input-status.valid {
+  color: #2e7d32;
+}
+
+.onboarding-input-status.error {
+  color: #c62828;
+}
+
+.onboarding-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.625rem;
+}
+
+.onboarding-option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.onboarding-option-card:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.onboarding-option-card.selected {
+  background-color: var(--accent-subtle, rgba(196, 164, 132, 0.15));
+  border-color: var(--accent);
+  color: var(--foreground);
+}
+
+.onboarding-option-card.selected .option-title {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.onboarding-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.onboarding-next-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1.5rem;
+  background-color: var(--accent);
+  color: #17130f;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.onboarding-next-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.onboarding-next-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Rollover Modal Styles */
+.rollover-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.rollover-card {
+  width: 100%;
+  max-width: 480px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+.rollover-card h3 {
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  margin-bottom: 0.5rem;
+}
+
+.rollover-card p {
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.rollover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

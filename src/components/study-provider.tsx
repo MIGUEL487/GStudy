@@ -117,3 +117,7 @@ export function useStudy() {
   if (!context) throw new Error("StudyProvider missing");
   return context;
 }
+
+export function useOptionalStudy() {
+  return useContext(StudyContext);
+}
