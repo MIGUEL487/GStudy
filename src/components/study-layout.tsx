@@ -25,6 +25,8 @@ import { SyncStatus } from "./account-sync-provider";
 import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from "./study-session-controls";
 import { isSocialFeatureEnabled } from "@/lib/social-model";
 import { ThemeToggle } from "./theme-toggle";
+import { FriendsDrawer } from "./friends-drawer";
+import { NotificationsPopover } from "./notifications-popover";
 import { StudentOnboardingModal } from "./student-onboarding-modal";
 import { SchoolYearRolloverModal } from "./school-year-rollover-modal";
 import {
@@ -102,15 +104,14 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     return () => transition.cancel();
   }, [path]);
   const selected = (to: string) =>
-    ["/aprender", "/preparar", "/amigos", "/salas"].includes(to)
+    ["/aprender", "/preparar", "/salas", "/sessoes", "/amigos"].includes(to)
       ? path.startsWith(to)
       : path === to;
   const socialEnabled = isSocialFeatureEnabled();
   const currentNav = socialEnabled
     ? [
         ...navigation.slice(0, 4),
-        { to: "/amigos" as const, label: "Amigos", mobileLabel: "Amigos", icon: Users },
-        { to: "/salas" as const, label: "Salas ao vivo", mobileLabel: "Salas", icon: Radio },
+        { to: "/sessoes" as const, label: "Sessões", mobileLabel: "Sessões", icon: Radio },
         ...navigation.slice(4),
       ]
     : navigation;
@@ -194,6 +195,12 @@ export function StudyLayout({ children }: { children: ReactNode }) {
             <SyncStatus />
             <Leaf size={14} className="desktop-crumb" />
             <span>Seu ritmo. Sua jornada.</span>
+            {socialEnabled && user && (
+              <>
+                <FriendsDrawer userId={user.id} />
+                <NotificationsPopover userId={user.id} />
+              </>
+            )}
             <ThemeToggle />
             <Button variant="ghost" size="icon" asChild title="Configurações">
               <Link to="/configuracoes" aria-label="Configurações">

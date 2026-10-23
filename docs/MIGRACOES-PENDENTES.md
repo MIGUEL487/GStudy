@@ -96,3 +96,21 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
   4. `public.advance_school_year(p_new_school_year text)`: RPC `SECURITY DEFINER SET search_path = ''` para virada anual de ano escolar com carimbo temporal.
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0011_student_profile_and_onboarding.sql` e execute no painel **SQL Editor** do projeto Supabase.
+
+
+---
+
+## 0012_sessions_dm_notifications_and_friendship_fix.sql
+
+- **Fase:** Bloco 3 — Centralização de Sessões, Amigos, DMs e Notificações (`feat/bloco-3-sessoes-amigos-dm-notificacoes`)
+- **Data:** 23/10/2026
+- **Feature Flag Relacionada:** `VITE_FEATURE_SOCIAL`
+- **Conteúdo da Migration:**
+  1. `public.has_friendship_relation(p_user_a, p_user_b)`: Função auxiliar `SECURITY DEFINER SET search_path = ''` para verificar relação mútua sem recursão.
+  2. **Correção de visualização de perfil em pedidos de amizade pendentes:** Atualização da política de RLS em `public.profiles` para incluir `has_friendship_relation`, permitindo que quem recebe ou envia um pedido veja o nome/username do outro sem abrir dados privados.
+  3. `public.direct_messages`: Tabela de mensagens diretas 1:1 entre amigos aceitos com RLS estrita, índices por par ordenado e marcação de leitura (`read_at`).
+  4. `public.notifications`: Central de notificações (pedidos de amizade, aceite, convites de sala, avisos) com RLS estrita por `user_id`.
+  5. `public.send_friend_request_v2(p_target_user_id)`: RPC `SECURITY DEFINER SET search_path = ''` para envio atômico de pedido com criação automática de notificação.
+  6. `public.respond_friend_request(p_friendship_id, p_accept)`: RPC `SECURITY DEFINER SET search_path = ''` para aceitar ou recusar com notificação automática de retorno.
+- **Como Aplicar no Supabase:**
+  Copie o conteúdo de `drizzle/migrations/0012_sessions_dm_notifications_and_friendship_fix.sql` e execute no painel **SQL Editor** do projeto Supabase.

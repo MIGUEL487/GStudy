@@ -1,13 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { StudyRoomsView } from "@/components/study-rooms-view";
+import { SessionsView, type SessionTab } from "@/components/sessions-view";
 import { isSocialFeatureEnabled } from "@/lib/social-model";
 
 export const Route = createFileRoute("/salas")({
+  validateSearch: (search: Record<string, unknown>): { tab?: SessionTab } => {
+    const tab = search.tab as SessionTab | undefined;
+    return ["rooms", "groups", "games"].includes(String(tab)) ? { tab } : {};
+  },
   head: () => ({
     meta: [
-      { title: "GStudy · Salas de Estudo ao Vivo" },
-      { name: "description", content: "Salas de estudo ao vivo com Pomodoro sincronizado." },
+      { title: "GStudy · Sessões Coletivas" },
+      { name: "description", content: "Salas de estudo ao vivo, grupos e jogos coletivos." },
     ],
   }),
   component: SalasRoute,
@@ -15,6 +19,7 @@ export const Route = createFileRoute("/salas")({
 
 function SalasRoute() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const enabled = isSocialFeatureEnabled();
 
   useEffect(() => {
@@ -27,5 +32,5 @@ function SalasRoute() {
     return null;
   }
 
-  return <StudyRoomsView />;
+  return <SessionsView initialTab={search.tab ?? "rooms"} />;
 }

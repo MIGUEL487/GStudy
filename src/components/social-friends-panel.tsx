@@ -47,9 +47,9 @@ import "@/styles/social-friends.css";
 
 type Tab = "friends" | "pending" | "search" | "groups" | "ranking";
 
-export function SocialFriendsPanel() {
+export function SocialFriendsPanel({ initialTab = "friends" }: { initialTab?: Tab } = {}) {
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>("friends");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [loading, setLoading] = useState(false);
 
   const [friends, setFriends] = useState<Friendship[]>([]);

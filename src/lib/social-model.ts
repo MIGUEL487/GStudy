@@ -226,6 +226,16 @@ export async function listPendingRequests(
 export async function sendFriendRequest(userId: string, targetUserId: string): Promise<void> {
   if (!isSocialFeatureEnabled() || !userId || !targetUserId || userId === targetUserId) return;
 
+  // Tenta via RPC atômica que já cria a notificação
+  const { data: rpcData, error: rpcError } = await supabase.rpc("send_friend_request_v2", {
+    p_target_user_id: targetUserId,
+  });
+
+  if (!rpcError && rpcData) {
+    return;
+  }
+
+  // Fallback para inserção direta se a RPC não estiver disponível
   const { error } = await supabase.from("friendships").insert({
     user_id: userId,
     friend_id: targetUserId,
@@ -246,6 +256,13 @@ export async function sendFriendRequest(userId: string, targetUserId: string): P
 export async function acceptFriendRequest(friendshipId: string): Promise<void> {
   if (!isSocialFeatureEnabled()) return;
 
+  const { error: rpcError } = await supabase.rpc("respond_friend_request", {
+    p_friendship_id: friendshipId,
+    p_accept: true,
+  });
+
+  if (!rpcError) return;
+
   const { error } = await supabase
     .from("friendships")
     .update({ status: "accepted", updated_at: new Date().toISOString() })
@@ -259,6 +276,13 @@ export async function acceptFriendRequest(friendshipId: string): Promise<void> {
  */
 export async function removeFriendship(friendshipId: string): Promise<void> {
   if (!isSocialFeatureEnabled()) return;
+
+  const { error: rpcError } = await supabase.rpc("respond_friend_request", {
+    p_friendship_id: friendshipId,
+    p_accept: false,
+  });
+
+  if (!rpcError) return;
 
   const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
 
