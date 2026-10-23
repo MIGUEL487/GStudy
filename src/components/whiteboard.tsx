@@ -44,6 +44,7 @@ import {
   type Tool,
 } from "@/lib/whiteboard-model";
 import "@/styles/whiteboard-images.css";
+import { useTheme } from "@/lib/theme-provider";
 import "@/styles/whiteboard-math.css";
 
 export type Board = {
@@ -103,12 +104,15 @@ const SIZES = [
 
 export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "chalk" | "paper" }>(
   function Whiteboard({ disabled = false, variant = "chalk" }, ref) {
+    const { theme } = useTheme();
+    const isDark = theme === "dark";
     const paper = variant === "paper",
       background = paper ? paperBackground : chalkBackground,
       colors = paper ? paperColors : chalkColors;
 
     const canvas = useRef<HTMLCanvasElement>(null),
       fileInput = useRef<HTMLInputElement>(null),
+      containerRef = useRef<HTMLDivElement>(null),
       overlayInputRef = useRef<HTMLInputElement>(null);
 
     const marks = useRef<Mark[]>([]),
@@ -289,6 +293,16 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       window.addEventListener("resize", resize);
       return () => window.removeEventListener("resize", resize);
     });
+
+    useEffect(() => {
+      const el = containerRef.current;
+      if (!el || typeof ResizeObserver === "undefined") return;
+      const ro = new ResizeObserver(() => {
+        refresh();
+      });
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
 
     useEffect(() => {
       if (textSession && overlayInputRef.current) {
@@ -893,7 +907,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
           </div>
         )}
 
-        <div className="wb-canvas-container">
+        <div className="wb-canvas-container" ref={containerRef}>
           <canvas
             ref={canvas}
             width={paper ? 1200 : 720}

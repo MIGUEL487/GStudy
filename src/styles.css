@@ -1,7 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *, .dark *));
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -1348,7 +1348,7 @@ button {
 }
 .flame {
   color: var(--warn);
-  animation: flicker 1.6s ease-in-out infinite;
+  /* flicker removed per motion guidelines */
 }
 .gem {
   color: var(--success);

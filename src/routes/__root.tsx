@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MotionConfig } from "motion/react";
+import { MotionConfig, LazyMotion, domAnimation } from "motion/react";
 import {
   Outlet,
   Link,
@@ -16,6 +16,7 @@ import workspaceCss from "../styles/workspace-polish.css?url";
 import activitiesCss from "../styles/activities.css?url";
 import accountCss from "../styles/account-social.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { ThemeProvider } from "../lib/theme-provider";
 import { AccountWorkspace } from "@/components/account-workspace";
 import { StudyLayout } from "@/components/study-layout";
 import { AuthGate } from "@/components/auth-gate";
@@ -128,6 +129,11 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("gstudy_theme")||(window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");document.documentElement.setAttribute("data-theme",t);if(t==="dark"){document.documentElement.classList.add("dark");}else{document.documentElement.classList.remove("dark");}}catch(e){}})();`,
+          }}
+        />
         <HeadContent />
       </head>
       <body>
@@ -143,17 +149,21 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MotionConfig reducedMotion="user">
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <AuthGate>
-          <AccountWorkspace>
-            <StudyLayout>
-              <Outlet />
-            </StudyLayout>
-          </AccountWorkspace>
-        </AuthGate>
-        <Toaster position="bottom-center" />
-      </MotionConfig>
+      <ThemeProvider>
+        <LazyMotion features={domAnimation} strict={false}>
+          <MotionConfig reducedMotion="user">
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <AuthGate>
+              <AccountWorkspace>
+                <StudyLayout>
+                  <Outlet />
+                </StudyLayout>
+              </AccountWorkspace>
+            </AuthGate>
+            <Toaster position="bottom-center" />
+          </MotionConfig>
+        </LazyMotion>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

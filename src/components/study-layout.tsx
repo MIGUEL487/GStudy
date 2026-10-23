@@ -24,6 +24,7 @@ import { RecallResume } from "./recall-resume";
 import { SyncStatus } from "./account-sync-provider";
 import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from "./study-session-controls";
 import { isSocialFeatureEnabled } from "@/lib/social-model";
+import { ThemeToggle } from "./theme-toggle";
 
 const navigation = [
   { to: "/", label: "Início", mobileLabel: "Início", icon: Home },
@@ -49,7 +50,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         { opacity: 0, transform: "translateY(10px)" },
         { opacity: 1, transform: "translateY(0) scale(1)" },
       ],
-      { duration: 250, easing: "cubic-bezier(.22, 1, .36, 1)", fill: "both" },
+      { duration: 250, easing: "cubic-bezier(.22, 1, .36, 1)", fill: "none" },
     );
     return () => transition.cancel();
   }, [path]);
@@ -146,6 +147,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
             <SyncStatus />
             <Leaf size={14} className="desktop-crumb" />
             <span>Seu ritmo. Sua jornada.</span>
+            <ThemeToggle />
             <Button variant="ghost" size="icon" asChild title="Configurações">
               <Link to="/configuracoes" aria-label="Configurações">
                 <Avatar />
