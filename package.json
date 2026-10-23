@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:stream": "node scripts/stream-check.mjs",
+    "test:games": "node scripts/games-check.mjs",
     "verify:schema": "node scripts/verify-supabase-schema.mjs"
   },
   "overrides": {

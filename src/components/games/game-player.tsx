@@ -1,463 +1,379 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  X,
-  Zap,
-  Flame,
-  Scale,
-  Globe,
-  Compass,
-  Flag,
-  CheckCheck,
-  Feather,
-  Sparkles,
-  Star,
-  Trophy,
-  RotateCcw,
-  ArrowRight,
-  Clock,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, RotateCcw, Trophy } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useHearts } from "@/components/hearts-provider";
 import {
   calculateGameStars,
   calculateGameXp,
+  getStoredHighScores,
   saveGameHighScore,
   type GameDefinition,
   type GameDifficulty,
   type GameQuestion,
   type GameResult,
 } from "@/lib/games/types";
-import { awardXp } from "@/lib/learn-client";
+import {
+  applyGameAnswer,
+  gameSequence,
+  initialGameProgress,
+  type GameAnswer,
+} from "@/lib/games/engine";
+import { submitGameResult } from "@/lib/games/rpc";
+import { GameMechanic } from "./game-mechanic";
+import { MistakeExplanation } from "./mistake-explanation";
+import { ChallengeResults } from "./challenge-results";
 import "@/styles/games.css";
 
 interface GamePlayerProps {
   game: GameDefinition;
   onClose: () => void;
   onRestart?: () => void;
+  seed?: string | undefined;
+  difficulty?: GameDifficulty | undefined;
+  challengeId?: string | undefined;
 }
-
-export function GamePlayer({ game, onClose, onRestart }: GamePlayerProps) {
-  const [difficulty, setDifficulty] = useState<GameDifficulty>("medio");
+export function GamePlayer({
+  game,
+  onClose,
+  onRestart,
+  seed: suppliedSeed,
+  difficulty: suppliedDifficulty,
+  challengeId,
+}: GamePlayerProps) {
+  const userId = useHearts()?.userId;
+  const [difficulty, setDifficulty] = useState<GameDifficulty>(
+    suppliedDifficulty ?? game.fixedDifficulty ?? "medio",
+  );
   const [step, setStep] = useState<"rules" | "playing" | "finished">("rules");
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [score, setScore] = useState(0);
-  const [combo, setCombo] = useState(1);
-  const [maxCombo, setMaxCombo] = useState(1);
-  const [hits, setHits] = useState(0);
-  const [mistakes, setMistakes] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [isAnswerChecked, setIsAnswerChecked] = useState(false);
-  const [feedbackShake, setFeedbackShake] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(game.timeLimitSeconds ?? 45);
-  const [finalResult, setFinalResult] = useState<GameResult | null>(null);
-
-  const questions: GameQuestion[] = game.questions[difficulty] || [];
-  const currentQ = questions[currentIdx];
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const finishGameRef = useRef<() => void>(() => {});
-
-  // Time survival countdown
-  useEffect(() => {
-    if (step === "playing" && game.type === "time-survival") {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current!);
-            finishGameRef.current();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-      };
-    }
-  }, [step, game.type]);
-
-  const startGame = () => {
-    setStep("playing");
-    setCurrentIdx(0);
-    setScore(0);
-    setCombo(1);
-    setMaxCombo(1);
-    setHits(0);
-    setMistakes(0);
-    setSelectedOption(null);
-    setIsAnswerChecked(false);
-    setTimeLeft(game.timeLimitSeconds ?? 45);
+  const [sequence, setSequence] = useState<GameQuestion[]>([]),
+    [seed, setSeed] = useState("");
+  const progress = useRef(initialGameProgress());
+  const [state, setState] = useState(progress.current),
+    [index, setIndex] = useState(0);
+  const [feedback, setFeedback] = useState<boolean | null>(null),
+    [seconds, setSeconds] = useState(0);
+  const [result, setResult] = useState<GameResult | null>(null),
+    [error, setError] = useState("");
+  const [awarded, setAwarded] = useState<number | null>(null),
+    [saving, setSaving] = useState(false);
+  const run = useRef({ id: "", finished: false, locked: false, deadline: 0 });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null),
+    alive = useRef(true);
+  const timeBar = useRef<HTMLDivElement>(null),
+    finishRef = useRef<() => void>(() => {});
+  const pendingResult = useRef<Parameters<typeof submitGameResult>[0] | null>(null);
+  const limit = game.timeLimitSeconds ?? (game.type === "time-survival" ? 45 : 0);
+  const clearTimer = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
   };
-
-  const finishGame = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    const totalQ = questions.length || 1;
-    const stars = calculateGameStars(hits, totalQ);
-    const xp = calculateGameXp(score, stars);
-
-    const result: GameResult = {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      clearTimer();
+    };
+  }, []);
+  const saveResult = async () => {
+    const payload = pendingResult.current;
+    if (!payload || saving) return;
+    const eventId = payload.eventId;
+    setSaving(true);
+    try {
+      const saved = await submitGameResult(payload);
+      if (alive.current && run.current.id === eventId) {
+        setAwarded(saved.awarded);
+        setError("");
+      }
+    } catch (cause) {
+      if (alive.current && run.current.id === eventId)
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Não foi possível registrar a partida. Seu resultado continua aqui.",
+        );
+    } finally {
+      if (alive.current && run.current.id === eventId) setSaving(false);
+    }
+  };
+  const finish = () => {
+    if (run.current.finished || !run.current.id) return;
+    run.current.finished = true;
+    run.current.locked = true;
+    clearTimer();
+    const latest = progress.current;
+    const stars = calculateGameStars(latest.hits, latest.hits + latest.mistakes);
+    const final: GameResult = {
       gameId: game.id,
       difficulty,
-      score,
-      hits,
-      mistakes,
-      maxCombo,
+      score: latest.score,
+      hits: latest.hits,
+      mistakes: latest.mistakes,
+      maxCombo: latest.maxCombo,
       stars,
-      xpEarned: xp,
+      xpEarned: calculateGameXp(latest.score, stars),
       isNewRecord: false,
     };
-
-    const isNew = saveGameHighScore(result);
-    result.isNewRecord = isNew;
-
-    // Award XP
-    void awardXp(xp);
-
-    setFinalResult(result);
+    final.isNewRecord = saveGameHighScore(final, userId);
+    if (
+      userId &&
+      (getStoredHighScores(userId)[`${game.id}_${difficulty}`]?.bestScore ?? -1) < final.score
+    )
+      setError("Não foi possível salvar o recorde neste navegador. Seu resultado continua aqui.");
+    pendingResult.current = {
+      ...final,
+      seed,
+      eventId: run.current.id,
+      total: sequence.length,
+      ...(challengeId ? { challengeId } : {}),
+    };
+    setResult(final);
     setStep("finished");
+    void saveResult();
   };
-  finishGameRef.current = finishGame;
-
-  const handleSelectOption = (idx: number) => {
-    if (isAnswerChecked || !currentQ) return;
-    setSelectedOption(idx);
-    setIsAnswerChecked(true);
-
-    const isCorrect = idx === currentQ.correctIndex;
-
-    if (isCorrect) {
-      const addedPoints = 100 * combo;
-      setScore((s) => s + addedPoints);
-      setHits((h) => h + 1);
-      setCombo((c) => {
-        const next = Math.min(4, c + 1);
-        setMaxCombo((m) => Math.max(m, next));
-        return next;
-      });
-      if (game.type === "time-survival") {
-        setTimeLeft((t) => t + 1);
-      }
-    } else {
-      setMistakes((m) => m + 1);
-      setCombo(1);
-      setFeedbackShake(true);
-      setTimeout(() => setFeedbackShake(false), 500);
-      if (game.type === "time-survival") {
-        setTimeLeft((t) => Math.max(0, t - 2));
-      }
+  finishRef.current = finish;
+  useEffect(() => {
+    if (step !== "playing" || !limit) return;
+    let frame = 0;
+    const tick = () => {
+      if (run.current.finished) return;
+      const remaining = Math.max(0, (run.current.deadline - performance.now()) / 1000);
+      if (timeBar.current)
+        timeBar.current.style.transform = `scaleX(${Math.min(1, remaining / limit)})`;
+      setSeconds((current) => (current === Math.ceil(remaining) ? current : Math.ceil(remaining)));
+      if (!remaining) finishRef.current();
+      else frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [step, limit]);
+  const start = () => {
+    clearTimer();
+    const nextSeed = suppliedSeed ?? crypto.randomUUID();
+    run.current = {
+      id: crypto.randomUUID(),
+      finished: false,
+      locked: false,
+      deadline: performance.now() + limit * 1000,
+    };
+    progress.current = initialGameProgress();
+    pendingResult.current = null;
+    setState(progress.current);
+    setSeed(nextSeed);
+    setSequence(gameSequence(game, difficulty, nextSeed));
+    setIndex(0);
+    setFeedback(null);
+    setSeconds(limit);
+    setResult(null);
+    setAwarded(null);
+    setSaving(false);
+    setError("");
+    setStep("playing");
+  };
+  const answer = (value: GameAnswer) => {
+    const question = sequence[index];
+    if (step !== "playing" || run.current.locked || run.current.finished || !question) return;
+    run.current.locked = true;
+    const next = applyGameAnswer(progress.current, question, value);
+    progress.current = next;
+    setState(next);
+    const correct = next.answers.at(-1)!.correct;
+    setFeedback(correct);
+    if (game.type === "time-survival")
+      run.current.deadline = Math.min(
+        performance.now() + limit * 1000,
+        run.current.deadline + (correct ? 3000 : -2000),
+      );
+    if (limit && run.current.deadline <= performance.now()) {
+      finishRef.current();
+      return;
     }
-
-    setTimeout(() => {
-      if (currentIdx + 1 < questions.length) {
-        setCurrentIdx((i) => i + 1);
-        setSelectedOption(null);
-        setIsAnswerChecked(false);
-      } else {
-        finishGame();
+    timer.current = setTimeout(() => {
+      if (!alive.current || run.current.finished) return;
+      if (index + 1 >= sequence.length) finishRef.current();
+      else {
+        setIndex(index + 1);
+        setFeedback(null);
+        run.current.locked = false;
       }
     }, 700);
   };
-
-  const handleMapClick = (regionKey: string) => {
-    if (isAnswerChecked || !currentQ) return;
-    const isCorrect = regionKey === currentQ.targetKey;
-    setIsAnswerChecked(true);
-
-    if (isCorrect) {
-      setScore((s) => s + 100 * combo);
-      setHits((h) => h + 1);
-      setCombo((c) => {
-        const next = Math.min(4, c + 1);
-        setMaxCombo((m) => Math.max(m, next));
-        return next;
-      });
-    } else {
-      setMistakes((m) => m + 1);
-      setCombo(1);
-      setFeedbackShake(true);
-      setTimeout(() => setFeedbackShake(false), 500);
-    }
-
-    setTimeout(() => {
-      if (currentIdx + 1 < questions.length) {
-        setCurrentIdx((i) => i + 1);
-        setIsAnswerChecked(false);
-      } else {
-        finishGame();
-      }
-    }, 800);
+  const slip = () => {
+    if (run.current.locked || run.current.finished) return;
+    progress.current = {
+      ...progress.current,
+      mistakes: progress.current.mistakes + 1,
+      combo: 1,
+      answers: [
+        ...progress.current.answers,
+        { question: sequence[index]!, answer: "Tentativa incorreta", correct: false },
+      ],
+    };
+    setState(progress.current);
   };
-
-  const renderIcon = (name: string, size = 24) => {
-    switch (name) {
-      case "Zap":
-        return <Zap size={size} />;
-      case "Flame":
-        return <Flame size={size} />;
-      case "Scale":
-        return <Scale size={size} />;
-      case "Globe":
-        return <Globe size={size} />;
-      case "Compass":
-        return <Compass size={size} />;
-      case "Flag":
-        return <Flag size={size} />;
-      case "CheckCheck":
-        return <CheckCheck size={size} />;
-      case "Feather":
-        return <Feather size={size} />;
-      default:
-        return <Sparkles size={size} />;
-    }
-  };
-
+  const question = sequence[index];
+  const mistakes = [
+    ...new Map(
+      state.answers.filter((item) => !item.correct).map((item) => [item.question.id, item]),
+    ).values(),
+  ];
   return (
-    <div
-      className="game-runner-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Jogo: ${game.title}`}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <div className={`game-runner-box ${feedbackShake ? "game-shake" : ""}`}>
-        <div className="game-runner-header">
-          <div className="flex items-center gap-2">
-            <span className="text-primary">{renderIcon(game.iconName, 20)}</span>
-            <span className="font-serif font-bold text-base text-foreground">{game.title}</span>
-          </div>
-          <button
-            type="button"
-            className="game-runner-close-btn"
-            onClick={onClose}
-            aria-label="Fechar jogo"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* STEP 1: RULES */}
+      <DialogContent
+        className="game-runner-box game-dialog"
+        aria-describedby={step === "rules" ? "game-rules" : undefined}
+        onKeyDown={(event) => {
+          if (
+            step === "playing" &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey &&
+            (game.type === "multiple-choice" || game.type === "time-survival") &&
+            /^[1-4]$/.test(event.key) &&
+            question?.options &&
+            Number(event.key) <= question.options.length
+          ) {
+            event.preventDefault();
+            answer(Number(event.key) - 1);
+          }
+        }}
+      >
+        <DialogTitle>{game.title}</DialogTitle>
         {step === "rules" && (
           <div className="game-rules-screen">
-            <div className="game-rules-icon">{renderIcon(game.iconName, 32)}</div>
-            <h2 className="game-rules-title">{game.title}</h2>
-            <div className="game-rules-text">
-              <p className="font-semibold text-foreground mb-1">Como jogar:</p>
-              <p>{game.rules}</p>
+            <p id="game-rules">{game.rules}</p>
+            <p>Acertos aumentam o combo, até ×4. Os jogos não gastam corações.</p>
+            <div className="game-diff-selector" role="radiogroup" aria-label="Dificuldade">
+              {(["facil", "medio", "dificil"] as const).map((value) => (
+                <button
+                  key={value}
+                  role="radio"
+                  aria-checked={difficulty === value}
+                  disabled={Boolean(suppliedDifficulty || game.fixedDifficulty)}
+                  className={`game-diff-btn ${difficulty === value ? "selected" : ""}`}
+                  onClick={() => setDifficulty(value)}
+                >
+                  {value === "facil" ? "Fácil" : value === "medio" ? "Médio" : "Difícil"}
+                </button>
+              ))}
             </div>
-
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
-                Dificuldade
-              </p>
-              <div className="game-diff-selector" role="radiogroup" aria-label="Dificuldade">
-                {(["facil", "medio", "dificil"] as const).map((diff) => (
-                  <button
-                    key={diff}
-                    type="button"
-                    role="radio"
-                    aria-checked={difficulty === diff}
-                    className={`game-diff-btn ${difficulty === diff ? "selected" : ""}`}
-                    onClick={() => setDifficulty(diff)}
-                  >
-                    {diff === "facil" ? "Fácil" : diff === "medio" ? "Médio" : "Difícil"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="game-card-btn-play w-full mt-4"
-              onClick={startGame}
-              aria-label="Começar desafio"
-            >
-              <span>Começar desafio</span>
-              <ArrowRight size={16} />
+            {suppliedSeed && <p>Desafio com a mesma sequência para todos.</p>}
+            <button className="game-card-btn-play" onClick={start} aria-label="Começar desafio">
+              Começar desafio <ArrowRight size={16} />
             </button>
           </div>
         )}
-
-        {/* STEP 2: PLAYING */}
-        {step === "playing" && currentQ && (
+        {step === "playing" && question && (
           <div>
             <div className="game-play-header">
-              <div className="flex items-center gap-2">
-                <span className="game-combo-pill">COMBO x{combo}</span>
-                <span className="text-xs text-muted-foreground font-mono">
-                  {currentIdx + 1} / {questions.length}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-primary">{score} pts</span>
-                {game.type === "time-survival" && (
-                  <span className={`game-timer-badge ${timeLeft <= 10 ? "is-urgent" : ""}`}>
-                    <Clock size={14} />
-                    {timeLeft}s
-                  </span>
-                )}
-              </div>
+              <span className="game-combo-pill">COMBO x{state.combo}</span>
+              <span>{state.score} pts</span>
+              {limit > 0 && <span aria-label="Tempo restante">{seconds}s</span>}
             </div>
-
             <div
               className="game-progress-bar"
               role="progressbar"
-              aria-valuenow={currentIdx + 1}
-              aria-valuemin={1}
-              aria-valuemax={questions.length}
+              aria-label="Progresso da partida"
+              aria-valuemin={0}
+              aria-valuemax={sequence.length}
+              aria-valuenow={index}
             >
               <div
                 className="game-progress-bar-fill"
-                style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }}
+                style={{ width: "100%", transform: `scaleX(${index / sequence.length})` }}
               />
             </div>
-
-            {/* Prompt */}
-            <div className="game-prompt-card">
-              <p className="game-prompt-question">{currentQ.prompt}</p>
-            </div>
-
-            {/* MAP CLICK MODE */}
-            {game.type === "map-click" && (
-              <div className="game-map-container">
-                <svg
-                  viewBox="0 0 800 450"
-                  className="game-world-map-svg"
-                  role="img"
-                  aria-label="Mapa do mundo interativo"
-                >
-                  {/* América do Norte */}
-                  <path
-                    d="M100 80 L280 80 L240 180 L160 210 L100 130 Z"
-                    className="game-map-region"
-                    onClick={() => handleMapClick("america-norte")}
-                    aria-label="América do Norte"
-                  />
-                  {/* América do Sul */}
-                  <path
-                    d="M200 230 L290 230 L270 360 L220 380 L180 290 Z"
-                    className="game-map-region"
-                    onClick={() => handleMapClick("america-sul")}
-                    aria-label="América do Sul"
-                  />
-                  {/* Europa */}
-                  <path
-                    d="M380 90 L480 85 L470 170 L390 180 Z"
-                    className="game-map-region"
-                    onClick={() => handleMapClick("europa")}
-                    aria-label="Europa"
-                  />
-                  {/* África */}
-                  <path
-                    d="M380 190 L490 190 L470 340 L400 340 L370 240 Z"
-                    className="game-map-region"
-                    onClick={() => handleMapClick("africa")}
-                    aria-label="África"
-                  />
-                  {/* Ásia */}
-                  <path
-                    d="M490 80 L720 90 L710 240 L540 250 L480 160 Z"
-                    className="game-map-region"
-                    onClick={() => handleMapClick("asia")}
-                    aria-label="Ásia"
-                  />
-                  {/* Oceania */}
-                  <path
-                    d="M620 280 L730 280 L720 370 L610 360 Z"
-                    className="game-map-region"
-                    onClick={() => handleMapClick("oceania")}
-                    aria-label="Oceania"
-                  />
-                </svg>
+            {limit > 0 && (
+              <div
+                className="game-time-track"
+                role="meter"
+                aria-label="Reserva de tempo"
+                aria-valuemin={0}
+                aria-valuemax={limit}
+                aria-valuenow={seconds}
+              >
+                <div ref={timeBar} />
               </div>
             )}
-
-            {/* MULTIPLE CHOICE / OPTIONS */}
-            {currentQ.options && (
-              <div className="game-options-grid">
-                {currentQ.options.map((option, idx) => {
-                  let statusClass = "";
-                  if (isAnswerChecked) {
-                    if (idx === currentQ.correctIndex) statusClass = "is-correct";
-                    else if (idx === selectedOption) statusClass = "is-wrong";
-                  }
-
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      disabled={isAnswerChecked}
-                      className={`game-option-btn ${statusClass}`}
-                      onClick={() => handleSelectOption(idx)}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STEP 3: FINISHED / VICTORY */}
-        {step === "finished" && finalResult && (
-          <div className="game-victory-screen" role="status">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/20 text-accent">
-              <Trophy size={36} />
-            </div>
-
-            <h2 className="font-serif font-bold text-2xl text-foreground">Desafio Concluído!</h2>
-
-            <div className="game-victory-stars" aria-label={`${finalResult.stars} estrelas`}>
-              {[1, 2, 3].map((starIdx) => (
-                <Star
-                  key={starIdx}
-                  size={36}
-                  className={starIdx <= finalResult.stars ? "star-active" : ""}
-                />
-              ))}
-            </div>
-
-            <p className="game-victory-score">{finalResult.score} pontos</p>
-
-            <div className="game-victory-stats">
-              <span>
-                <b>{finalResult.hits}</b> acertos
-              </span>
-              <span>·</span>
-              <span>
-                Combo máx: <b>x{finalResult.maxCombo}</b>
-              </span>
-              <span>·</span>
-              <span>
-                XP ganho: <b>+{finalResult.xpEarned}</b>
-              </span>
-            </div>
-
-            {finalResult.isNewRecord && (
-              <p className="text-xs font-semibold text-primary bg-primary/10 py-1 px-3 rounded-full">
-                Novo recorde pessoal! 🎉
+            <h2 className="game-prompt-question">{question.prompt}</h2>
+            <GameMechanic
+              key={`${seed}:${index}`}
+              question={question}
+              type={game.type}
+              seed={seed}
+              disabled={feedback !== null}
+              onAnswer={answer}
+              onMistake={slip}
+            />
+            {feedback !== null && (
+              <p
+                role="status"
+                className={`game-answer-feedback ${feedback ? "is-correct" : "is-wrong"}`}
+              >
+                {feedback ? "Você acertou!" : "Vamos revisar essa no resultado."}{" "}
+                {question.explanation}
               </p>
             )}
-
-            <div className="game-victory-actions">
+          </div>
+        )}
+        {step === "finished" && result && (
+          <div className="game-victory-screen">
+            <Trophy size={36} />
+            <h2>Desafio concluído!</h2>
+            <p className="game-victory-score">{result.score} pontos</p>
+            <p>
+              {result.hits} acertos · {result.mistakes} erros · Combo máx. ×{result.maxCombo}
+            </p>
+            <p>
+              {saving
+                ? "Registrando partida…"
+                : awarded !== null
+                  ? `XP registrado: +${awarded}`
+                  : "XP ainda não registrado"}
+            </p>
+            {result.isNewRecord && <p>Novo recorde pessoal!</p>}
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            {error && (
               <button
-                type="button"
                 className="game-card-btn-play"
-                onClick={startGame}
-                aria-label="Jogar novamente"
+                onClick={() => void saveResult()}
+                disabled={saving}
               >
-                <RotateCcw size={16} />
-                <span>Jogar novamente</span>
+                Tentar salvar partida
               </button>
-              <button
-                type="button"
-                className="game-card-btn-challenge"
-                onClick={onRestart || onClose}
-                aria-label="Trocar de jogo"
-              >
-                <span>Trocar de jogo</span>
+            )}
+            {!!mistakes.length && (
+              <section aria-label="Revisão dos erros">
+                <h3>Vamos rever</h3>
+                {mistakes.map(({ question: item }, i) => (
+                  <article key={i}>
+                    <h4>{item.prompt}</h4>
+                    <MistakeExplanation question={item} />
+                  </article>
+                ))}
+              </section>
+            )}
+            {challengeId && <ChallengeResults id={challengeId} revision={awarded} />}
+            <div className="game-victory-actions">
+              <button className="game-card-btn-play" onClick={start} aria-label="Jogar novamente">
+                <RotateCcw size={16} /> Jogar novamente
+              </button>
+              <button className="game-card-btn-challenge" onClick={onRestart ?? onClose}>
+                Trocar de jogo
               </button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

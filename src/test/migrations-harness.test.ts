@@ -330,6 +330,122 @@ describe("PostgreSQL Migrations & RLS Harness (PGlite)", () => {
       state: { allowed: boolean; count: number; limit: number };
     }>(`select public.check_and_consume_ai_quota('game', 999999) as state`);
     expect(blockedQuota.rows[0]!.state).toMatchObject({ allowed: false, count: 50, limit: 50 });
+    // Games: own immutable results, true retry idempotency, friend privacy and shared-cache privileges.
+    await db.exec(
+      `reset role; delete from public.user_blocks; update public.profiles set ranking_visibility = 'public'; set role authenticated; set request.jwt.claim.sub = '${userA}'`,
+    );
+    const invitation = await db.query<{ value: { id: string } }>(
+      `select public.create_game_challenge('${userB}','math-balanca','medio','shared-seed') as value`,
+    );
+    const challengeId = invitation.rows[0]!.value.id;
+    expect(
+      (
+        await db.query(
+          `select id from public.notifications where user_id = '${userB}' and type = 'game_challenge'`,
+        )
+      ).rows,
+    ).toHaveLength(0);
+    await expect(
+      db.exec(
+        `insert into public.game_content_cache(cache_key,content) values(repeat('a',64),'{}')`,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.exec(
+        `insert into public.game_runs(event_id,user_id,game_id,difficulty,seed,score,hits,mistakes,total,max_combo) values(gen_random_uuid(),'${userA}','math-balanca','medio','s',100,1,0,3,2)`,
+      ),
+    ).rejects.toThrow();
+    await db.exec(`set request.jwt.claim.sub = '${userB}'`);
+    expect(
+      (await db.query(`select id from public.notifications where type = 'game_challenge'`)).rows,
+    ).toHaveLength(1);
+    const gameEvent = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    const callGame = `select public.record_game_result('${gameEvent}','math-balanca','medio','shared-seed',100,1,0,3,2,'${challengeId}') as value`;
+    const gameReward = await db.query<{ value: { awarded: number } }>(callGame);
+    expect(gameReward.rows[0]!.value.awarded).toBe(20);
+    expect((await db.query(`select * from public.get_game_records()`)).rows).toHaveLength(1);
+    expect((await db.query<{ value: { awarded: number } }>(callGame)).rows[0]!.value.awarded).toBe(
+      20,
+    );
+    expect(
+      (
+        await db.query<{ xp: number }>(
+          `select xp from public.learner_stats where user_id = '${userB}'`,
+        )
+      ).rows[0]!.xp,
+    ).toBe(20);
+    await expect(db.exec(`update public.game_runs set score = 9999`)).rejects.toThrow();
+    await expect(db.exec(`delete from public.game_runs`)).rejects.toThrow();
+    await expect(
+      db.query(
+        `select public.record_game_result(gen_random_uuid(),'math-balanca','medio','different-seed',100,1,0,3,2,'${challengeId}')`,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.query(
+        `select public.record_game_result(gen_random_uuid(),'math-balanca','medio','s',9999,1,0,3,2)`,
+      ),
+    ).rejects.toThrow();
+    const comparison = await db.query<{ value: { results: { score: number }[] } }>(
+      `select public.get_game_challenge('${challengeId}') as value`,
+    );
+    expect(comparison.rows[0]!.value.results).toMatchObject([{ score: 100 }]);
+    for (let i = 0; i < 10; i++)
+      await db.query(
+        `select public.record_game_result(gen_random_uuid(),'math-balanca','medio','s',1000,5,0,6,4)`,
+      );
+    expect(
+      (
+        await db.query<{ total: number }>(
+          `select sum(awarded)::int as total from public.game_runs where user_id = '${userB}'`,
+        )
+      ).rows[0]!.total,
+    ).toBe(100);
+    await db.exec(`set request.jwt.claim.sub = '${userA}'`);
+    await expect(db.query(callGame)).rejects.toThrow();
+    await db.query(
+      `select public.record_game_result(gen_random_uuid(),'math-balanca','medio','shared-seed',300,2,0,3,3,'${challengeId}')`,
+    );
+    expect(
+      (await db.query(`select * from public.get_game_leaderboard('math-balanca','medio','week')`))
+        .rows,
+    ).toHaveLength(2);
+    await db.exec(
+      `reset role; update public.profiles set ranking_visibility = 'hidden' where id = '${userA}'; set role authenticated; set request.jwt.claim.sub = '${userB}'`,
+    );
+    expect(
+      (await db.query(`select event_id from public.game_runs where user_id = '${userA}'`)).rows,
+    ).toHaveLength(0);
+    expect(
+      (await db.query(`select * from public.get_game_leaderboard('math-balanca','medio','week')`))
+        .rows,
+    ).toHaveLength(1);
+    await db.exec(
+      `reset role; set role service_role; insert into public.game_content_cache(cache_key,content) values(repeat('a',64),'{"questions":[]}'); reset role; set role authenticated`,
+    );
+    expect((await db.query(`select cache_key from public.game_content_cache`)).rows).toHaveLength(
+      1,
+    );
+    await expect(db.exec(`update public.game_content_cache set content = '{}'`)).rejects.toThrow();
+    await expect(db.exec(`delete from public.game_content_cache`)).rejects.toThrow();
+    await db.exec(
+      `reset role; update public.game_content_cache set expires_at = now() - interval '1 day'; set role authenticated`,
+    );
+    expect((await db.query(`select cache_key from public.game_content_cache`)).rows).toHaveLength(
+      0,
+    );
+    await db.exec(
+      `reset role; insert into public.user_blocks(blocker_id,blocked_id) values('${userA}','${userB}'); set role authenticated`,
+    );
+    await expect(db.query(`select public.get_game_challenge('${challengeId}')`)).rejects.toThrow();
+    await expect(
+      db.query(`select public.create_game_challenge('${userA}','math-balanca','medio','s')`),
+    ).rejects.toThrow();
+    await db.exec(`set role anon; set request.jwt.claim.sub = ''`);
+    await expect(db.query(`select * from public.game_runs`)).rejects.toThrow();
+    await expect(db.query(`select public.get_game_challenge('${challengeId}')`)).rejects.toThrow();
+    await db.exec(`reset role`);
+    await db.exec(fs.readFileSync(path.join(migrationsDir, "0015_games.sql"), "utf8"));
     await db.close();
 
     console.log("PGlite harness concluído com sucesso: RLS e isolamento validados sem recursão!");

@@ -4,9 +4,18 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
 
 ## Ordem e limites de aplicação
 
-Em um banco novo, aplique `0000` a `0014`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. As correções `0013` e `0014` são aditivas e podem ser reaplicadas.
+Em um banco novo, aplique `0000` a `0015`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. As correções `0013`, `0014` e `0015` são aditivas e podem ser reaplicadas.
 
 Nenhuma migração foi aplicada ao banco remoto durante esta correção. O harness PGlite executa a sequência completa com `auth.uid()` e os papéis `anon`, `authenticated` e `service_role`; verifica acessos e escritas reais entre duas identidades, inclusive tentativas indevidas.
+
+## 0015_games.sql
+
+- `game_runs` guarda partidas imutáveis por conta. `record_game_result` confere limites dos contadores, associação ao desafio e identidade pela sessão, deduplica por evento e usa `record_learning_reward` para o teto adicional de 100 XP/dia. Reenviar a mesma partida devolve o registro já confirmado. Pontuação do cliente tem limites de consistência; isso não constitui uma prova contra trapaça competitiva.
+- `get_game_leaderboard` oferece melhores pontuações por jogo/dificuldade, semana de São Paulo ou total. Inclui o próprio usuário e amigos com ranking público, respeitando bloqueios. `get_game_records` recupera os recordes pessoais da conta; a cópia local usa chave por conta. O armazenamento global antigo fica preservado sem ser atribuído a outra pessoa.
+- `game_challenges`, `create_game_challenge` e `get_game_challenge` permitem convites entre amigos, notificação, semente/dificuldade iguais e comparação assíncrona. O servidor limita convites, valida o participante e impede registrar uma partida com outros parâmetros como se fosse daquele desafio.
+- `game_content_cache` permite leitura de conteúdo educativo validado por usuários autenticados e escrita somente por `service_role`. O cache expira em 30 dias. A geração respeita a cota técnica de `game` e não grava dados de perfil ou histórico de estudos no conteúdo compartilhado.
+- Para popular o cache compartilhado de jogos com IA, configure `SUPABASE_SERVICE_ROLE_KEY` **somente no servidor**, nas configurações seguras da hospedagem/ambiente; nunca use prefixo `VITE_`. Nenhum valor foi solicitado em chat, impresso ou escrito em `.env`. A credencial não está presente neste runtime de desenvolvimento. Sem ela, o jogo é validado e jogável em modo solo, mas seu compartilhamento é desabilitado. O restante do aplicativo continua disponível.
+- Não exige nova flag nem publicação Realtime: convites usam o canal de notificações existente. Sem a migração, jogos locais continuam funcionando e o resultado informa que não pôde ser registrado; o app não inventa XP confirmado. Nada foi aplicado ao banco remoto.
 
 ## 0014_learning_hearts_and_rewards.sql
 

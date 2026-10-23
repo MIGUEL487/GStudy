@@ -1,6 +1,7 @@
 import type { GameDefinition } from "./types";
+import { EXTRA_GAMES, FLAGS_GAME, MAP_GAME } from "./content";
 
-export const GAMES_CATALOG: GameDefinition[] = [
+const LEGACY_GAMES: GameDefinition[] = [
   // MATEMÁTICA
   {
     id: "math-calc-mental",
@@ -851,6 +852,33 @@ export const GAMES_CATALOG: GameDefinition[] = [
       ],
     },
   },
+];
+
+export const GAMES_CATALOG: GameDefinition[] = [
+  ...LEGACY_GAMES.map((game) =>
+    game.id === MAP_GAME.id
+      ? MAP_GAME
+      : game.id === FLAGS_GAME.id
+        ? FLAGS_GAME
+        : game.id === "geo-capitais"
+          ? { ...game, timeLimitSeconds: 60 }
+          : game.id === "math-tabuada"
+            ? {
+                ...game,
+                title: "Sobrevivência: equações e frações",
+                description: "Resolva equações e frações antes de a reserva de tempo acabar.",
+                rules:
+                  "Você começa com 45 segundos. Cada acerto recupera três segundos, até a reserva máxima; erros tiram dois. Resolva equações e frações para manter seu combo.",
+              }
+            : game.id === "math-calc-mental"
+              ? {
+                  ...game,
+                  rules:
+                    "Resolva contas por regras, sem decorar a ordem. Cada acerto recupera três segundos e aumenta o combo; erros tiram dois segundos.",
+                }
+              : game,
+  ),
+  ...EXTRA_GAMES,
 ];
 
 export function getGamesBySubject(subject?: string): GameDefinition[] {

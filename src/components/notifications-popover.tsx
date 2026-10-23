@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Bell, Check, CheckCheck, Trash2, X, UserPlus, Radio, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -16,6 +17,7 @@ interface NotificationsPopoverProps {
 }
 
 export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -154,6 +156,31 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-xs text-foreground mb-0.5">{n.title}</p>
                       <p className="text-xs text-muted-foreground leading-normal">{n.body}</p>
+                      {n.type === "game_challenge" &&
+                        typeof n.data?.challengeId === "string" &&
+                        /^[0-9a-f-]{36}$/i.test(n.data.challengeId) && (
+                          <button
+                            className="duo-btn ghost"
+                            onClick={() => {
+                              void markNotificationAsRead(n.id)
+                                .then(() =>
+                                  setNotifications((current) =>
+                                    current.map((item) =>
+                                      item.id === n.id ? { ...item, read: true } : item,
+                                    ),
+                                  ),
+                                )
+                                .catch(() => {});
+                              setOpen(false);
+                              void navigate({
+                                to: "/sessoes",
+                                search: { tab: "games", challenge: String(n.data!.challengeId) },
+                              });
+                            }}
+                          >
+                            Abrir desafio
+                          </button>
+                        )}
 
                       {n.type === "friend_request" && !n.read && (
                         <div className="flex items-center gap-2 mt-2">
