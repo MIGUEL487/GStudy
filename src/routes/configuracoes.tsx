@@ -18,6 +18,7 @@ import { useAuth, NotionMark } from "@/components/auth-gate";
 import { Avatar, useDisplayName } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
 import { schoolYears } from "@/lib/school-year";
+import { confirmSchoolYearAdvance } from "@/lib/student-profile";
 import { defaultSchoolDays } from "@/lib/study-model";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReviewsPanel } from "@/components/reviews-panel";
@@ -198,8 +199,10 @@ function Settings() {
                 value={data.schoolYear ?? ""}
                 onChange={(e) => {
                   const year = e.target.value;
-                  if (update((d) => ({ ...d, schoolYear: year || undefined })))
+                  if (update((d) => ({ ...d, schoolYear: year || undefined }))) {
                     toast.success("Etapa de estudo atualizada.");
+                    if (year) void confirmSchoolYearAdvance(year);
+                  }
                 }}
               >
                 <option value="">Escolha seu ano ou etapa</option>

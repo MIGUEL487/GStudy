@@ -80,3 +80,19 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
   5. **Correção de Políticas de RLS:** Substituição de subqueries recursivas por chamadas diretas às funções auxiliares em `group_members`, `study_groups`, `profiles`, `study_rooms`, `study_room_participants` e `study_room_messages`.
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0010_fix_rls_recursion_and_room_chat_columns.sql` e execute no painel **SQL Editor** do projeto Supabase.
+
+
+---
+
+## 0011_student_profile_and_onboarding.sql
+
+- **Fase:** Bloco 2 — Onboarding e Perfil do Estudante (`feat/bloco-2-onboarding-perfil`)
+- **Data:** 23/10/2026
+- **Feature Flag Relacionada:** Todas
+- **Conteúdo da Migration:**
+  1. `public.profiles`: Novas colunas `school_year` (etapa de estudo), `favorite_subject` (matéria favorita), `school_days` (dias com aula), `exam_goals` (metas de vestibulares como ENEM/Fuvest), `year_selected_at` (data da última confirmação de ano letivo), `theme` e `onboarding_completed`.
+  2. `public.check_username_available(desired_username text)`: RPC `SECURITY DEFINER SET search_path = ''` que valida formato e disponibilidade de `@username` sem expor e-mails ou listar qualquer usuário.
+  3. `public.save_student_onboarding(...)`: RPC `SECURITY DEFINER SET search_path = ''` para persistência atômica dos dados de onboarding do estudante com `auth.uid()`.
+  4. `public.advance_school_year(p_new_school_year text)`: RPC `SECURITY DEFINER SET search_path = ''` para virada anual de ano escolar com carimbo temporal.
+- **Como Aplicar no Supabase:**
+  Copie o conteúdo de `drizzle/migrations/0011_student_profile_and_onboarding.sql` e execute no painel **SQL Editor** do projeto Supabase.

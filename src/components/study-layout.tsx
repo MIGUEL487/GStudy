@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "./auth-gate";
 import { Avatar, useDisplayName } from "./avatar";
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useState, useLayoutEffect, useRef, type ReactNode } from "react";
 import { logo } from "@/lib/images";
 import { useStudy } from "./study-provider";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,13 @@ import { SyncStatus } from "./account-sync-provider";
 import { FocusSessionHeader, RecallTimerPopup, useTestFocus } from "./study-session-controls";
 import { isSocialFeatureEnabled } from "@/lib/social-model";
 import { ThemeToggle } from "./theme-toggle";
+import { StudentOnboardingModal } from "./student-onboarding-modal";
+import { SchoolYearRolloverModal } from "./school-year-rollover-modal";
+import {
+  fetchCurrentStudentProfile,
+  checkSchoolYearRollover,
+  type StudentProfile,
+} from "@/lib/student-profile";
 
 const navigation = [
   { to: "/", label: "Início", mobileLabel: "Início", icon: Home },
@@ -37,11 +44,51 @@ const navigation = [
 
 export function StudyLayout({ children }: { children: ReactNode }) {
   const { data } = useStudy();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const path = useLocation({ select: (l) => l.pathname });
   const name = useDisplayName();
   const focused = useTestFocus();
   const page = useRef<HTMLDivElement>(null);
+
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [rolloverPrompt, setRolloverPrompt] = useState<{
+    show: boolean;
+    currentSchoolYear: string;
+    suggestedNextYear?: string;
+    currentCalendarYear: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    void fetchCurrentStudentProfile(user.id).then((p) => {
+      if (cancelled) return;
+      setProfile(p);
+
+      // 2.1 Checagem de Onboarding incompleto ou primeiro acesso
+      const isProfileIncomplete = !p || !p.onboardingCompleted || !p.schoolYear || !p.username;
+      if (isProfileIncomplete && (!data.schoolYear || !data.name)) {
+        setShowOnboarding(true);
+      } else if (p) {
+        // 2.3 Checagem de virada de ano após 1º de janeiro
+        const rollover = checkSchoolYearRollover(p);
+        if (rollover.needsPrompt && rollover.currentSchoolYear) {
+          setRolloverPrompt({
+            show: true,
+            currentSchoolYear: rollover.currentSchoolYear,
+            suggestedNextYear: rollover.suggestedNextYear,
+            currentCalendarYear: rollover.currentCalendarYear,
+          });
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, data.schoolYear, data.name]);
   useLayoutEffect(() => {
     if (!page.current?.animate || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
       return;
@@ -203,6 +250,26 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         ))}
       </nav>
       <RecallTimerPopup />
+
+      {showOnboarding && (
+        <StudentOnboardingModal
+          initialUsername={user?.email ? user.email.split("@")[0].replace(/[^a-z0-9_]/g, "_") : ""}
+          initialDisplayName={data.name || user?.user_metadata?.full_name || ""}
+          onCompleted={(updatedProfile) => {
+            setShowOnboarding(false);
+            setProfile((prev) => ({ ...(prev ?? {}), ...updatedProfile }) as StudentProfile);
+          }}
+        />
+      )}
+
+      {rolloverPrompt?.show && (
+        <SchoolYearRolloverModal
+          currentSchoolYear={rolloverPrompt.currentSchoolYear}
+          suggestedNextYear={rolloverPrompt.suggestedNextYear}
+          currentCalendarYear={rolloverPrompt.currentCalendarYear}
+          onDismiss={() => setRolloverPrompt(null)}
+        />
+      )}
     </div>
   );
 }

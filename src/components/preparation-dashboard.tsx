@@ -24,6 +24,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { useLearning } from "./learning-provider";
+import { useOptionalStudy } from "./study-provider";
 import { SubjectIcon } from "./subject-icon";
 import { PreparationPractice } from "./preparation-practice";
 import { PreparationLibraryPanel } from "./preparation-library";
@@ -52,6 +53,8 @@ const tabs = [
 type Tab = (typeof tabs)[number]["id"];
 
 export function PreparationDashboard({ plan }: { plan: LearningPlan }) {
+  const study = useOptionalStudy();
+  const studyData = study?.data;
   const { savePreparationGuide, removePlan, setPreparationMission } = useLearning();
   const navigate = useNavigate();
   const generate = useServerFn(createPreparationPath);
@@ -141,7 +144,17 @@ export function PreparationDashboard({ plan }: { plan: LearningPlan }) {
               <SubjectIcon name={plan.subject} size={14} /> {plan.subject}
             </span>
             {preparation.edition && <span>{preparation.edition}</span>}
-            <span>{schoolYearLabel(preparation.schoolYear)}</span>
+            <span className="inline-flex items-center gap-1">
+              <span>{schoolYearLabel(studyData?.schoolYear || preparation.schoolYear)}</span>
+              <Link
+                to="/configuracoes"
+                search={{ tab: "profile" }}
+                className="underline text-[11px] opacity-75 hover:opacity-100 ml-1"
+                title="Alterar ano escolar nas configurações"
+              >
+                Alterar
+              </Link>
+            </span>
           </div>
         </div>
         <div className="prep-target-badge">
