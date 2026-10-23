@@ -265,7 +265,7 @@ export function RecallLesson({ search }: { search: Search }) {
                 </li>
               </ol>
               <p className="activity-quota">
-                Até 2 sessões por dia na sua conta. Disponíveis hoje: {quota.remaining}.
+                Estude no seu ritmo. Começar uma sessão não gasta corações.
               </p>
               {error && (
                 <p role="alert" className="activity-error">

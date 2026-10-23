@@ -17,10 +17,8 @@ export function PreparationPractice({ plan }: { plan: LearningPlan }) {
       <p className="prep-inline-note">
         <ClipboardCheck size={19} />
         <span>
-          Hoje: <b>{cards.remaining} de 2 baralhos</b> e{" "}
-          <b>{quiz.remaining} de 2 listas de questões</b> disponíveis. O limite é compartilhado com
-          Aprender; trocar de plano não reinicia as tentativas. Uma geração que falha não consome a
-          tentativa.
+          Seus corações são compartilhados com Aprender. Cada resposta errada nas questões gasta um
+          coração; revisar flashcards não gasta. Seu quiz fica salvo para continuar depois.
         </span>
       </p>
       <div className="prep-practice-topics">

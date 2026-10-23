@@ -18,6 +18,15 @@ vi.mock("@/components/auth-gate", () => ({
 }));
 vi.mock("@/lib/learn.functions", () => ({ generateActivity: mocks.generate }));
 vi.mock("@/lib/learn-client", () => ({ awardXp: mocks.award, idsFrom: () => [] }));
+vi.mock("@/components/hearts-provider", () => ({
+  useHearts: () => ({
+    userId: "practice-student",
+    state: { hearts: 3, max: 3, next_at: null },
+    error: "",
+    lose: async () => true,
+    refresh: async () => {},
+  }),
+}));
 import { LearningProvider, useLearning } from "@/components/learning-provider";
 import { PreparationPractice } from "@/components/preparation-practice";
 import { QuizLesson } from "@/components/quiz-lesson";
@@ -115,7 +124,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe("Prática da preparação com limite compartilhado", () => {
-  it("consome a tentativa restante de Aprender, conclui no plano e bloqueia a terceira geração", async () => {
+  it("preserva tentativas antigas e retoma o quiz concluído sem gerar ou cobrar de novo", async () => {
     settleAttempt(localStorage, user, reserveAttempt(localStorage, user, "quiz"), true);
     const view = open("quiz");
     await screen.findByText("O que é território?");
@@ -133,10 +142,10 @@ describe("Prática da preparação com limite compartilhado", () => {
       "/preparar",
     );
     expect(readLearning(localStorage.getItem(key)).plans[0]!.completed["power:quiz"]).toBeDefined();
-    expect(readAttempts(localStorage.getItem(attemptKey(user))).entries).toHaveLength(2);
+    expect(readAttempts(localStorage.getItem(attemptKey(user))).entries).toHaveLength(1);
     view.unmount();
     open("quiz");
-    await screen.findByText(/Você já usou as 2 tentativas/);
+    await screen.findByText("Cada tentativa ensina.");
     expect(mocks.generate).toHaveBeenCalledTimes(1);
   });
   it("não exige Entenda para revisar cartas e só oferece questões em seguida", async () => {
@@ -152,19 +161,14 @@ describe("Prática da preparação com limite compartilhado", () => {
     expect(
       readLearning(localStorage.getItem(key)).plans[0]!.completed["power:flashcards"],
     ).toBeDefined();
-    expect(readAttempts(localStorage.getItem(attemptKey(user))).entries[0]).toMatchObject({
-      mode: "flashcards",
-      status: "used",
-    });
+    expect(localStorage.getItem(attemptKey(user))).toBeNull();
   });
-  it("mostra só as duas práticas e desabilita a atividade esgotada", async () => {
+  it("mostra as duas práticas mesmo se o contador antigo de tentativas estiver esgotado", async () => {
     reserveAttempt(localStorage, user, "quiz");
     reserveAttempt(localStorage, user, "quiz");
     open("practice");
     await screen.findByRole("heading", { name: "Poder e território" });
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Questões · limite de hoje/ })).toBeDisabled(),
-    );
+    await waitFor(() => expect(screen.getByRole("link", { name: /Questões/ })).toBeInTheDocument());
     expect(screen.getByRole("link", { name: /Flashcards/ })).toHaveAttribute(
       "href",
       "/preparar/flashcards",

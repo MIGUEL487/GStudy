@@ -42,7 +42,11 @@ describe("SQL RPC & Progress (award_learner_xp)", () => {
     });
 
     const result = await awardXp(50);
-    expect(mocks.rpc).toHaveBeenCalledWith("award_learner_xp", { p_amount: 50 });
+    expect(mocks.rpc).toHaveBeenCalledWith("record_learning_reward", {
+      p_amount: 50,
+      p_action: "study",
+      p_event_id: expect.any(String),
+    });
     expect(result).toEqual({
       user_id: "user-456",
       xp: 150,
@@ -51,7 +55,7 @@ describe("SQL RPC & Progress (award_learner_xp)", () => {
     });
   });
 
-  it("recorre ao fallback com leitura de learner_stats se a RPC falhar", async () => {
+  it("não escreve XP diretamente se a RPC falhar", async () => {
     mocks.authGetUser.mockResolvedValue({ data: { user: { id: "user-456" } } });
     mocks.rpc.mockRejectedValue(new Error("RPC not found"));
 
@@ -69,8 +73,8 @@ describe("SQL RPC & Progress (award_learner_xp)", () => {
     });
 
     const result = await awardXp(50);
-    expect(result).toBeDefined();
-    expect(mockUpsert).toHaveBeenCalled();
+    expect(result).toBeNull();
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 });
 

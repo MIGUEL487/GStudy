@@ -23,7 +23,7 @@ describe("Server AI Quota", () => {
     expect(result.remaining).toBe(9);
     expect(mockRpc).toHaveBeenCalledWith("check_and_consume_ai_quota", {
       p_action: "quiz",
-      p_max_limit: 10,
+      p_max_limit: SERVER_AI_LIMITS.quiz,
     });
   });
 
@@ -41,11 +41,11 @@ describe("Server AI Quota", () => {
       ServerAiQuotaExceededError,
     );
     await expect(enforceServerAiQuota(mockSupabase, "user-123", "quiz")).rejects.toThrow(
-      "Limite diário de IA atingido para Quiz",
+      "Você fez muitas solicitações de IA",
     );
   });
 
-  it("faz fallback para a tabela direta quando a RPC não está disponível", async () => {
+  it("bloqueia geração sem inventar cota disponível quando a RPC está ausente", async () => {
     const mockRpc = vi.fn().mockResolvedValue({
       data: null,
       error: { code: "42883", message: "function check_and_consume_ai_quota does not exist" },
@@ -70,14 +70,13 @@ describe("Server AI Quota", () => {
       }),
     } as unknown as SupabaseClient;
 
-    const result = await enforceServerAiQuota(mockSupabase, "user-123", "flashcards");
-    expect(result.allowed).toBe(true);
-    expect(result.count).toBe(4);
-    expect(result.remaining).toBe(SERVER_AI_LIMITS.flashcards - 4);
-    expect(mockUpsert).toHaveBeenCalled();
+    await expect(enforceServerAiQuota(mockSupabase, "user-123", "flashcards")).rejects.toThrow(
+      /aguardando uma atualização/,
+    );
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
-  it("bloqueia na tabela direta quando o limite é excedido", async () => {
+  it("não usa leitura não atômica para contornar a RPC", async () => {
     const mockRpc = vi.fn().mockResolvedValue({
       data: null,
       error: { code: "42883" },
@@ -96,7 +95,7 @@ describe("Server AI Quota", () => {
     } as unknown as SupabaseClient;
 
     await expect(enforceServerAiQuota(mockSupabase, "user-123", "quiz")).rejects.toThrow(
-      ServerAiQuotaExceededError,
+      /aguardando uma atualização/,
     );
   });
 });

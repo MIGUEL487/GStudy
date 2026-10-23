@@ -4,9 +4,20 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
 
 ## Ordem e limites de aplicação
 
-Em um banco novo, aplique `0000` a `0013`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. A correção `0013` é aditiva e pode ser reaplicada.
+Em um banco novo, aplique `0000` a `0014`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. As correções `0013` e `0014` são aditivas e podem ser reaplicadas.
 
 Nenhuma migração foi aplicada ao banco remoto durante esta correção. O harness PGlite executa a sequência completa com `auth.uid()` e os papéis `anon`, `authenticated` e `service_role`; verifica acessos e escritas reais entre duas identidades, inclusive tentativas indevidas.
+
+## 0014_learning_hearts_and_rewards.sql
+
+- Substitui as vidas locais por corações por conta, calculados e alterados somente nas RPCs `get_learning_hearts()` e `lose_learning_heart(p_event_id)`. IDs repetidos não descontam duas vezes. O relógio continua com o app fechado e não acumula crédito com os corações completos.
+- A única configuração efetiva fica na linha protegida `learning_rules`: máximo de 3 corações, recuperação a cada 120 minutos, até 100 XP por ação e 500 por dia. Somente administradores do banco podem alterar essas regras. As constantes TypeScript são valores de apresentação; respostas do servidor prevalecem.
+- `record_learning_reward(p_action, p_event_id, p_amount)` aplica tetos por ação/dia e deduplica recompensas. Jogos têm teto adicional de 100 XP/dia. A RPC histórica de XP passa pela mesma regra; INSERT/UPDATE diretos em contadores ficam revogados.
+- `get_learning_leaderboard(p_metric, p_period)` oferece XP e ofensiva semanal/total, incluindo somente o próprio usuário e amigos aceitos com `ranking_visibility = 'public'`, respeitando bloqueios. A ofensiva considera a sequência atual; na visão semanal, conta somente os dias da sequência dentro da semana.
+- A cota técnica de IA é atômica, calculada pelo dia de São Paulo e limitada pelas regras protegidas. Um cliente não pode aumentar o teto passando outro parâmetro. Não há alternativa permissiva quando a RPC falha. As gerações não são mais bloqueadas pelo contador local antigo de duas tentativas; os registros antigos são preservados.
+- O quiz salva perguntas, ordem das opções, respostas, explicações e a operação de coração pendente no armazenamento por conta e atividade do navegador. Retomar no mesmo navegador não gera outro quiz nem perde a questão atual; sincronização desse progresso entre dispositivos ainda não foi implementada. Após uma interrupção, o mesmo ID de operação é reenviado para evitar cobrança dupla.
+- A terceira resposta errada ainda mostra sua explicação. Depois, a pessoa pode revisar os erros sem custo e retomar ao recuperar um coração. Flashcards não gastam corações. Atualizar corações consulta o servidor e nunca recarrega localmente.
+- Não exige novas variáveis ou flags, nem publicações Realtime adicionais. Sem esta migração, os quizzes mostram um aviso amigável e os demais recursos permanecem acessíveis. Não foi aplicada ao projeto remoto pelo agente.
 
 ## 0013_social_security_hardening.sql
 

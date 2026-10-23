@@ -14,29 +14,33 @@ import {
   X,
 } from "lucide-react";
 import { useState, useEffect, useRef, type ReactNode } from "react";
-import { m } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import type { LearningSearch } from "@/lib/learning-model";
+import { useHearts } from "./hearts-provider";
 import "@/styles/hearts-and-trophy.css";
 
 export type LessonDestination = { to: string; search: LearningSearch };
 
-export function useLessonHearts(initial = 5) {
-  const [hearts, setHearts] = useState(initial);
+export function useLessonHearts() {
+  const account = useHearts();
+  const hearts = account?.state?.hearts ?? 0;
   const [shaking, setShaking] = useState(false);
   const [showMinusOne, setShowMinusOne] = useState(false);
 
-  const deductHeart = () => {
-    if (hearts <= 0) return;
-    setHearts((prev) => Math.max(0, prev - 1));
+  const deductHeart = async (eventId: string) => {
+    if (!account) return false;
+    const saved = await account.lose(eventId);
+    if (!saved) return false;
     setShaking(true);
     setShowMinusOne(true);
 
     setTimeout(() => setShaking(false), 350);
     setTimeout(() => setShowMinusOne(false), 600);
+    return true;
   };
 
   const rechargeHearts = () => {
-    setHearts(initial);
+    void account?.refresh();
   };
 
   return {
@@ -46,6 +50,10 @@ export function useLessonHearts(initial = 5) {
     isExhausted: hearts <= 0,
     deductHeart,
     rechargeHearts,
+    ready: Boolean(account?.state),
+    error: account?.error ?? "Não foi possível consultar seus corações.",
+    pending: account?.pending ?? false,
+    countdown: account?.countdown ?? "",
   };
 }
 
@@ -74,10 +82,14 @@ export function LessonHeartsIndicator({
 
 export function BreathPauseScreen({
   onRecharge,
+  onReview,
+  countdown,
   backTo = "/aprender",
   backSearch,
 }: {
   onRecharge?: () => void;
+  onReview?: () => void;
+  countdown?: string;
   backTo?: "/aprender" | "/preparar";
   backSearch?: LearningSearch;
 }) {
@@ -87,11 +99,12 @@ export function BreathPauseScreen({
         <Wind size={32} />
       </div>
 
-      <h2 className="breath-pause-title">Pausa para respirar</h2>
+      <h2 className="breath-pause-title">Um intervalo para aprender</h2>
       <p className="breath-pause-message">
-        Errar é a forma como o cérebro mapeia onde precisa de mais atenção. Descanse um instante ou
-        revise suas notas no caderno antes de prosseguir.
+        Suas respostas estão salvas. Você pode revisar os erros agora e retomar quando recuperar um
+        coração.
       </p>
+      <p role="status">{countdown}</p>
 
       <div className="breath-pause-actions">
         {onRecharge && (
@@ -102,7 +115,12 @@ export function BreathPauseScreen({
             autoFocus
           >
             <RotateCcw size={16} aria-hidden="true" />
-            <span>Recarregar revisando o caderno</span>
+            <span>Verificar corações</span>
+          </button>
+        )}
+        {onReview && (
+          <button type="button" className="duo-btn ghost" onClick={onReview}>
+            Revisar erros sem custo
           </button>
         )}
 
@@ -209,10 +227,16 @@ export function Finish({
 }) {
   const [animatedXp, setAnimatedXp] = useState(0);
   const primaryBtnRef = useRef<HTMLAnchorElement>(null);
+  const reduced = useReducedMotion();
 
   // Efeito de contagem animada do XP suavemente
   useEffect(() => {
+    if (reduced) {
+      setAnimatedXp(xp);
+      return;
+    }
     let startTimestamp: number | null = null;
+    let frame = 0;
     const duration = 750; // ms
 
     const step = (timestamp: number) => {
@@ -220,12 +244,13 @@ export function Finish({
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
       setAnimatedXp(Math.round(progress * xp));
       if (progress < 1) {
-        requestAnimationFrame(step);
+        frame = requestAnimationFrame(step);
       }
     };
 
-    requestAnimationFrame(step);
-  }, [xp]);
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [xp, reduced]);
 
   // Autofocus no botão de continuar jornada
   useEffect(() => {
@@ -253,15 +278,15 @@ export function Finish({
         </div>
       )}
 
-      <div className="trophy-counter-display" aria-label={`Ganhos: ${xp} pontos de experiência`}>
-        +{animatedXp} <span className="text-xl font-normal text-muted-foreground">XP</span>
+      <div className="trophy-counter-display" aria-label={`Pontuação desta prática: ${xp}`}>
+        {animatedXp} <span className="text-xl font-normal text-muted-foreground">pontos</span>
       </div>
 
       <div className="finish-stats">
         <div>
           <Gem size={19} aria-hidden="true" />
-          <strong>+{xp}</strong>
-          <small>XP de prática</small>
+          <strong>{xp}</strong>
+          <small>Pontos nesta atividade</small>
         </div>
         <div>
           <Check size={19} aria-hidden="true" />
@@ -293,7 +318,9 @@ export function Finish({
         </Link>
       </div>
 
-      <p className="activity-finish-note">O aprendizado acontece a cada tentativa.</p>
+      <p className="activity-finish-note">
+        XP e ofensiva são registrados pelo servidor, respeitando os limites da conta.
+      </p>
     </div>
   );
 }

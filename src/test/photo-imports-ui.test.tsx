@@ -106,7 +106,7 @@ describe("Revisão antes de salvar uma foto", () => {
     await click("Transcrever foto do caderno");
     await upload();
     await click("Transcrever foto");
-    await click("Close");
+    await click("Fechar");
     await act(async () => {
       resolve({ text: "Resposta atrasada", warnings: [] });
     });

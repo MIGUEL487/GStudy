@@ -13,7 +13,6 @@ export type Material = {
 export type Stats = { xp: number; streak: number; last_day: string | null };
 
 export const levelOf = (xp: number) => ({ level: Math.floor(xp / 100) + 1, into: xp % 100 });
-const today = () => new Date().toLocaleDateString("sv-SE");
 
 export function useMaterials() {
   const [items, setItems] = useState<Material[] | null>(null);
@@ -45,19 +44,27 @@ export function useMaterials() {
 export function useStats() {
   const [stats, setStats] = useState<Stats>({ xp: 0, streak: 0, last_day: null });
   useEffect(() => {
-    void supabase
-      .from("learner_stats")
-      .select("xp, streak, last_day")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setStats(data);
-      });
+    const refresh = () =>
+      void supabase
+        .from("learner_stats")
+        .select("xp, streak, last_day")
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setStats(data);
+        });
+    refresh();
+    window.addEventListener("gstudy-reward-updated", refresh);
+    return () => window.removeEventListener("gstudy-reward-updated", refresh);
   }, []);
   return stats;
 }
 
 /** Soma XP e mantém a ofensiva (dias seguidos estudando) de forma atômica no servidor. */
-export async function awardXp(amount: number) {
+export async function awardXp(
+  amount: number,
+  action = "study",
+  eventId: string = crypto.randomUUID(),
+) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return null;
 
@@ -66,34 +73,21 @@ export async function awardXp(amount: number) {
       fn: string,
       args: Record<string, unknown>,
     ) => Promise<{ data: unknown; error: unknown }>;
-    const { data, error } = await rpc("award_learner_xp", { p_amount: amount });
+    const { data, error } = await rpc("record_learning_reward", {
+      p_amount: amount,
+      p_action: action,
+      p_event_id: eventId,
+    });
     if (!error && data) {
+      window.dispatchEvent(new Event("gstudy-reward-updated"));
       return data as { user_id: string; xp: number; streak: number; last_day: string };
     }
   } catch {
-    // Fallback gracioso caso a migração ainda não tenha sido rodada
+    // Never write counters directly or invent a successful award when RPC is absent.
   }
 
-  const { data: cur } = await supabase
-    .from("learner_stats")
-    .select("xp, streak, last_day")
-    .maybeSingle();
-  const t = today();
-  const y = new Date(Date.now() - 864e5).toLocaleDateString("sv-SE");
-  const streak = cur?.last_day === t ? cur.streak : cur?.last_day === y ? cur.streak + 1 : 1;
-  const next = {
-    user_id: u.user.id,
-    xp: (cur?.xp ?? 0) + amount,
-    streak,
-    last_day: t,
-    updated_at: new Date().toISOString(),
-  };
-  const { error } = await supabase.from("learner_stats").upsert(next);
-  if (error) {
-    toast.error("Não consegui salvar seu XP.");
-    return null;
-  }
-  return next;
+  toast.error("Não foi possível registrar seu XP. Seu progresso na atividade foi preservado.");
+  return null;
 }
 
 export const idsFrom = (m?: string) =>

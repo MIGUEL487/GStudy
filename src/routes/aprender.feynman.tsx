@@ -281,7 +281,7 @@ export function FeynmanLesson({
             onKeyDown={(event) => event.key === "Enter" && start()}
           />
           <p className="feyn-attempt-note">
-            {attempt.remaining} de 2 aulas disponíveis hoje. A conversa inteira conta como uma aula.
+            Explique no seu ritmo. Começar uma aula não gasta corações.
           </p>
           <button
             className="duo-btn"
