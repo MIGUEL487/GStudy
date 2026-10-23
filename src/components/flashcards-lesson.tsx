@@ -6,7 +6,14 @@ import { awardXp } from "@/lib/learn-client";
 import { type LearningSearch } from "@/lib/learning-model";
 import { useLessonContext } from "@/components/learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
-import { LessonShell, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import {
+  LessonShell,
+  Finish,
+  ErrorBox,
+  UnavailableLesson,
+  useLessonHearts,
+  BreathPauseScreen,
+} from "@/components/lesson";
 import { FlashcardsSkeleton } from "@/components/activity-skeletons";
 import { idsFrom } from "@/lib/learn-client";
 
@@ -27,6 +34,7 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
   const [flip, setFlip] = useState(false);
   const [round, setRound] = useState(0);
   const answering = useRef(false);
+  const { hearts, shaking, isExhausted, deductHeart, rechargeHearts } = useLessonHearts(5);
   useEffect(() => {
     setKnown(0);
     setFlip(false);
@@ -79,6 +87,16 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
         />
       </LessonShell>
     );
+  if (isExhausted)
+    return (
+      <LessonShell progress={known / Math.max(1, total)} hearts={0} {...shell}>
+        <BreathPauseScreen
+          onRecharge={rechargeHearts}
+          backTo={lesson.backTo}
+          backSearch={lesson.backSearch}
+        />
+      </LessonShell>
+    );
   const card = queue[0];
   if (!card)
     return (
@@ -97,6 +115,7 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
   const answer = (got: boolean) => {
     if (answering.current) return;
     answering.current = true;
+    if (!got) deductHeart();
     const [current, ...rest] = queue;
     const next = got ? rest : [...rest, current!];
     if (!next.length && search.p && !lesson.complete("flashcards")) {
@@ -110,7 +129,12 @@ export function FlashcardsLesson({ search }: { search: LearningSearch }) {
     if (!next.length) void awardXp(total * 2);
   };
   return (
-    <LessonShell progress={known / Math.max(1, total)} {...shell}>
+    <LessonShell
+      progress={known / Math.max(1, total)}
+      hearts={hearts}
+      shakingHearts={shaking}
+      {...shell}
+    >
       <div className="lesson-body">
         <div className="activity-intro">
           <Layers3 size={18} aria-hidden="true" />
