@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Radio, Users, Gamepad2, Sparkles } from "lucide-react";
 import { StudyRoomsView } from "./study-rooms-view";
 import { SocialFriendsPanel } from "./social-friends-panel";
+import { GameCatalog } from "./games/game-catalog";
 import "@/styles/sessions-and-social.css";
 
 export type SessionTab = "rooms" | "groups" | "games";
@@ -66,30 +67,7 @@ export function SessionsView({ initialTab = "rooms" }: SessionsViewProps) {
 
       {tab === "groups" && <SocialFriendsPanel initialTab="groups" />}
 
-      {tab === "games" && (
-        <div className="py-12 px-6 rounded-lg bg-surface border border-border text-center max-w-lg mx-auto">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent/20 text-accent mb-4">
-            <Gamepad2 size={28} />
-          </div>
-          <h2 className="text-lg font-serif font-semibold text-foreground mb-2">
-            Jogos e Desafios em Grupo
-          </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-            Desafie seus amigos em partidas rápidas de Quiz, Batalha de Flashcards e Feynman
-            coletivo para testar o domínio dos conteúdos.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              type="button"
-              className="onboarding-next-btn text-xs py-2 px-4 w-full sm:w-auto"
-              onClick={() => setTab("rooms")}
-            >
-              <Radio size={14} />
-              <span>Abrir sala de estudos agora</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {tab === "games" && <GameCatalog />}
     </div>
   );
 }
