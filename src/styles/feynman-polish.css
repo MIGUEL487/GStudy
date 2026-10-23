@@ -36,6 +36,61 @@
 .feyn-studio .feyn-history-toggle span {
   background: #eee2cf;
 }
+.feyn-studio .feyn-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.feyn-mobile-tabs {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #fffaf2;
+  border: 1px solid #e0cfb3;
+}
+.feyn-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #8c7359;
+  font: 500 14px var(--font-serif);
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.feyn-tab-btn.is-active {
+  background: #fff;
+  color: #58412d;
+  border-color: #d5bea0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.feyn-tab-busy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a15d52;
+  animation: feyn-pulse 1s infinite alternate;
+}
+@keyframes feyn-pulse {
+  from {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
 .feyn-studio .feyn-board-area {
   display: flex;
   flex-direction: column;
@@ -238,8 +293,20 @@
   }
 }
 @media (max-width: 900px) {
+  .feyn-mobile-tabs {
+    display: flex;
+  }
   .feyn-studio .feyn-stage {
+    grid-template-columns: 1fr;
     gap: 14px;
+  }
+  .feyn-board-area.is-hidden-tab,
+  .feyn-student-column.is-hidden-tab {
+    display: none !important;
+  }
+  .feyn-board-area.is-active-tab,
+  .feyn-student-column.is-active-tab {
+    display: flex !important;
   }
   .feyn-studio .feyn-student-card {
     grid-template-columns: 115px minmax(0, 1fr);

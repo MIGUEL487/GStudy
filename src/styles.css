@@ -925,7 +925,7 @@ button {
   }
 }
 
-/* Login, avatar, emoji, faltas, calendário */
+/* Login, avatar, emoji, faltas, calendÃ¡rio */
 .auth-loading {
   min-height: 100vh;
   display: grid;
@@ -1275,7 +1275,7 @@ button {
   }
 }
 
-/* ---------- Horário ---------- */
+/* ---------- HorÃ¡rio ---------- */
 .schedule-scroll {
   overflow-x: auto;
   margin-top: 18px;
@@ -2158,7 +2158,7 @@ button {
 }
 .feyn-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 274px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 22px;
   align-items: start;
 }

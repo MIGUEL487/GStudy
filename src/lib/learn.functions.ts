@@ -77,13 +77,13 @@ export const addMaterial = createServerFn({ method: "POST" })
         if (err instanceof Error) {
           throw new Error(err.message);
         }
-        throw new Error("Não consegui abrir esse link. Tente colar o texto como resumo.");
+        throw new Error("NÃ£o consegui abrir esse link. Tente colar o texto como resumo.");
       }
       if (!page) {
-        throw new Error("Não consegui abrir esse link. Tente colar o texto como resumo.");
+        throw new Error("NÃ£o consegui abrir esse link. Tente colar o texto como resumo.");
       }
       source = finalUrl;
-      parts.push({ type: "text", text: `Conteúdo da página ${finalUrl}:\n${page}` });
+      parts.push({ type: "text", text: `ConteÃºdo da pÃ¡gina ${finalUrl}:\n${page}` });
     }
 
     if (data.text?.trim()) {
@@ -112,10 +112,10 @@ export const addMaterial = createServerFn({ method: "POST" })
           const decodedText = Buffer.from(rawBase64, "base64").toString("utf-8");
           parts.push({
             type: "text",
-            text: `Conteúdo do arquivo ${data.file.name}:\n${decodedText.slice(0, 30000)}`,
+            text: `ConteÃºdo do arquivo ${data.file.name}:\n${decodedText.slice(0, 30000)}`,
           });
         } catch {
-          throw new Error("Não foi possível decodificar o arquivo de texto.");
+          throw new Error("NÃ£o foi possÃ­vel decodificar o arquivo de texto.");
         }
       } else {
         throw new Error("Envie PDF, imagem ou arquivo de texto (.txt, .md).");
@@ -123,7 +123,7 @@ export const addMaterial = createServerFn({ method: "POST" })
     }
 
     if (!parts.length) {
-      throw new Error("Adicione algum conteúdo.");
+      throw new Error("Adicione algum conteÃºdo.");
     }
 
     const messages: ModelMessage[] = [
@@ -137,7 +137,7 @@ export const addMaterial = createServerFn({ method: "POST" })
     ];
 
     const memory = await aiText(
-      `${learningLanguage}\nVocê é a memória de estudos de um estudante brasileiro. Leia o material e escreva notas de estudo organizadas: conceitos-chave, definições, fórmulas, datas e exemplos. Use tópicos curtos em Markdown. No máximo 600 palavras. Não invente nada que não esteja no material.`,
+      `${learningLanguage}\nVocÃª Ã© a memÃ³ria de estudos de um estudante brasileiro. Leia o material e escreva notas de estudo organizadas: conceitos-chave, definiÃ§Ãµes, fÃ³rmulas, datas e exemplos. Use tÃ³picos curtos em Markdown. No mÃ¡ximo 600 palavras. NÃ£o invente nada que nÃ£o esteja no material.`,
       messages,
     );
 
@@ -154,7 +154,7 @@ export const addMaterial = createServerFn({ method: "POST" })
       .single();
 
     if (error) {
-      throw new Error("Não foi possível salvar o material.");
+      throw new Error("NÃ£o foi possÃ­vel salvar o material.");
     }
     return row;
   });
@@ -279,7 +279,7 @@ export const generateActivity = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const cacheKey = computeActivityCacheKey(context.userId, data.mode, data.ids, data.context);
 
-    // Cache (Item A6): Se já gerado para este usuário e contexto, devolve na hora (< 100ms)
+    // Cache (Item A6): Se jÃ¡ gerado para este usuÃ¡rio e contexto, devolve na hora (< 100ms)
     if (!data.regenerate) {
       const cached = await getCachedActivity(context.supabase, context.userId, cacheKey);
       if (cached) {
@@ -291,7 +291,7 @@ export const generateActivity = createServerFn({ method: "POST" })
     const telemetry = createAiTelemetry(data.mode);
     const tStartDb = performance.now();
 
-    // Infra (Item A7): Paraleliza leitura de cota e busca de memória de estudos
+    // Infra (Item A7): Paraleliza leitura de cota e busca de memÃ³ria de estudos
     const [, mem] = await Promise.all([
       enforceServerAiQuota(context.supabase, context.userId, data.mode),
       learningMemory(context.supabase, data.ids, !data.context, 12_000),
@@ -307,11 +307,11 @@ export const generateActivity = createServerFn({ method: "POST" })
     telemetry.prompt_build_ms = performance.now() - tStartPrompt;
 
     if (data.mode === "quiz") {
-      // Geração em lotes paralelos (Item A3): dispara 2 lotes de 3 perguntas em paralelo
+      // GeraÃ§Ã£o em lotes paralelos (Item A3): dispara 2 lotes de 3 perguntas em paralelo
       const batch1Promise = Promise.resolve()
         .then(() =>
           aiObject<Quiz>(
-            `${learningLanguage}\nCrie exatamente 3 perguntas de múltipla escolha sobre os fundamentos da etapa indicada. Cada uma deve ter 4 opções distintas e curtas, o índice da resposta correta (0 a 3) e uma explicação curta. Avalie compreensão.`,
+            `${learningLanguage}\nCrie exatamente 3 perguntas de mÃºltipla escolha sobre os fundamentos da etapa indicada. Cada uma deve ter 4 opÃ§Ãµes distintas e curtas, o Ã­ndice da resposta correta (0 a 3) e uma explicaÃ§Ã£o curta. Avalie compreensÃ£o.`,
             msg,
             obj({
               questions: arraySchema(
@@ -332,7 +332,7 @@ export const generateActivity = createServerFn({ method: "POST" })
       const batch2Promise = Promise.resolve()
         .then(() =>
           aiObject<Quiz>(
-            `${learningLanguage}\nCrie exatamente 3 perguntas de múltipla escolha sobre aplicações práticas e aprofundamento da etapa indicada. Cada uma deve ter 4 opções distintas e curtas, o índice da resposta correta (0 a 3) e uma explicação curta. Não repita os mesmos enunciados do básico.`,
+            `${learningLanguage}\nCrie exatamente 3 perguntas de mÃºltipla escolha sobre aplicaÃ§Ãµes prÃ¡ticas e aprofundamento da etapa indicada. Cada uma deve ter 4 opÃ§Ãµes distintas e curtas, o Ã­ndice da resposta correta (0 a 3) e uma explicaÃ§Ã£o curta. NÃ£o repita os mesmos enunciados do bÃ¡sico.`,
             msg,
             obj({
               questions: arraySchema(
@@ -354,7 +354,7 @@ export const generateActivity = createServerFn({ method: "POST" })
       let rawQuestions: Quiz["questions"] = [];
 
       if (b1?.questions && b2?.questions) {
-        // Deduplicação entre lotes (Item A3)
+        // DeduplicaÃ§Ã£o entre lotes (Item A3)
         const seen = new Set<string>();
         rawQuestions = [...b1.questions, ...b2.questions].filter((q) => {
           const key = q.question.trim().toLowerCase();
@@ -366,7 +366,7 @@ export const generateActivity = createServerFn({ method: "POST" })
         rawQuestions = b1.questions;
       } else {
         const full = await aiObject<Quiz>(
-          `${learningLanguage}\nCrie exatamente 6 perguntas de múltipla escolha sobre a etapa indicada. Cada uma deve ter exatamente 4 opções distintas e curtas, o índice (0 a 3) da única resposta correta e uma explicação curta.`,
+          `${learningLanguage}\nCrie exatamente 6 perguntas de mÃºltipla escolha sobre a etapa indicada. Cada uma deve ter exatamente 4 opÃ§Ãµes distintas e curtas, o Ã­ndice (0 a 3) da Ãºnica resposta correta e uma explicaÃ§Ã£o curta.`,
           msg,
           obj({
             questions: arraySchema(
@@ -399,11 +399,11 @@ export const generateActivity = createServerFn({ method: "POST" })
     }
 
     if (data.mode === "flashcards") {
-      // Geração em lotes paralelos (Item A3): dispara 2 lotes de 5 flashcards em paralelo
+      // GeraÃ§Ã£o em lotes paralelos (Item A3): dispara 2 lotes de 5 flashcards em paralelo
       const batch1Promise = Promise.resolve()
         .then(() =>
           aiObject<Cards>(
-            `${learningLanguage}\nCrie exatamente 5 flashcards sobre conceitos centrais e definições da etapa indicada. Frente: pergunta específica ou termo. Verso: resposta clara em até 2 frases. Use somente texto simples sem Markdown ou LaTeX.`,
+            `${learningLanguage}\nCrie exatamente 5 flashcards sobre conceitos centrais e definiÃ§Ãµes da etapa indicada. Frente: pergunta especÃ­fica ou termo. Verso: resposta clara em atÃ© 2 frases. Use somente texto simples sem Markdown ou LaTeX.`,
             msg,
             obj({ cards: arraySchema(obj({ front: s, back: s }), 5) }),
             { maxOutputTokens: 600, onUsage: () => {} },
@@ -414,7 +414,7 @@ export const generateActivity = createServerFn({ method: "POST" })
       const batch2Promise = Promise.resolve()
         .then(() =>
           aiObject<Cards>(
-            `${learningLanguage}\nCrie exatamente 5 flashcards sobre relações, causas e aplicações da etapa indicada. Frente: pergunta específica ou termo. Verso: resposta clara em até 2 frases. Use somente texto simples sem Markdown ou LaTeX.`,
+            `${learningLanguage}\nCrie exatamente 5 flashcards sobre relaÃ§Ãµes, causas e aplicaÃ§Ãµes da etapa indicada. Frente: pergunta especÃ­fica ou termo. Verso: resposta clara em atÃ© 2 frases. Use somente texto simples sem Markdown ou LaTeX.`,
             msg,
             obj({ cards: arraySchema(obj({ front: s, back: s }), 5) }),
             { maxOutputTokens: 600, onUsage: () => {} },
@@ -437,7 +437,7 @@ export const generateActivity = createServerFn({ method: "POST" })
         rawCards = b1.cards;
       } else {
         const full = await aiObject<Cards>(
-          `${learningLanguage}\nCrie exatamente 10 flashcards sobre a etapa indicada. Frente: pergunta específica ou termo. Verso: resposta clara em até 2 frases. Use somente texto legível sem Markdown.`,
+          `${learningLanguage}\nCrie exatamente 10 flashcards sobre a etapa indicada. Frente: pergunta especÃ­fica ou termo. Verso: resposta clara em atÃ© 2 frases. Use somente texto legÃ­vel sem Markdown.`,
           msg,
           obj({ cards: arraySchema(obj({ front: s, back: s }), 10) }),
           { maxOutputTokens: 1200, onUsage: () => {} },
@@ -460,7 +460,7 @@ export const generateActivity = createServerFn({ method: "POST" })
     }
 
     const r = await aiObject<Explain>(
-      `${learningLanguage}\nExplique os 4 a 6 conceitos mais importantes desta etapa com clareza pedagógica: linguagem simples, conexão entre ideias e analogias do dia a dia. Para cada um: title, explanation (até 100 palavras) e um exemplo prático (example).`,
+      `${learningLanguage}\nExplique os 4 a 6 conceitos mais importantes desta etapa com clareza pedagÃ³gica: linguagem simples, conexÃ£o entre ideias e analogias do dia a dia. Para cada um: title, explanation (atÃ© 100 palavras) e um exemplo prÃ¡tico (example).`,
       msg,
       obj({ topics: arraySchema(obj({ title: s, explanation: s, example: s }), 4, 6) }),
       { maxOutputTokens: 1600, onUsage: () => {} },
@@ -475,7 +475,7 @@ export const pregenerateNextActivity = createServerFn({ method: "POST" })
   .middleware([requireStudyAuth])
   .validator((i: unknown) => genInput.parse(i))
   .handler(async ({ data, context }) => {
-    // Pré-geração em segundo plano (Item A6): respeita cota e só gera se ainda não estiver em cache
+    // PrÃ©-geraÃ§Ã£o em segundo plano (Item A6): respeita cota e sÃ³ gera se ainda nÃ£o estiver em cache
     const cacheKey = computeActivityCacheKey(context.userId, data.mode, data.ids, data.context);
     const cached = await getCachedActivity(context.supabase, context.userId, cacheKey);
     if (cached) return { cached: true };
@@ -520,7 +520,7 @@ export const feynmanReply = createServerFn({ method: "POST" })
     const student = studentPersonas[data.studentId];
     const last = data.messages.length - 1;
 
-    // Envia o board apenas na última mensagem para otimizar payload (Item 2.6b)
+    // Envia o board apenas na Ãºltima mensagem para otimizar payload (Item 2.6b)
     const messages: ModelMessage[] = data.messages.map((m, i) =>
       m.role === "assistant"
         ? { role: "assistant" as const, content: m.text }
@@ -538,7 +538,7 @@ export const feynmanReply = createServerFn({ method: "POST" })
     );
 
     const text = await aiText(
-      `${learningLanguage}\nVocê é ${student.name}, estudante de 14 anos que ${student.style}, numa aula pelo Método Feynman. A pessoa está ensinando o tema "${data.topic}". Mantenha seu nome ${student.name} e seu estilo, mesmo quando a conversa menciona outros alunos. Responda curto (2 a 4 frases), como um estudante de verdade: reaja ao que entendeu, diga o que ficou confuso e faça UMA pergunta por vez que incentive a pessoa a simplificar, dar exemplo ou corrigir uma lacuna. Se houver um desenho da lousa, comente somente o que você consegue ver nele como parte da explicação. Nunca dê a resposta pronta nem vire professor. Quando a explicação demonstrar compreensão correta e suficiente do objetivo, reconheça o progresso e termine a mensagem com a linha "NOTA: X/10", com X inteiro entre 0 e 10 avaliando clareza e correção. Não premie uma explicação incorreta só por ser confiante.\n\nContexto de estudo (referência para formular perguntas, não revele respostas prontas):\n${reference}`,
+      `${learningLanguage}\nVocê é ${student.name}, com a persona de ${student.archetype}, numa aula pelo Método Feynman. A pessoa está ensinando o tema "${data.topic}".\nPerfil da persona: ${student.style}.\nCritério de avaliação da persona: ${student.evaluationCriteria}.\nMantenha fielmente o tom, o vocabulário e o nível de profundidade de ${student.name}. Responda de forma concisa (2 a 4 frases): reaja ao que entendeu, aponte dúvidas ou lacunas no estilo característico da persona e faça UMA pergunta por vez para aprofundar ou simplificar. Se houver um desenho da lousa em anexo, examine e comente o que você vê nele (diagramas, fórmulas, setas ou anotações) como parte central da explicação. Nunca dê a resposta pronta. Quando a explicação demonstrar domínio suficiente do tema segundo seu critério, reconheça o aprendizado e termine a mensagem com a linha "NOTA: X/10" (com X inteiro de 0 a 10).\n\nContexto de estudo (referência para formular perguntas, não revele respostas prontas):\n${reference}`,
       messages,
       Boolean(data.messages[last]?.board),
     );

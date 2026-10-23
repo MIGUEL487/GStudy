@@ -2,13 +2,15 @@ import type { ImageBox } from "./whiteboard-images";
 
 export type Point = { x: number; y: number };
 
-export type DrawTool = "pen" | "eraser" | "text" | "rectangle" | "ellipse" | "line" | "arrow";
+export type DrawTool =
+  "pen" | "eraser" | "text" | "rectangle" | "ellipse" | "line" | "arrow" | "triangle";
 export type Tool = DrawTool | "select";
 
 export type DrawMark = {
   tool: DrawTool;
   color: string;
   size: number;
+  strokeWidth?: number;
   points: Point[];
   text: string;
   blockId?: string;
@@ -44,41 +46,41 @@ export type MathNode =
   | { type: "sqrt"; content: MathNode[] };
 
 export const GREEK_MAP: Record<string, string> = {
-  alpha: "α",
-  beta: "β",
-  gamma: "γ",
-  delta: "δ",
-  epsilon: "ε",
-  zeta: "ζ",
-  eta: "η",
-  theta: "θ",
-  iota: "ι",
-  kappa: "κ",
-  lambda: "λ",
-  mu: "μ",
-  nu: "ν",
-  xi: "ξ",
-  pi: "π",
-  rho: "ρ",
-  sigma: "σ",
-  tau: "τ",
-  upsilon: "υ",
-  phi: "φ",
-  chi: "χ",
-  psi: "ψ",
-  omega: "ω",
-  Alpha: "Α",
-  Beta: "Β",
-  Gamma: "Γ",
-  Delta: "Δ",
-  Theta: "Θ",
-  Lambda: "Λ",
-  Xi: "Ξ",
-  Pi: "Π",
-  Sigma: "Σ",
-  Phi: "Φ",
-  Psi: "Ψ",
-  Omega: "Ω",
+  alpha: "Î±",
+  beta: "Î²",
+  gamma: "Î³",
+  delta: "Î´",
+  epsilon: "Îµ",
+  zeta: "Î¶",
+  eta: "Î·",
+  theta: "Î¸",
+  iota: "Î¹",
+  kappa: "Îº",
+  lambda: "Î»",
+  mu: "Î¼",
+  nu: "Î½",
+  xi: "Î¾",
+  pi: "Ï€",
+  rho: "Ï",
+  sigma: "Ïƒ",
+  tau: "Ï„",
+  upsilon: "Ï…",
+  phi: "Ï†",
+  chi: "Ï‡",
+  psi: "Ïˆ",
+  omega: "Ï‰",
+  Alpha: "Î‘",
+  Beta: "Î’",
+  Gamma: "Î“",
+  Delta: "Î”",
+  Theta: "Î˜",
+  Lambda: "Î›",
+  Xi: "Îž",
+  Pi: "Î ",
+  Sigma: "Î£",
+  Phi: "Î¦",
+  Psi: "Î¨",
+  Omega: "Î©",
 };
 
 /**
@@ -87,11 +89,11 @@ export const GREEK_MAP: Record<string, string> = {
 export function replaceSymbolsAndGreek(text: string): string {
   // Replace operators first
   let res = text
-    .replace(/<=/g, "≤")
-    .replace(/>=/g, "≥")
-    .replace(/!=/g, "≠")
-    .replace(/->/g, "→")
-    .replace(/\+-/g, "±");
+    .replace(/<=/g, "â‰¤")
+    .replace(/>=/g, "â‰¥")
+    .replace(/!=/g, "â‰ ")
+    .replace(/->/g, "â†’")
+    .replace(/\+-/g, "Â±");
 
   // Replace isolated Greek letters: word boundaries
   // Don't replace if it's part of a URL or longer word
@@ -132,10 +134,11 @@ function isDateOrUrlOrWordSlash(fullText: string, slashIndex: number): boolean {
     }
   }
 
+  // Check ordinary word slash: e.g. "sim/nÃ£o", "and/or", "ele/ela", "dia/noite", "true/false"
   // Check ordinary word slash: e.g. "sim/não", "and/or", "ele/ela", "dia/noite", "true/false"
   // Where both sides are alphabetic words of length >= 2 without mathematical context
-  const wordBefore = beforeSlash.match(/([a-zA-ZÀ-ÿ]{2,})$/);
-  const wordAfter = afterSlash.match(/^([a-zA-ZÀ-ÿ]{2,})/);
+  const wordBefore = beforeSlash.match(/([\p{L}]{2,})$/u);
+  const wordAfter = afterSlash.match(/^([\p{L}]{2,})/u);
   if (wordBefore && wordAfter) {
     // Both sides are multi-letter words
     return true;
@@ -287,7 +290,7 @@ function tryParseFraction(
     }
   } else {
     // Single identifier / number / token
-    const tokenMatch = input.slice(startIndex).match(/^([a-zA-Z0-9α-ωΑ-Ω+\-*.]+)/);
+    const tokenMatch = input.slice(startIndex).match(/^([\p{L}\p{N}+\-*.]+)/u);
     if (!tokenMatch) return null;
     num = tokenMatch[1]!;
     afterNumIndex = startIndex + num.length;
@@ -315,7 +318,7 @@ function tryParseFraction(
       return null;
     }
   } else {
-    const tokenMatch = input.slice(denStart).match(/^([a-zA-Z0-9α-ωΑ-Ω+\-*.]+)/);
+    const tokenMatch = input.slice(denStart).match(/^([\p{L}\p{N}+\-*.]+)/u);
     if (!tokenMatch) return null;
     den = tokenMatch[1]!;
     endIndex = denStart + den.length;
@@ -335,52 +338,52 @@ export function formatMathPreview(raw: string, formulasEnabled = true): string {
   const nodes = parseMathLine(raw, true);
 
   const UNICODE_SUP: Record<string, string> = {
-    "0": "⁰",
-    "1": "¹",
-    "2": "²",
-    "3": "³",
-    "4": "⁴",
-    "5": "⁵",
-    "6": "⁶",
-    "7": "⁷",
-    "8": "⁸",
-    "9": "⁹",
-    "+": "⁺",
-    "-": "⁻",
-    "=": "⁼",
-    "(": "⁽",
-    ")": "⁾",
-    n: "ⁿ",
-    i: "ⁱ",
-    x: "ˣ",
-    y: "ʸ",
+    "0": "â°",
+    "1": "Â¹",
+    "2": "Â²",
+    "3": "Â³",
+    "4": "â´",
+    "5": "âµ",
+    "6": "â¶",
+    "7": "â·",
+    "8": "â¸",
+    "9": "â¹",
+    "+": "âº",
+    "-": "â»",
+    "=": "â¼",
+    "(": "â½",
+    ")": "â¾",
+    n: "â¿",
+    i: "â±",
+    x: "Ë£",
+    y: "Ê¸",
   };
 
   const UNICODE_SUB: Record<string, string> = {
-    "0": "₀",
-    "1": "₁",
-    "2": "₂",
-    "3": "₃",
-    "4": "₄",
-    "5": "₅",
-    "6": "₆",
-    "7": "₇",
-    "8": "₈",
-    "9": "₉",
-    "+": "₊",
-    "-": "₋",
-    "=": "₌",
-    "(": "₍",
-    ")": "₎",
-    a: "ₐ",
-    e: "ₑ",
-    o: "ₒ",
-    x: "ₓ",
-    i: "ᵢ",
-    j: "ⱼ",
-    k: "ₖ",
-    n: "ₙ",
-    m: "ₘ",
+    "0": "â‚€",
+    "1": "â‚",
+    "2": "â‚‚",
+    "3": "â‚ƒ",
+    "4": "â‚„",
+    "5": "â‚…",
+    "6": "â‚†",
+    "7": "â‚‡",
+    "8": "â‚ˆ",
+    "9": "â‚‰",
+    "+": "â‚Š",
+    "-": "â‚‹",
+    "=": "â‚Œ",
+    "(": "â‚",
+    ")": "â‚Ž",
+    a: "â‚",
+    e: "â‚‘",
+    o: "â‚’",
+    x: "â‚“",
+    i: "áµ¢",
+    j: "â±¼",
+    k: "â‚–",
+    n: "â‚™",
+    m: "â‚˜",
   };
 
   function stringifyNodes(list: MathNode[]): string {
@@ -402,7 +405,7 @@ export function formatMathPreview(raw: string, formulasEnabled = true): string {
             .join("");
         }
         if (node.type === "sqrt") {
-          return `√(${stringifyNodes(node.content)})`;
+          return `âˆš(${stringifyNodes(node.content)})`;
         }
         if (node.type === "frac") {
           return `${stringifyNodes(node.num)} / ${stringifyNodes(node.den)}`;
@@ -643,7 +646,7 @@ export function drawMark(g: CanvasRenderingContext2D, mark: Mark, background: st
 
   g.strokeStyle = mark.tool === "eraser" ? background : mark.color;
   g.fillStyle = g.strokeStyle;
-  g.lineWidth = mark.tool === "eraser" ? 26 : 4;
+  g.lineWidth = mark.tool === "eraser" ? 26 : (mark.strokeWidth ?? 4);
   g.lineCap = "round";
   g.lineJoin = "round";
   g.beginPath();
@@ -675,6 +678,18 @@ export function drawMark(g: CanvasRenderingContext2D, mark: Mark, background: st
       0,
       Math.PI * 2,
     );
+  } else if (mark.tool === "triangle") {
+    if (mark.points.length >= 3) {
+      g.moveTo(mark.points[0]!.x, mark.points[0]!.y);
+      g.lineTo(mark.points[1]!.x, mark.points[1]!.y);
+      g.lineTo(mark.points[2]!.x, mark.points[2]!.y);
+      g.closePath();
+    } else {
+      g.moveTo((a.x + b.x) / 2, a.y);
+      g.lineTo(b.x, b.y);
+      g.lineTo(a.x, b.y);
+      g.closePath();
+    }
   } else if (mark.tool === "line" || mark.tool === "arrow") {
     g.moveTo(a.x, a.y);
     g.lineTo(b.x, b.y);

@@ -2,34 +2,38 @@ export const students = [
   {
     id: "gui",
     name: "Gui",
-    description: "Exemplos do dia a dia",
+    role: "Criança curiosa (8 anos)",
+    description: "Criança curiosa (8 anos) · Exemplos lúdicos e simples",
     color: "#647d6b",
     greeting: (topic: string) =>
-      `Oi, prof! Hoje a aula é sobre **${topic}**, né? Pode começar do começo e me dar um exemplo do dia a dia? Se quiser, desenhe na lousa!`,
+      `Oi, prof! Eu tenho 8 anos e sou muito curioso. Hoje a aula é sobre **${topic}**, né? Me explica com historinhas ou desenhe na lousa?`,
   },
   {
     id: "lia",
     name: "Lia",
-    description: "O porquê de cada ideia",
+    role: "Colega de classe",
+    description: "Colega de classe · Foco no vestibular e macetes",
     color: "#a15d52",
     greeting: (topic: string) =>
-      `Oi, sou a Lia! Quero entender **${topic}** de verdade. Você pode me explicar por que isso funciona, com suas próprias palavras?`,
-  },
-  {
-    id: "rafa",
-    name: "Rafa",
-    description: "Aprender na prática",
-    color: "#537895",
-    greeting: (topic: string) =>
-      `Sou o Rafa! Vamos experimentar? Me ensine **${topic}** mostrando uma situação em que eu poderia usar essa ideia.`,
+      `Oi, sou a Lia! Quero entender **${topic}** de verdade para a prova. Você pode me explicar por que isso funciona, com macetes práticos?`,
   },
   {
     id: "maya",
     name: "Maya",
-    description: "Desenhos e analogias",
+    role: "Professora sênior exigente",
+    description: "Professora sênior exigente · Rigor conceitual e precisão",
     color: "#947344",
     greeting: (topic: string) =>
-      `Oi, eu sou a Maya! Penso melhor com imagens. Como você desenharia ou compararia **${topic}** com algo que a gente já conhece?`,
+      `Olá. Sou a professora Maya. Vamos abordar **${topic}**. Explique com rigor conceitual e precisão: comece pelas definições e relações fundamentais.`,
+  },
+  {
+    id: "rafa",
+    name: "Rafa",
+    role: "Colega de experimentos",
+    description: "Colega prático · Aplicação e experimentos",
+    color: "#537895",
+    greeting: (topic: string) =>
+      `Sou o Rafa! Vamos experimentar? Me ensine **${topic}** mostrando uma situação em que eu poderia usar essa ideia na prática.`,
   },
 ] as const;
 
