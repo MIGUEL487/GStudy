@@ -15,17 +15,19 @@
 }
 
 .rooms-header-title h1 {
-  font-family: var(--font-serif, "Playfair Display", Georgia, serif);
-  font-size: 28px;
-  font-weight: 700;
-  color: #2f4a3a;
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--foreground);
   margin: 0 0 4px;
+  letter-spacing: -0.01em;
 }
 
 .rooms-header-title p {
   font-size: 14px;
-  color: #6c584c;
+  color: var(--muted-foreground);
   margin: 0;
+  line-height: 1.5;
 }
 
 .rooms-filters {
@@ -35,46 +37,54 @@
 }
 
 .rooms-filter-btn {
-  padding: 6px 14px;
-  border-radius: 20px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md, 6px);
   font-size: 13px;
-  font-weight: 600;
-  border: 1px solid rgba(108, 88, 76, 0.2);
-  background: #fffdfa;
-  color: #6c584c;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  min-height: 40px;
+}
+
+.rooms-filter-btn:hover {
+  color: var(--foreground);
+  border-color: var(--primary);
+  background: var(--secondary);
 }
 
 .rooms-filter-btn.active {
-  background: #2f4a3a;
-  color: #f3efe2;
-  border-color: #2f4a3a;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+  font-weight: 600;
 }
 
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
 .room-card {
-  background: #fffdfa;
-  border: 1px solid rgba(108, 88, 76, 0.18);
-  border-radius: 14px;
-  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 8px);
+  padding: 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow-soft);
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .room-card:hover {
+  border-color: var(--primary);
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .room-card-header {
@@ -85,33 +95,35 @@
 }
 
 .room-card-title h3 {
-  font-size: 17px;
-  font-weight: 700;
-  color: #2f4a3a;
-  margin: 0 0 4px;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0 0 6px;
 }
 
 .room-card-topic {
   font-size: 12px;
-  color: #8c7365;
-  background: rgba(108, 88, 76, 0.08);
-  padding: 2px 8px;
-  border-radius: 12px;
+  color: var(--muted-foreground);
+  background: var(--secondary);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 4px);
   display: inline-block;
+  border: 1px solid var(--border);
 }
 
 .room-card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px dashed rgba(108, 88, 76, 0.15);
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
 }
 
 .room-card-participants {
-  font-size: 12px;
-  color: #6c584c;
+  font-size: 13px;
+  color: var(--muted-foreground);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -130,26 +142,27 @@
   align-items: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(108, 88, 76, 0.2);
+  border-bottom: 1px solid var(--border);
 }
 
 .room-pomodoro-card {
-  background: #fffdfa;
-  border: 1px solid rgba(108, 88, 76, 0.25);
-  border-radius: 16px;
-  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 8px);
+  padding: 28px 24px;
   text-align: center;
   margin-bottom: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-soft);
 }
 
 .room-pomodoro-timer {
-  font-family: var(--font-serif, "Playfair Display", Georgia, serif);
-  font-size: 52px;
-  font-weight: 700;
-  color: #2f4a3a;
-  letter-spacing: 2px;
-  margin: 10px 0;
+  font-family: var(--font-sans);
+  font-size: 56px;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+  color: var(--foreground);
+  margin: 12px 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .room-pomodoro-mode {
@@ -157,14 +170,14 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.5px;
-  color: #8c7365;
+  color: var(--accent);
 }
 
 .room-pomodoro-controls {
   display: flex;
   justify-content: center;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 18px;
 }
 
 /* Participantes & Metas */
@@ -175,13 +188,14 @@
 }
 
 .participant-card {
-  background: #fffdfa;
-  border: 1px solid rgba(108, 88, 76, 0.18);
-  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 8px);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: var(--shadow-soft);
 }
 
 .participant-header {
@@ -190,45 +204,37 @@
   gap: 12px;
 }
 
-/* Halo animado indicando atividade / foco */
+/* Halo indicando atividade */
 .avatar-halo {
   position: relative;
   display: inline-flex;
   border-radius: 50%;
-  padding: 3px;
-  background: linear-gradient(135deg, #2f4a3a, #7fd1ae);
-  animation: halo-pulse 3s infinite ease-in-out;
-}
-
-@keyframes halo-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(47, 74, 58, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(127, 209, 174, 0.2);
-  }
+  padding: 2px;
+  border: 2px solid var(--primary);
 }
 
 .participant-goal-box {
-  background: rgba(108, 88, 76, 0.06);
-  border-radius: 8px;
+  background: var(--secondary);
+  border-radius: var(--radius-sm, 4px);
   padding: 10px 12px;
   font-size: 13px;
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  color: var(--foreground);
+  border: 1px solid var(--border);
 }
 
 .participant-goal-box.completed {
-  background: rgba(56, 142, 60, 0.08);
-  color: #2e7d32;
+  background: var(--card);
+  color: var(--muted-foreground);
   text-decoration: line-through;
+  opacity: 0.7;
 }
 
 @media (max-width: 600px) {
   .room-pomodoro-timer {
-    font-size: 40px;
+    font-size: 42px;
   }
   .rooms-header {
     flex-direction: column;
@@ -251,18 +257,18 @@
 .room-chat-sidebar {
   width: 340px;
   flex-shrink: 0;
-  background: #fffdfa;
-  border: 1px solid rgba(108, 88, 76, 0.18);
-  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 8px);
   display: flex;
   flex-direction: column;
-  height: 560px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  height: 580px;
+  box-shadow: var(--shadow-soft);
 }
 
 .chat-sidebar-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(108, 88, 76, 0.12);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -277,40 +283,45 @@
 .chat-sidebar-title h4 {
   margin: 0;
   font-size: 15px;
-  font-weight: 700;
-  color: #2f4a3a;
+  font-weight: 600;
+  color: var(--foreground);
 }
 
 .chat-ephemeral-badge {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: rgba(108, 88, 76, 0.08);
-  color: #6c584c;
+  background: var(--secondary);
+  color: var(--muted-foreground);
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .chat-sound-btn {
   background: none;
   border: none;
-  color: #8c7365;
+  color: var(--muted-foreground);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: var(--radius-sm, 4px);
   display: flex;
   align-items: center;
-  transition: color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+  min-height: 36px;
+  min-width: 36px;
 }
 
 .chat-sound-btn:hover {
-  color: #2f4a3a;
+  color: var(--foreground);
+  background: var(--secondary);
 }
 
 .chat-messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -319,24 +330,28 @@
 .chat-empty-hint {
   margin: auto;
   text-align: center;
-  color: #8c7365;
-  font-size: 12px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .chat-message-item {
-  background: rgba(108, 88, 76, 0.05);
-  border-radius: 10px;
-  padding: 8px 12px;
+  background: var(--secondary);
+  color: var(--foreground);
+  border-radius: var(--radius-md, 6px);
+  padding: 10px 14px;
   max-width: 88%;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   word-break: break-word;
+  border: 1px solid var(--border);
 }
 
 .chat-message-item.is-me {
-  background: rgba(47, 74, 58, 0.09);
-  border-left: 3px solid #2f4a3a;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
   align-self: flex-end;
 }
 
@@ -346,145 +361,192 @@
   align-items: center;
   gap: 8px;
   font-size: 11px;
+  opacity: 0.85;
 }
 
 .chat-sender-name {
-  font-weight: 700;
-  color: #2f4a3a;
+  font-weight: 600;
 }
 
-.chat-timestamp {
+.chat-time {
   font-size: 10px;
-  color: #8c7365;
+  opacity: 0.8;
 }
 
-.chat-content-text {
+.chat-body-text {
   font-size: 13px;
-  color: #2c2523;
-  line-height: 1.4;
-  white-space: pre-wrap;
+  line-height: 1.45;
 }
 
 .chat-typing-indicator {
-  font-size: 11px;
-  color: #8c7365;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--muted-foreground);
   font-style: italic;
-  padding: 4px 14px;
-  min-height: 20px;
+  min-height: 28px;
+}
+
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--primary);
+  border-radius: 50%;
+  animation: typing-dot 1.2s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
 }
 
 .chat-input-bar {
-  padding: 10px 14px;
-  border-top: 1px solid rgba(108, 88, 76, 0.12);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.chat-input-row {
   display: flex;
   gap: 8px;
-  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
 }
 
-.chat-input-row input {
+.chat-input-field {
   flex: 1;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(108, 88, 76, 0.2);
-  background: #fffdfa;
+  padding: 10px 12px;
   font-size: 13px;
-  color: #2c2523;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--background);
+  color: var(--foreground);
   outline: none;
+  min-height: 44px;
 }
 
-.chat-input-row input:focus {
-  border-color: #2f4a3a;
+.chat-input-field:focus {
+  border-color: var(--primary);
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 .chat-send-btn {
-  padding: 8px 12px;
-  background: #2f4a3a;
-  color: #f3efe2;
-  border: none;
-  border-radius: 8px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-md, 6px);
+  padding: 0 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: opacity 0.15s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
 .chat-send-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-.chat-counter-text {
-  font-size: 10px;
-  color: #8c7365;
-  text-align: right;
+/* Modais de Sala */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 16px;
 }
 
-/* Controles de Voz WebRTC */
-.room-voice-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: #fffdfa;
-  border: 1px solid rgba(108, 88, 76, 0.2);
-  border-radius: 20px;
-  padding: 4px 12px;
+.modal-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  padding: 24px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: var(--shadow-modal);
 }
 
-.voice-mic-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 13px;
+.modal-header h2 {
+  font-family: var(--font-serif);
+  font-size: 22px;
   font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  color: var(--foreground);
+  margin: 0 0 8px;
 }
 
-.voice-mic-btn.is-muted {
-  background: rgba(108, 88, 76, 0.1);
-  color: #6c584c;
+.modal-header p {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  margin: 0 0 20px;
+  line-height: 1.5;
 }
 
-.voice-mic-btn.is-active {
-  background: #2e7d32;
-  color: #ffffff;
-  box-shadow: 0 0 8px rgba(46, 125, 50, 0.4);
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.voice-hint-badge {
-  font-size: 11px;
-  color: #8c7365;
-  background: rgba(108, 88, 76, 0.08);
-  padding: 2px 6px;
-  border-radius: 4px;
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* Indicador de quem está falando */
-.avatar-halo.is-speaking {
-  background: linear-gradient(135deg, #2e7d32, #81c784);
-  animation: speaking-pulse 1.2s infinite ease-in-out;
+.modal-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
 }
 
-@keyframes speaking-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(129, 199, 132, 0.35);
-  }
+.modal-field input,
+.modal-field select {
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--background);
+  color: var(--foreground);
+  outline: none;
+  min-height: 44px;
 }
 
+.modal-field input:focus,
+.modal-field select:focus {
+  border-color: var(--primary);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+/* Responsivo */
 @media (max-width: 900px) {
   .room-active-layout {
     flex-direction: column;
