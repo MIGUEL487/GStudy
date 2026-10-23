@@ -5,7 +5,14 @@ import { awardXp } from "@/lib/learn-client";
 import { type LearningSearch } from "@/lib/learning-model";
 import { useLessonContext } from "@/components/learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
-import { LessonShell, Finish, ErrorBox, UnavailableLesson } from "@/components/lesson";
+import {
+  LessonShell,
+  Finish,
+  ErrorBox,
+  UnavailableLesson,
+  useLessonHearts,
+  BreathPauseScreen,
+} from "@/components/lesson";
 import { QuizSkeleton } from "@/components/activity-skeletons";
 
 export type QuizQuestion = {
@@ -76,6 +83,7 @@ export function QuizLesson({ search }: { search: LearningSearch }) {
   const [right, setRight] = useState(0);
   const [done, setDone] = useState(false);
   const action = useRef(false);
+  const { hearts, shaking, isExhausted, deductHeart, rechargeHearts } = useLessonHearts(5);
 
   useEffect(() => {
     setI(0);
@@ -154,13 +162,29 @@ export function QuizLesson({ search }: { search: LearningSearch }) {
       </LessonShell>
     );
 
+  if (isExhausted) {
+    return (
+      <LessonShell progress={i / questions.length} hearts={0} {...shell}>
+        <BreathPauseScreen
+          onRecharge={rechargeHearts}
+          backTo={lesson.backTo}
+          backSearch={lesson.backSearch}
+        />
+      </LessonShell>
+    );
+  }
+
   const ok = pick === q.answer;
 
   const check = () => {
     if (pick === null || action.current) return;
     action.current = true;
     setChecked(true);
-    if (ok) setRight((n) => n + 1);
+    if (ok) {
+      setRight((n) => n + 1);
+    } else {
+      deductHeart();
+    }
   };
 
   const next = () => {
@@ -181,7 +205,7 @@ export function QuizLesson({ search }: { search: LearningSearch }) {
   };
 
   return (
-    <LessonShell progress={i / questions.length} {...shell}>
+    <LessonShell progress={i / questions.length} hearts={hearts} shakingHearts={shaking} {...shell}>
       <div className="lesson-body" key={i}>
         <div className="activity-intro">
           <Compass size={18} aria-hidden="true" />
