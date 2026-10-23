@@ -22,6 +22,7 @@ import { learningSearch } from "@/lib/learning-model";
 import { useLessonContext } from "@/components/learning-provider";
 import { useDailyAttempt } from "@/hooks/use-daily-attempt";
 import { students, studentOf, type StudentId } from "@/lib/students";
+import { createStudentRotation } from "@/lib/student-rotation";
 import { LessonShell } from "@/components/lesson";
 import { Whiteboard, type Board } from "@/components/whiteboard";
 import { StudentIllustration } from "@/components/student-illustration";
@@ -104,6 +105,8 @@ export function FeynmanLesson({
   const [topic, setTopic] = useState(lesson.context?.topic ?? "");
   const [started, setStarted] = useState(false);
   const [studentId, setStudentId] = useState<StudentId>("gui");
+  const [speakerId, setSpeakerId] = useState<StudentId>("gui");
+  const rotation = useRef(createStudentRotation("gui"));
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,7 +121,7 @@ export function FeynmanLesson({
   const board = useRef<Board>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  const student = studentOf(studentId);
+  const student = studentOf(started ? speakerId : studentId);
   const {
     text: streamingText,
     isStreaming,
@@ -144,17 +147,14 @@ export function FeynmanLesson({
   }, [started, busy]);
 
   const chooseStudent = (id: StudentId) => {
-    if (busy || id === studentId) return;
+    if (busy || started || id === studentId) return;
     setStudentId(id);
-    if (started)
-      setMsgs((messages) => [
-        ...messages,
-        { role: "assistant", text: studentOf(id).greeting(topic.trim()), studentId: id },
-      ]);
   };
   const start = () => {
     if (!topic.trim() || !lesson.ready || !lesson.allowed) return;
     setStarted(true);
+    setSpeakerId(studentId);
+    rotation.current = createStudentRotation(studentId);
     setMsgs([{ role: "assistant", text: student.greeting(topic.trim()), studentId }]);
   };
   const saveGrade = (value: number) => {
@@ -187,6 +187,8 @@ export function FeynmanLesson({
       return;
     }
     sending.current = true;
+    const turnStudentId = rotation.current.peek();
+    setSpeakerId(turnStudentId);
     const mine: Msg = { role: "user", text: text.trim(), ...(shot ? { board: shot } : {}) };
     const next = [...msgs.map((m) => (m.board ? { ...m, board: undefined } : m)), mine];
     setMsgs(next);
@@ -205,7 +207,7 @@ export function FeynmanLesson({
         data: {
           topic: topic.trim().slice(0, 200),
           ids: idsFrom(search.m),
-          studentId,
+          studentId: turnStudentId,
           ...(lesson.context ? { context: lesson.context } : {}),
           messages: historyToSend.map(({ role, text: messageText, board: image }, index) => ({
             role,
@@ -219,7 +221,11 @@ export function FeynmanLesson({
       board.current?.clear();
       const streamResult = await startStream(result.text);
       const finalText = streamResult.text || result.text;
-      setMsgs((messages) => [...messages, { role: "assistant", text: finalText, studentId }]);
+      rotation.current.commit();
+      setMsgs((messages) => [
+        ...messages,
+        { role: "assistant", text: finalText, studentId: turnStudentId },
+      ]);
       const grade = /NOTA:\s*(\d+(?:[.,]\d+)?)\s*\/\s*10/i.exec(finalText);
       if (grade && score === null) {
         const value = Math.min(10, Math.max(0, Number(grade[1]!.replace(",", "."))));
@@ -228,6 +234,9 @@ export function FeynmanLesson({
       }
     } catch (cause) {
       if (token) attempt.fail(token);
+      setSpeakerId(
+        [...msgs].reverse().find((message) => message.role === "assistant")?.studentId ?? studentId,
+      );
       setError(
         cause instanceof Error
           ? cause.message
@@ -412,20 +421,23 @@ export function FeynmanLesson({
           className={`feyn-student-column ${mobileTab === "explanation" ? "is-active-tab" : "is-hidden-tab"}`}
           aria-label="Seu aluno virtual"
         >
-          <StudentPicker selected={studentId} disabled={busy} onChange={chooseStudent} />
+          <p className="feyn-rotation-note">
+            Sua turma: {studentOf(studentId).name} responde em duas de cada três rodadas; colegas
+            participam da outra.
+          </p>
           <section
-            key={studentId}
+            key={speakerId}
             className={`feyn-student-card ${busy ? "is-thinking" : ""}`}
             aria-labelledby="feyn-student-title"
           >
             <div className="feyn-student-label">
               <span>
                 <i style={{ background: student.color }} /> {student.name},{" "}
-                {studentId === "lia" || studentId === "maya" ? "sua aluna" : "seu aluno"}
+                {speakerId === "lia" || speakerId === "maya" ? "sua aluna" : "seu aluno"}
               </span>
               <Lightbulb size={18} />
             </div>
-            <StudentIllustration thinking={busy} studentId={studentId} />
+            <StudentIllustration thinking={busy} studentId={speakerId} />
             <div className="feyn-student-copy">
               <p className="eyebrow">{busy ? "Ouvindo sua explicação" : student.description}</p>
               <h2 id="feyn-student-title">
@@ -437,7 +449,7 @@ export function FeynmanLesson({
               </h2>
               <div className="feyn-student-question" aria-live="polite" aria-atomic="true">
                 <div
-                  key={busy ? "thinking" : `${studentId}:${question}`}
+                  key={busy ? "thinking" : `${speakerId}:${question}`}
                   className="feyn-answer-motion"
                 >
                   {isStreaming ? (

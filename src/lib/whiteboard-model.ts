@@ -650,7 +650,7 @@ export function drawMark(g: CanvasRenderingContext2D, mark: Mark, background: st
 
   g.strokeStyle = mark.tool === "eraser" ? background : mark.color;
   g.fillStyle = g.strokeStyle;
-  g.lineWidth = mark.tool === "eraser" ? 26 : (mark.strokeWidth ?? 4);
+  g.lineWidth = mark.strokeWidth ?? (mark.tool === "eraser" ? 26 : 4);
   g.lineCap = "round";
   g.lineJoin = "round";
   g.beginPath();
@@ -671,7 +671,11 @@ export function drawMark(g: CanvasRenderingContext2D, mark: Mark, background: st
   }
 
   if (mark.tool === "rectangle") {
-    g.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+    if (mark.points.length === 4) {
+      g.moveTo(a.x, a.y);
+      mark.points.slice(1).forEach((p) => g.lineTo(p.x, p.y));
+      g.closePath();
+    } else g.rect(a.x, a.y, b.x - a.x, b.y - a.y);
   } else if (mark.tool === "ellipse") {
     g.ellipse(
       (a.x + b.x) / 2,

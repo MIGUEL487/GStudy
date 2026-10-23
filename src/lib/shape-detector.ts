@@ -108,7 +108,8 @@ export function detectPerfectShape(points: Point[]): DetectedShape | null {
   if (!points || points.length < 5) return null;
 
   const totalLen = pathLength(points);
-  if (totalLen < 20) return null;
+  if (totalLen < 40 || points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y)))
+    return null;
 
   const first = points[0]!;
   const last = points.at(-1)!;
@@ -117,16 +118,30 @@ export function detectPerfectShape(points: Point[]): DetectedShape | null {
   const maxDim = Math.max(bounds.width, bounds.height);
 
   // Check if stroke is closed: endpoints are close relative to bounding box
-  const isClosed = directDist / maxDim < 0.32 || directDist < 28;
+  const isClosed = directDist <= Math.max(5, maxDim * 0.16);
 
   // 1. OPEN STROKE: Line or Arrow
   if (!isClosed) {
     // Check Straight Line
     const straightness = directDist / totalLen;
-    if (straightness > 0.88 && directDist > 25) {
+    const deviation = Math.max(...points.map((p) => perpendicularDistance(p, first, last)));
+    if (straightness > 0.96 && directDist >= 40 && deviation < Math.max(2.5, directDist * 0.025)) {
       return {
         tool: "line",
-        points: [first, last],
+        points: (() => {
+          const angle = Math.atan2(last.y - first.y, last.x - first.x);
+          const snapped = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+          if (Math.abs(angle - snapped) > Math.PI / 60) return [first, last];
+          const center = { x: (first.x + last.x) / 2, y: (first.y + last.y) / 2 };
+          const projection =
+            (last.x - first.x) * Math.cos(snapped) + (last.y - first.y) * Math.sin(snapped);
+          const dx = (Math.cos(snapped) * projection) / 2,
+            dy = (Math.sin(snapped) * projection) / 2;
+          return [
+            { x: center.x - dx, y: center.y - dy },
+            { x: center.x + dx, y: center.y + dy },
+          ];
+        })(),
         shapeName: "line",
       };
     }
@@ -141,14 +156,37 @@ export function detectPerfectShape(points: Point[]): DetectedShape | null {
 
   // 2. CLOSED STROKE: Triangle, Rectangle, Square, Circle, Ellipse
   // Try polygon simplification with epsilon proportional to dimension
-  const epsilon = Math.max(8, maxDim * 0.08);
+  if (Math.min(bounds.width, bounds.height) < 24) return null;
+  const epsilon = Math.max(3, maxDim * 0.045);
   const simplified = rdpSimplify(points, epsilon);
   // Remove last point if duplicate of first
   const vertices =
     dist(simplified[0]!, simplified.at(-1)!) < epsilon ? simplified.slice(0, -1) : simplified;
 
   // TRIANGLE: Exactly 3 vertices
-  if (vertices.length === 3) {
+  const perimeter = vertices.reduce(
+    (sum, vertex, i) => sum + dist(vertex, vertices[(i + 1) % vertices.length]!),
+    0,
+  );
+  const followsPolygon =
+    totalLen / perimeter < 1.12 &&
+    totalLen / perimeter > 0.86 &&
+    points.every(
+      (p) =>
+        Math.min(
+          ...vertices.map((v, i) =>
+            perpendicularDistance(p, v, vertices[(i + 1) % vertices.length]!),
+          ),
+        ) < Math.max(3, maxDim * 0.035),
+    );
+  const area =
+    Math.abs(
+      vertices.reduce((sum, v, i) => {
+        const next = vertices[(i + 1) % vertices.length]!;
+        return sum + v.x * next.y - next.x * v.y;
+      }, 0),
+    ) / 2;
+  if (vertices.length === 3 && followsPolygon && area > bounds.width * bounds.height * 0.3) {
     return {
       tool: "triangle",
       points: [vertices[0]!, vertices[1]!, vertices[2]!],
@@ -157,7 +195,48 @@ export function detectPerfectShape(points: Point[]): DetectedShape | null {
   }
 
   // RECTANGLE OR SQUARE: 4 vertices
-  if (vertices.length === 4) {
+  const axisAligned = vertices.every((v, i) => {
+    const next = vertices[(i + 1) % vertices.length]!;
+    return Math.min(Math.abs(v.x - next.x), Math.abs(v.y - next.y)) < maxDim * 0.06;
+  });
+  const rightAngles = vertices.every((v, i) => {
+    const previous = vertices[(i + vertices.length - 1) % vertices.length]!;
+    const next = vertices[(i + 1) % vertices.length]!;
+    return (
+      Math.abs((previous.x - v.x) * (next.x - v.x) + (previous.y - v.y) * (next.y - v.y)) /
+        (dist(v, previous) * dist(v, next)) <
+      0.13
+    );
+  });
+  if (vertices.length === 4 && followsPolygon && rightAngles && !axisAligned) {
+    const center = vertices.reduce((c, v) => ({ x: c.x + v.x / 4, y: c.y + v.y / 4 }), {
+      x: 0,
+      y: 0,
+    });
+    const angle = Math.atan2(vertices[1]!.y - vertices[0]!.y, vertices[1]!.x - vertices[0]!.x);
+    const width = (dist(vertices[0]!, vertices[1]!) + dist(vertices[2]!, vertices[3]!)) / 2;
+    const height = (dist(vertices[1]!, vertices[2]!) + dist(vertices[3]!, vertices[0]!)) / 2;
+    return {
+      tool: "rectangle",
+      shapeName: Math.abs(width - height) / Math.max(width, height) < 0.15 ? "square" : "rectangle",
+      points: [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ].map(([x, y]) => ({
+        x: center.x + ((x! * width) / 2) * Math.cos(angle) - ((y! * height) / 2) * Math.sin(angle),
+        y: center.y + ((x! * width) / 2) * Math.sin(angle) + ((y! * height) / 2) * Math.cos(angle),
+      })),
+    };
+  }
+  if (
+    vertices.length === 4 &&
+    followsPolygon &&
+    rightAngles &&
+    axisAligned &&
+    area > bounds.width * bounds.height * 0.85
+  ) {
     const isSquare = Math.abs(bounds.width - bounds.height) / maxDim < 0.2;
     if (isSquare) {
       const side = (bounds.width + bounds.height) / 2;
@@ -195,7 +274,16 @@ export function detectPerfectShape(points: Point[]): DetectedShape | null {
     }
     const meanVariance = varianceSum / points.length;
 
-    if (meanVariance < 0.28) {
+    const expectedLength = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+    const quadrants = new Set(
+      points.map((p) => `${p.x >= bounds.center.x}:${p.y >= bounds.center.y}`),
+    );
+    if (
+      meanVariance < 0.075 &&
+      quadrants.size === 4 &&
+      totalLen / expectedLength > 0.86 &&
+      totalLen / expectedLength < 1.15
+    ) {
       const isCircle = Math.abs(bounds.width - bounds.height) / maxDim < 0.22;
       if (isCircle) {
         const radius = (bounds.width + bounds.height) / 4;

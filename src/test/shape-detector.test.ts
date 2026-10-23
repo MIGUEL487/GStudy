@@ -10,6 +10,62 @@ import {
 import type { DrawMark, Point } from "@/lib/whiteboard-model";
 
 describe("Shape Detector - Detecção de Formas Perfeitas", () => {
+  it("preserva letras pequenas, curvas abertas, laços repetidos e quadriláteros sem ângulos retos", () => {
+    const tinyLetter = Array.from({ length: 21 }, (_, i) => ({
+      x: 10 + Math.cos(i / 3) * 8,
+      y: 10 + Math.sin(i / 3) * 8,
+    }));
+    const arc = Array.from({ length: 31 }, (_, i) => ({
+      x: 100 + 60 * Math.cos(i / 10),
+      y: 100 + 60 * Math.sin(i / 10),
+    }));
+    const doubleLoop = Array.from({ length: 81 }, (_, i) => ({
+      x: 100 + 60 * Math.cos((i * Math.PI) / 20),
+      y: 100 + 60 * Math.sin((i * Math.PI) / 20),
+    }));
+    const slanted = [
+      { x: 0, y: 0 },
+      { x: 50, y: 0 },
+      { x: 100, y: 0 },
+      { x: 150, y: 50 },
+      { x: 200, y: 100 },
+      { x: 150, y: 100 },
+      { x: 100, y: 100 },
+      { x: 50, y: 50 },
+      { x: 0, y: 0 },
+    ];
+    for (const stroke of [tinyLetter, arc, doubleLoop, slanted])
+      expect(detectPerfectShape(stroke)).toBeNull();
+  });
+
+  it("mantém um retângulo rotacionado sem transformá-lo numa caixa maior", () => {
+    const corners = [
+      { x: -80, y: -40 },
+      { x: 80, y: -40 },
+      { x: 80, y: 40 },
+      { x: -80, y: 40 },
+      { x: -80, y: -40 },
+    ];
+    const angle = Math.PI / 6;
+    const points = corners
+      .flatMap((p, i) =>
+        i === 4
+          ? [p]
+          : Array.from({ length: 10 }, (_, n) => ({
+              x: p.x + ((corners[i + 1]!.x - p.x) * n) / 10,
+              y: p.y + ((corners[i + 1]!.y - p.y) * n) / 10,
+            })),
+      )
+      .map((p) => ({
+        x: 200 + p.x * Math.cos(angle) - p.y * Math.sin(angle),
+        y: 200 + p.x * Math.sin(angle) + p.y * Math.cos(angle),
+      }));
+    const result = detectPerfectShape(points);
+    expect(result?.shapeName).toBe("rectangle");
+    expect(result?.points).toHaveLength(4);
+    expect(dist(result!.points[0]!, result!.points[1]!)).toBeCloseTo(160);
+  });
+
   it("detecta linha reta quando traço tem alta retidão", () => {
     // Generate horizontal straight line with small natural jitter
     const points: Point[] = [];

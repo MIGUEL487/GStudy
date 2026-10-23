@@ -49,6 +49,40 @@
 
 .wb-brush-group {
   gap: 4px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  color: #f3efe2;
+}
+
+.wb-brush-group input[type="range"] {
+  width: 80px;
+  min-width: 0;
+  accent-color: currentColor;
+}
+
+.wb-brush-group output {
+  min-width: 4ch;
+  font-size: 12px;
+}
+
+.wb-brush-preview {
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.feyn-rotation-note {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .whiteboard--paper,
+[data-theme="dark"] .whiteboard--paper .wb-text-controls,
+[data-theme="dark"] .whiteboard--paper .wb-text-overlay-input {
+  background: #252922;
+  color: #f3efe2;
 }
 
 .wb-brush-btn {
@@ -60,6 +94,12 @@
   padding: 4px 8px;
   border-radius: 6px;
   font-size: 11px;
+  color: #f3efe2;
+}
+
+.whiteboard--paper .wb-brush-btn.on {
+  background: #f3efe2;
+  color: #2f4a3a;
 }
 
 .wb-brush-dot {

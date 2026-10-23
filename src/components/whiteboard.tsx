@@ -18,6 +18,7 @@ import {
   Plus,
   Redo2,
   Scan,
+  Shapes,
   Square,
   Trash2,
   Type,
@@ -118,8 +119,23 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
     const { theme } = useTheme();
     const isDark = theme === "dark";
     const paper = variant === "paper",
-      background = paper ? paperBackground : chalkBackground,
+      background = paper ? (isDark ? "#252922" : paperBackground) : chalkBackground,
       colors = paper ? paperColors : chalkColors;
+    const bounds = { width: paper ? 1200 : 720, height: paper ? 720 : 420 };
+    const root = useRef<HTMLDivElement>(null);
+    const ink = (mark: Mark, exporting = false): Mark => {
+      if (mark.tool === "image" || mark.tool === "eraser") return mark;
+      const paletteIndex = (paper ? paperColors : chalkColors).findIndex(
+        (c) => c.value === mark.color,
+      );
+      if (paletteIndex < 0) return mark;
+      const value = exporting
+        ? paperColors[paletteIndex]!.value
+        : paper && isDark
+          ? chalkColors[paletteIndex]!.value
+          : mark.color;
+      return { ...mark, color: value };
+    };
 
     const canvas = useRef<HTMLCanvasElement>(null),
       fileInput = useRef<HTMLInputElement>(null),
@@ -142,6 +158,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       [text, setText] = useState(""),
       [size, setSize] = useState(28),
       [brushThickness, setBrushThickness] = useState<number>(4),
+      [perfectShapes, setPerfectShapes] = useState(true),
       [formulasEnabled, setFormulasEnabled] = useState(true);
 
     const [selected, setSelected] = useState<string | null>(null),
@@ -166,13 +183,14 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       const c = canvas.current,
         g = c?.getContext("2d");
       if (!c || !g) return;
+      g.setTransform?.(c.width / bounds.width, 0, 0, c.height / bounds.height, 0, 0);
       g.fillStyle = background;
-      g.fillRect(0, 0, c.width, c.height);
+      g.fillRect(0, 0, bounds.width, bounds.height);
 
       if (paper) {
-        g.fillStyle = "#dfd4c1";
-        for (let x = 24; x < c.width; x += 24)
-          for (let y = 24; y < c.height; y += 24) g.fillRect(x, y, 1, 1);
+        g.fillStyle = isDark ? "#41463b" : "#dfd4c1";
+        for (let x = 24; x < bounds.width; x += 24)
+          for (let y = 24; y < bounds.height; y += 24) g.fillRect(x, y, 1, 1);
       }
 
       const active = editing ? gesture.current : null;
@@ -184,12 +202,12 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             mark.tool === "image" &&
             mark.id === active.original.id
             ? active.preview
-            : mark,
+            : ink(mark),
           background,
         ),
       );
 
-      if (active?.kind === "draw") drawMark(g, active.mark, background);
+      if (active?.kind === "draw") drawMark(g, ink(active.mark), background);
 
       const selection =
         active && active.kind !== "draw"
@@ -199,7 +217,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             );
 
       if (editing && selection && tool === "select" && !disabled) {
-        const scale = c.width / (c.getBoundingClientRect().width || c.width);
+        const scale = bounds.width / (c.getBoundingClientRect().width || bounds.width);
         g.save();
         g.strokeStyle = paper ? "#486d89" : "#b8e2dc";
         g.fillStyle = paper ? "#fffaf0" : "#2f4a3a";
@@ -283,13 +301,18 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       const onKeyDown = (e: KeyboardEvent) => {
         if (disabledRef.current) return;
         const target = e.target as HTMLElement | null;
+        if (!target || !root.current?.contains(target)) return;
         if (
           target &&
           (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
         ) {
           return;
         }
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        if (!e.ctrlKey && !e.metaKey && (e.key === "[" || e.key === "]")) {
+          if (tool !== "pen" && tool !== "eraser") return;
+          e.preventDefault();
+          setBrushThickness((value) => Math.max(1, Math.min(20, value + (e.key === "]" ? 1 : -1))));
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
           e.preventDefault();
           if (e.shiftKey) redo();
           else undo();
@@ -330,10 +353,13 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       }
       refresh();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [disabled, tool, selected, variant, formulasEnabled]);
+    }, [disabled, tool, selected, variant, formulasEnabled, isDark]);
+
+    const refreshRef = useRef(refresh);
+    refreshRef.current = refresh;
 
     useEffect(() => {
-      const resize = () => refresh();
+      const resize = () => resizeCanvas();
       window.addEventListener("resize", resize);
       return () => window.removeEventListener("resize", resize);
     });
@@ -342,11 +368,27 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       const el = containerRef.current;
       if (!el || typeof ResizeObserver === "undefined") return;
       const ro = new ResizeObserver(() => {
-        refresh();
+        resizeCanvas();
       });
       ro.observe(el);
       return () => ro.disconnect();
     }, []);
+
+    const resizeCanvas = () => {
+      const c = canvas.current;
+      if (!c) return;
+      const rect = c.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const ratio = Math.min(window.devicePixelRatio || 1, 3);
+        const width = Math.round(rect.width * ratio),
+          height = Math.round(rect.height * ratio);
+        if (c.width !== width || c.height !== height) {
+          c.width = width;
+          c.height = height;
+        }
+      }
+      refreshRef.current();
+    };
 
     useEffect(() => {
       if (textSession && overlayInputRef.current) {
@@ -358,12 +400,15 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       snapshot: () => {
         finishTextSession();
         if (!marks.current.some((mark) => mark.tool !== "eraser")) return undefined;
-        refresh(false);
-        try {
-          return canvas.current?.toDataURL("image/jpeg", 0.8);
-        } finally {
-          refresh();
-        }
+        const output = document.createElement("canvas");
+        output.width = bounds.width;
+        output.height = bounds.height;
+        const g = output.getContext("2d");
+        if (!g) return undefined;
+        g.fillStyle = paperBackground;
+        g.fillRect(0, 0, bounds.width, bounds.height);
+        marks.current.forEach((mark) => drawMark(g, ink(mark, true), paperBackground));
+        return output.toDataURL("image/jpeg", 0.9);
       },
       clear,
       isLoading: () => loadingRef.current,
@@ -372,17 +417,8 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
     const pos = (e: RPointerEvent<HTMLCanvasElement>): Point => {
       const r = e.currentTarget.getBoundingClientRect();
       return {
-        x: Math.max(
-          0,
-          Math.min(e.currentTarget.width, ((e.clientX - r.left) * e.currentTarget.width) / r.width),
-        ),
-        y: Math.max(
-          0,
-          Math.min(
-            e.currentTarget.height,
-            ((e.clientY - r.top) * e.currentTarget.height) / r.height,
-          ),
-        ),
+        x: Math.max(0, Math.min(bounds.width, ((e.clientX - r.left) * bounds.width) / r.width)),
+        y: Math.max(0, Math.min(bounds.height, ((e.clientY - r.top) * bounds.height) / r.height)),
       };
     };
 
@@ -392,7 +428,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
       if (tool === "select") {
         const c = e.currentTarget,
-          range = (22 * c.width) / (c.getBoundingClientRect().width || c.width);
+          range = (22 * bounds.width) / (c.getBoundingClientRect().width || bounds.width);
         const resizing =
           selectedImage &&
           Math.hypot(
@@ -508,7 +544,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       e.currentTarget.setPointerCapture(e.pointerId);
       gesture.current = { pointerId: e.pointerId, kind: "draw", mark };
 
-      if (tool === "pen") {
+      if (tool === "pen" && perfectShapes) {
         holdTimer.current = setTimeout(() => {
           checkAndConvertShape();
         }, SHAPE_HOLD_DELAY_MS);
@@ -523,7 +559,8 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
     const checkAndConvertShape = () => {
       const current = gesture.current;
-      if (!current || current.kind !== "draw" || current.mark.tool !== "pen") return;
+      if (!perfectShapes || !current || current.kind !== "draw" || current.mark.tool !== "pen")
+        return;
       const detected = convertToPerfectShape(current.mark);
       if (detected) {
         shapeConversion.current = {
@@ -541,7 +578,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
     const eraseAtPoint = (point: Point) => {
       const g = canvas.current?.getContext("2d") ?? undefined;
       const touched = marks.current.filter(
-        (m) => m.tool === "text" && doesEraserTouchMark(point, m, 24, g),
+        (m) => m.tool === "text" && doesEraserTouchMark(point, m, brushThickness, g),
       );
       if (touched.length > 0) {
         replace(marks.current.filter((m) => !touched.includes(m)));
@@ -559,7 +596,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
           if (previous.x !== point.x || previous.y !== point.y) current.mark.points.push(point);
           if (current.mark.tool === "eraser") {
             eraseAtPoint(point);
-          } else if (current.mark.tool === "pen") {
+          } else if (current.mark.tool === "pen" && perfectShapes) {
             if (lastStationaryPoint.current) {
               const moved = Math.hypot(
                 point.x - lastStationaryPoint.current.x,
@@ -587,11 +624,11 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         current.preview = {
           ...original,
           ...(current.kind === "move"
-            ? moveBoardImage(original, dx, dy, e.currentTarget)
+            ? moveBoardImage(original, dx, dy, bounds)
             : sizeBoardImage(
                 original,
                 original.width + (dx + dy / ratio) / (1 + 1 / (ratio * ratio)),
-                e.currentTarget,
+                bounds,
               )),
         };
       }
@@ -606,6 +643,9 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       }
       if (!current || current.pointerId !== e.pointerId) return;
       extend(e);
+      checkAndConvertShape();
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      holdTimer.current = null;
       gesture.current = null;
       if (e.currentTarget.hasPointerCapture(e.pointerId))
         e.currentTarget.releasePointerCapture(e.pointerId);
@@ -625,7 +665,8 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       if (shapeConversion.current) {
         // Push original freehand stroke into past history so Ctrl+Z undoes the conversion back to freehand first!
         past.current = [
-          ...past.current.slice(-39),
+          ...past.current.slice(-38),
+          marks.current,
           [...marks.current, shapeConversion.current.originalMark],
         ];
         future.current = [];
@@ -688,7 +729,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       if (!file || disabledRef.current || loadingRef.current) return;
       if (marks.current.filter((mark) => mark.tool === "image").length >= 6) {
         setImageError(
-          "A lousa aceita atÃ© 6 imagens por vez. Remova uma imagem para adicionar outra.",
+          "A lousa aceita até 6 imagens por vez. Remova uma imagem para adicionar outra.",
         );
         return;
       }
@@ -706,7 +747,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
           id: crypto.randomUUID(),
           source: image.source,
           name: image.name,
-          ...fitBoardImage(image, c),
+          ...fitBoardImage(image, bounds),
         };
         commit(mark);
         setSelected(mark.id);
@@ -714,7 +755,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       } catch (error) {
         if (alive.current && request === upload.current)
           setImageError(
-            error instanceof Error ? error.message : "NÃ£o foi possÃ­vel inserir a imagem.",
+            error instanceof Error ? error.message : "Não foi possível inserir a imagem.",
           );
       } finally {
         if (alive.current && request === upload.current) {
@@ -736,13 +777,13 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         action === "center"
           ? {
               ...selectedImage,
-              x: (c.width - selectedImage.width) / 2,
-              y: (c.height - selectedImage.height) / 2,
+              x: (bounds.width - selectedImage.width) / 2,
+              y: (bounds.height - selectedImage.height) / 2,
             }
           : sizeBoardImage(
               selectedImage,
               selectedImage.width * (action === "larger" ? 1.12 : 1 / 1.12),
-              c,
+              bounds,
             );
       replace(
         marks.current.map((mark) => (mark === selectedImage ? { ...selectedImage, ...box } : mark)),
@@ -774,7 +815,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       tool === "select"
         ? "Toque na imagem para selecionar. Arraste para mover e puxe o canto para ajustar."
         : tool === "text"
-          ? "Clique na lousa para abrir o cursor. Digite texto ou fÃ³rmulas matemÃ¡ticas."
+          ? "Clique na lousa para abrir o cursor. Digite texto ou fórmulas matemáticas."
           : tool === "pen" || tool === "eraser"
             ? "Desenhe com o mouse ou com o dedo."
             : "Arraste para desenhar a forma.";
@@ -784,8 +825,8 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
       if (!textSession || !canvas.current) return { display: "none" };
       const c = canvas.current;
       const rect = c.getBoundingClientRect();
-      const scaleX = rect.width / c.width;
-      const scaleY = rect.height / c.height;
+      const scaleX = rect.width / bounds.width;
+      const scaleY = rect.height / bounds.height;
 
       const left = Math.min(Math.max(0, textSession.currentX * scaleX), rect.width - 120);
       const top = Math.min(Math.max(0, textSession.currentY * scaleY), rect.height - 40);
@@ -799,7 +840,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
     };
 
     return (
-      <div className={`whiteboard ${paper ? "whiteboard--paper" : ""}`}>
+      <div ref={root} className={`whiteboard ${paper ? "whiteboard--paper" : ""}`}>
         <div className="wb-toolbar-shell">
           {paper && (
             <div className="wb-title">
@@ -833,6 +874,21 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             ))}
 
             <span className="wb-divider" />
+
+            <button
+              type="button"
+              disabled={locked}
+              aria-label="Formas perfeitas"
+              aria-pressed={perfectShapes}
+              title="Formas perfeitas ao soltar ou segurar por meio segundo"
+              className={`icon-btn ${perfectShapes ? "on" : ""}`}
+              onClick={() => {
+                cancel();
+                setPerfectShapes((value) => !value);
+              }}
+            >
+              <Shapes size={18} />
+            </button>
 
             <button
               type="button"
@@ -880,6 +936,40 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                 role="group"
                 aria-label="Espessura do traço"
               >
+                <button
+                  type="button"
+                  className="icon-btn"
+                  disabled={locked || brushThickness <= 1}
+                  aria-label="Diminuir espessura"
+                  onClick={() => setBrushThickness((v) => Math.max(1, v - 1))}
+                >
+                  <Minus size={16} />
+                </button>
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  step="1"
+                  aria-label="Espessura em pixels"
+                  value={brushThickness}
+                  disabled={locked}
+                  onChange={(e) => setBrushThickness(Number(e.target.value))}
+                />
+                <button
+                  type="button"
+                  className="icon-btn"
+                  disabled={locked || brushThickness >= 20}
+                  aria-label="Aumentar espessura"
+                  onClick={() => setBrushThickness((v) => Math.min(20, v + 1))}
+                >
+                  <Plus size={16} />
+                </button>
+                <output aria-live="polite">{brushThickness} px</output>
+                <span
+                  className="wb-brush-preview"
+                  aria-hidden="true"
+                  style={{ width: brushThickness, height: brushThickness }}
+                />
                 {BRUSH_THICKNESSES.map(({ id, label, px }) => (
                   <button
                     key={id}
@@ -965,7 +1055,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
         {loading && (
           <p className="wb-image-notice" role="status">
-            Preparando a imagemâ€¦{" "}
+            Preparando a imagem…{" "}
             <span className="dots" aria-hidden="true">
               <i />
               <i />
@@ -1019,7 +1109,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             >
               <Trash2 size={16} />
             </button>
-            <small>Arraste para mover Â· Puxe o canto para redimensionar</small>
+            <small>Arraste para mover · Puxe o canto para redimensionar</small>
           </div>
         )}
 
@@ -1064,8 +1154,14 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
             ref={canvas}
             width={paper ? 1200 : 720}
             height={paper ? 720 : 420}
+            tabIndex={0}
+            style={{
+              aspectRatio: `${bounds.width} / ${bounds.height}`,
+              height: "auto",
+              background,
+            }}
             aria-label="Lousa para desenhar, inserir texto e formas"
-            aria-description="TambÃ©m aceita imagens: use Inserir imagem e Mover imagem."
+            aria-description="Também aceita imagens: use Inserir imagem e Mover imagem."
             aria-disabled={locked}
             className={tool === "select" ? "is-selecting-image" : undefined}
             onPointerDown={down}
@@ -1087,9 +1183,15 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                   type="text"
                   className="wb-text-overlay-input"
                   value={textSession.text}
-                  placeholder="Texto ou fÃ³rmula..."
+                  placeholder="Texto ou fórmula..."
                   aria-label="Cursor de texto da lousa"
-                  style={{ color: textSession.color }}
+                  style={{
+                    color:
+                      paper && isDark
+                        ? (chalkColors[paperColors.findIndex((c) => c.value === textSession.color)]
+                            ?.value ?? textSession.color)
+                        : textSession.color,
+                  }}
                   onChange={(e) => {
                     setTextSession({ ...textSession, text: e.target.value });
                   }}
@@ -1166,7 +1268,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
                   type="button"
                   className="wb-text-overlay-done"
                   onClick={finishTextSession}
-                  title="Concluir ediÃ§Ã£o de texto"
+                  title="Concluir edição de texto"
                 >
                   Concluir
                 </button>
@@ -1174,7 +1276,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
 
               {formulasEnabled && textSession.text.trim() && (
                 <div className="wb-text-overlay-preview" aria-live="polite">
-                  <span className="wb-preview-badge">PrÃ©via:</span>
+                  <span className="wb-preview-badge">Prévia:</span>
                   <span>{formatMathPreview(textSession.text, true)}</span>
                 </div>
               )}
@@ -1185,9 +1287,7 @@ export const Whiteboard = forwardRef<Board, { disabled?: boolean; variant?: "cha
         <div className={paper ? "wb-status" : "wb-tools"}>
           {!paper && palette}
           <small className="wb-hint">{hint}</small>
-          {paper && (
-            <span className="wb-paper-caption">Um espaÃ§o para organizar suas ideias.</span>
-          )}
+          {paper && <span className="wb-paper-caption">Um espaço para organizar suas ideias.</span>}
         </div>
       </div>
     );

@@ -10,6 +10,7 @@ vi.mock("@/lib/whiteboard-images", async (importOriginal) => ({
 }));
 
 const g = {
+  setTransform: vi.fn(),
   drawImage: vi.fn(),
   save: vi.fn(),
   restore: vi.fn(),
@@ -66,6 +67,60 @@ afterEach(() => {
 });
 const point = (x: number, y: number) => ({ clientX: x, clientY: y, button: 0, pointerId: 1 });
 describe("Lousa", () => {
+  it("reconhece também ao segurar por 500 ms e preserva as coordenadas após redimensionar", () => {
+    vi.useFakeTimers();
+    const { canvas } = mount();
+    fireEvent.pointerDown(canvas, point(20, 50));
+    for (let x = 30; x <= 100; x += 10) fireEvent.pointerMove(canvas, point(x, 50));
+    g.lineTo.mockClear();
+    act(() => vi.advanceTimersByTime(500));
+    expect(g.lineTo).toHaveBeenCalledTimes(1);
+    fireEvent.pointerUp(canvas, point(100, 50));
+    vi.stubGlobal("devicePixelRatio", 3);
+    fireEvent(window, new Event("resize"));
+    expect(canvas).toHaveAttribute("width", "1080");
+    expect(canvas).toHaveAttribute("height", "630");
+    expect(g.setTransform).toHaveBeenLastCalledWith(1.5, 0, 0, 1.5, 0, 0);
+    expect(g.lineTo).toHaveBeenLastCalledWith(200, 100);
+    vi.useRealTimers();
+  });
+
+  it("converte ao soltar, desfaz para o traço original e permite desligar as formas", () => {
+    const { ref, canvas } = mount();
+    const stroke = () => {
+      fireEvent.pointerDown(canvas, point(20, 50));
+      for (let x = 30; x <= 100; x += 10) fireEvent.pointerMove(canvas, point(x, 50));
+      fireEvent.pointerUp(canvas, point(100, 50));
+    };
+    stroke();
+    g.lineTo.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(g.lineTo.mock.calls.length).toBeGreaterThan(2);
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(ref.current?.snapshot()).toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "Formas perfeitas" }));
+    stroke();
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(ref.current?.snapshot()).toBeUndefined();
+  });
+
+  it("ajusta caneta e borracha pelo slider, botões e atalhos sem capturar campos de texto", () => {
+    const { canvas } = mount();
+    const slider = screen.getByRole("slider", { name: "Espessura em pixels" });
+    fireEvent.change(slider, { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apagador" }));
+    fireEvent.keyDown(canvas, { key: "]" });
+    fireEvent.click(screen.getByRole("button", { name: "Diminuir espessura" }));
+    fireEvent.pointerDown(canvas, point(20, 50));
+    fireEvent.pointerUp(canvas, point(100, 50));
+    expect((canvas as HTMLCanvasElement).getContext("2d")?.lineWidth).toBe(12);
+    expect(slider).toHaveValue("12");
+    fireEvent.click(screen.getByRole("button", { name: "Texto" }));
+    fireEvent.keyDown(screen.getByLabelText("Texto na lousa"), { key: "]" });
+    fireEvent.click(screen.getByRole("button", { name: "Giz" }));
+    expect(screen.getByRole("slider")).toHaveValue("12");
+  });
+
   it("exporta as formas com coordenadas corretas em uma tela reduzida, desfaz e refaz", () => {
     const { ref, canvas } = mount();
     expect(ref.current?.snapshot()).toBeUndefined();
@@ -209,12 +264,16 @@ describe("Imagens na lousa", () => {
     fireEvent.pointerDown(canvas, point(100, 100));
     fireEvent.pointerMove(canvas, point(120, 115));
     g.strokeRect.mockClear();
-    vi.spyOn(canvas as HTMLCanvasElement, "toDataURL").mockImplementation(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockImplementation(function (
+      this: HTMLCanvasElement,
+    ) {
+      expect(this).not.toBe(canvas);
       expect(g.strokeRect).not.toHaveBeenCalled();
       expect(g.drawImage).toHaveBeenLastCalledWith(image.source, 144, 102, 432, 216);
       return "data:image/jpeg;base64,board";
     });
     expect(ref.current?.snapshot()).toContain("data:image/jpeg");
+    fireEvent.pointerMove(canvas, point(120, 115));
     expect(g.drawImage).toHaveBeenLastCalledWith(image.source, 184, 132, 432, 216);
   });
   it("mantém a foto ao desenhar por cima e ao desfazer a exclusão", async () => {
