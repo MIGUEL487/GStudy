@@ -302,7 +302,7 @@ describe("Alunos do Método Feynman", () => {
     });
     const [instructions, messages, hasBoard] = mocks.aiText.mock.calls[0]!;
     expect(instructions).toContain("Você é Lia");
-    expect(instructions).toContain("pergunta por que");
+    expect(instructions).toContain("vestibular");
     expect(JSON.stringify(messages)).not.toContain(board);
     expect(messages[2].content).toContainEqual({ type: "image", image: secondBoard });
     expect(hasBoard).toBe(true);

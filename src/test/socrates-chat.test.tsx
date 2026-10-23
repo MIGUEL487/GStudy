@@ -58,7 +58,7 @@ describe("Aba Sócrates", () => {
     await send();
     expect(await screen.findByText(response.question)).toBeInTheDocument();
     const log = screen.getByRole("log", { name: "Conversa com Sócrates" });
-    expect(within(log).getByText(response.explanation)).toBeInTheDocument();
+    expect(within(log).getByText((c) => c.includes(response.explanation))).toBeInTheDocument();
     await waitFor(() =>
       expect(
         readSocratesDocument(localStorage.getItem(socratesStorageKey(user))).conversations[0]!

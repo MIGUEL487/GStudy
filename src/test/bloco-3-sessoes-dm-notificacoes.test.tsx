@@ -258,7 +258,9 @@ describe("Bloco 3: Sessões, DMs, Notificações e Amigos", () => {
       // Alterna para Jogos
       const gamesBtn = screen.getByRole("tab", { name: /Jogos/i });
       fireEvent.click(gamesBtn);
-      expect(screen.getByText("Jogos e Desafios em Grupo")).toBeInTheDocument();
+      expect(
+        screen.getByRole("tablist", { name: "Filtrar jogos por matéria" }),
+      ).toBeInTheDocument();
     });
   });
 
