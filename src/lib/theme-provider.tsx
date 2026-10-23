@@ -1,5 +1,14 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export type Theme = "light" | "dark";
 
@@ -43,7 +52,8 @@ export function applyThemeToDOM(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  // Match SSR on the first React render; the head script already painted the palette.
+  const [theme, setThemeState] = useState<Theme>("light");
 
   const setTheme = useCallback((nextTheme: Theme) => {
     setThemeState(nextTheme);
@@ -61,10 +71,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           data: { user },
         } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from("profiles").update({ theme: nextTheme }).eq("id", user.id);
+          const { error } = await supabase
+            .from("profiles")
+            .update({ theme: nextTheme })
+            .eq("id", user.id);
+          if (error)
+            toast.error("Tema salvo neste navegador. Não foi possível sincronizar com seu perfil.");
         }
       } catch {
-        // Safe to ignore if column or network is not available
+        // A palette preference must remain usable without a configured backend.
       }
     })();
   }, []);
@@ -79,26 +94,40 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (currentAttr && (currentAttr === "light" || currentAttr === "dark")) {
       setThemeState(currentAttr);
     } else {
-      applyThemeToDOM(theme);
+      const initial = getInitialTheme();
+      setThemeState(initial);
+      applyThemeToDOM(initial);
     }
 
     // Listen to system theme changes if not explicitly overridden by user
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => {
-      const saved = localStorage.getItem(THEME_STORAGE_KEY);
-      if (!saved) {
-        setTheme(e.matches ? "dark" : "light");
+      try {
+        if (localStorage.getItem(THEME_STORAGE_KEY)) return;
+      } catch {
+        /* System preferences work even with storage blocked. */
       }
+      const next = e.matches ? "dark" : "light";
+      setThemeState(next);
+      applyThemeToDOM(next);
+    };
+    const storage = (e: StorageEvent) => {
+      if (e.key !== THEME_STORAGE_KEY) return;
+      const next = getInitialTheme();
+      setThemeState(next);
+      applyThemeToDOM(next);
     };
     media.addEventListener("change", handler);
-    return () => media.removeEventListener("change", handler);
-  }, [theme, setTheme]);
+    window.addEventListener("storage", storage);
+    return () => {
+      media.removeEventListener("change", handler);
+      window.removeEventListener("storage", storage);
+    };
+  }, []);
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  const value = useMemo(() => ({ theme, toggleTheme, setTheme }), [theme, toggleTheme, setTheme]);
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

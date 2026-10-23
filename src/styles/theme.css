@@ -1,0 +1,211 @@
+/* Shared semantic tokens: the same controls work on both kinds of paper. */
+:root {
+  color-scheme: light;
+  --radius: 8px;
+  --surface-hover: #ece3d4;
+  --muted-foreground: #706153;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #17130f;
+  --foreground: #f0e7da;
+  --card: #221c17;
+  --card-foreground: #f0e7da;
+  --surface: #221c17;
+  --surface-hover: #302720;
+  --primary: #c4a484;
+  --primary-dark: #ddc1a4;
+  --primary-foreground: #17130f;
+  --secondary: #302720;
+  --secondary-foreground: #f0e7da;
+  --muted: #302720;
+  --muted-foreground: #bdb0a1;
+  --accent: #c4a484;
+  --accent-foreground: #17130f;
+  --accent-bordeaux: #e5a3a3;
+  --border: #3a3028;
+  --destructive: #f0a2a2;
+  --destructive-foreground: #17130f;
+  --success: #a2c5a9;
+  --warn: #e3b980;
+  --sidebar: #1b1612;
+  --sidebar-foreground: #f0e7da;
+  --sidebar-border: #3a3028;
+  --overlay: rgb(0 0 0 / 55%);
+  --glass: #221c17;
+  --glass-border: #3a3028;
+  --paper-line: rgb(240 231 218 / 8%);
+  --shadow-soft: none;
+  --shadow-modal: 0 16px 48px rgb(0 0 0 / 25%);
+}
+body,
+.sidebar,
+.topbar,
+.mobile-bottom-nav {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+img {
+  object-fit: contain;
+}
+button,
+a,
+input,
+textarea {
+  scroll-margin-block: 80px;
+}
+.app-shell,
+.auth-loading,
+.login-page {
+  min-height: 100dvh;
+}
+.page-transition {
+  /* Route feedback is owned by StudyLayout; CSS used to animate it twice. */
+  animation: none;
+}
+.sessions-container > header {
+  margin-bottom: 24px;
+}
+.sessions-heading h1 {
+  font-size: 30px;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.sessions-heading p {
+  color: var(--muted-foreground);
+  max-width: 60ch;
+}
+.sessions-container .sessions-segmented-nav {
+  width: fit-content;
+  margin: 24px 0 0;
+  border-radius: 8px;
+  background: var(--secondary);
+}
+.sessions-container .sessions-segmented-btn {
+  min-height: 44px;
+  min-width: 88px;
+  border-radius: 6px;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+.sessions-container .sessions-segmented-btn.active {
+  background: var(--card);
+  color: var(--foreground);
+}
+.sessions-panel {
+  min-height: 280px;
+}
+.sessions-panel .rooms-container,
+.sessions-panel .social-container {
+  max-width: none;
+  padding: 0;
+}
+.sessions-panel .rooms-header-title h2 {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+}
+.sessions-panel .room-card,
+.sidebar .side-nav a.active {
+  box-shadow: none;
+}
+.sessions-panel .rooms-filter-btn {
+  min-height: 44px;
+}
+.sessions-panel .rooms-filter-btn.active {
+  background: var(--secondary);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.sessions-panel .social-empty-state {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 40px 24px;
+}
+.sessions-panel .social-empty-state h3 {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 500;
+}
+.dm-modal-backdrop,
+.friends-drawer-backdrop {
+  backdrop-filter: none;
+  background: var(--overlay);
+}
+.dm-bubble.mine {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.topbar-right > button,
+.topbar-right > a {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+@media (max-width: 768px) {
+  .topbar {
+    gap: 8px;
+    padding-inline: 16px;
+  }
+  .topbar-left > :not(.mobile-brand),
+  .topbar-right > span,
+  .topbar-right > .desktop-crumb {
+    display: none;
+  }
+  .topbar-right {
+    gap: 0;
+    min-width: 0;
+  }
+  .topbar-right > button[aria-label="Sair da conta"] {
+    display: none;
+  }
+  .mobile-bottom-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .mobile-bottom-nav a {
+    flex: 1 0 60px;
+    min-height: 48px;
+  }
+  .sessions-heading h1 {
+    font-size: 26px;
+  }
+  .sessions-segmented-nav {
+    width: 100%;
+    max-width: none;
+  }
+  .friends-drawer-panel {
+    width: 100%;
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  .wb-tools .icon-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

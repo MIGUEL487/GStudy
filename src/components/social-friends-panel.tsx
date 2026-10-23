@@ -47,7 +47,10 @@ import "@/styles/social-friends.css";
 
 type Tab = "friends" | "pending" | "search" | "groups" | "ranking";
 
-export function SocialFriendsPanel({ initialTab = "friends" }: { initialTab?: Tab } = {}) {
+export function SocialFriendsPanel({
+  initialTab = "friends",
+  groupsOnly = false,
+}: { initialTab?: Tab; groupsOnly?: boolean } = {}) {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [loading, setLoading] = useState(false);
@@ -266,68 +269,72 @@ export function SocialFriendsPanel({ initialTab = "friends" }: { initialTab?: Ta
 
   return (
     <div className="social-container">
-      <div className="social-header">
-        <h1>Amigos e Grupos</h1>
-        <p>Estude junto, compartilhe dúvidas e acompanhe seu círculo de estudos.</p>
-      </div>
+      {!groupsOnly && (
+        <>
+          <div className="social-header">
+            <h1>Amigos e Grupos</h1>
+            <p>Estude junto, compartilhe dúvidas e acompanhe seu círculo de estudos.</p>
+          </div>
 
-      <div className="social-nav-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "friends"}
-          className={`social-tab-btn ${tab === "friends" ? "active" : ""}`}
-          onClick={() => setTab("friends")}
-        >
-          <Users size={16} />
-          Meus amigos ({friends.length})
-        </button>
+          <div className="social-nav-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "friends"}
+              className={`social-tab-btn ${tab === "friends" ? "active" : ""}`}
+              onClick={() => setTab("friends")}
+            >
+              <Users size={16} />
+              Meus amigos ({friends.length})
+            </button>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "pending"}
-          className={`social-tab-btn ${tab === "pending" ? "active" : ""}`}
-          onClick={() => setTab("pending")}
-        >
-          <Clock size={16} />
-          Pendentes
-          {pendingCount > 0 && <span className="social-tab-badge">{pendingCount}</span>}
-        </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "pending"}
+              className={`social-tab-btn ${tab === "pending" ? "active" : ""}`}
+              onClick={() => setTab("pending")}
+            >
+              <Clock size={16} />
+              Pendentes
+              {pendingCount > 0 && <span className="social-tab-badge">{pendingCount}</span>}
+            </button>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "search"}
-          className={`social-tab-btn ${tab === "search" ? "active" : ""}`}
-          onClick={() => setTab("search")}
-        >
-          <UserPlus size={16} />
-          Adicionar
-        </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "search"}
+              className={`social-tab-btn ${tab === "search" ? "active" : ""}`}
+              onClick={() => setTab("search")}
+            >
+              <UserPlus size={16} />
+              Adicionar
+            </button>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "groups"}
-          className={`social-tab-btn ${tab === "groups" ? "active" : ""}`}
-          onClick={() => setTab("groups")}
-        >
-          <Sparkles size={16} />
-          Grupos ({groups.length})
-        </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "groups"}
+              className={`social-tab-btn ${tab === "groups" ? "active" : ""}`}
+              onClick={() => setTab("groups")}
+            >
+              <Sparkles size={16} />
+              Grupos ({groups.length})
+            </button>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "ranking"}
-          className={`social-tab-btn ${tab === "ranking" ? "active" : ""}`}
-          onClick={() => setTab("ranking")}
-        >
-          <Trophy size={16} />
-          Ranking Semanal
-        </button>
-      </div>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "ranking"}
+              className={`social-tab-btn ${tab === "ranking" ? "active" : ""}`}
+              onClick={() => setTab("ranking")}
+            >
+              <Trophy size={16} />
+              Ranking Semanal
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Tab: Meus Amigos */}
       {tab === "friends" && (

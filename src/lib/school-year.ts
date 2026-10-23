@@ -9,7 +9,7 @@ export const schoolYears = [
     value: `medio-${i + 1}`,
     label: `${i + 1}º ano · Ensino médio`,
   })),
-  { value: "cursinho", label: "Cursinho / Pré-vestibular" },
+  { value: "cursinho", label: "Concluí o EM / Cursinho" },
   { value: "superior", label: "Ensino superior" },
   { value: "concluido", label: "Já concluí a escola" },
   { value: "outro", label: "Outra etapa de estudo" },
@@ -47,7 +47,22 @@ export function getNextSchoolYear(currentYear?: string): string | null {
     "medio-1": "medio-2",
     "medio-2": "medio-3",
     "medio-3": "cursinho",
-    cursinho: "superior",
   };
   return progression[currentYear] ?? null;
+}
+
+/** Academic years turn at São Paulo midnight; university is never inferred. */
+export function schoolYearAt(current: string, selectedAt: string, now = new Date()): string {
+  const selected = new Date(selectedAt);
+  if (!Number.isFinite(selected.getTime())) return current;
+  const year = (date: Date) =>
+    Number(
+      new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "America/Sao_Paulo" }).format(
+        date,
+      ),
+    );
+  const elapsed = Math.max(0, Math.min(20, year(now) - year(selected)));
+  let result = current;
+  for (let i = 0; i < elapsed; i++) result = getNextSchoolYear(result) ?? result;
+  return result;
 }

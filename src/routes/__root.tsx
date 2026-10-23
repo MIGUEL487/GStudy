@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import workspaceCss from "../styles/workspace-polish.css?url";
 import activitiesCss from "../styles/activities.css?url";
 import accountCss from "../styles/account-social.css?url";
+import themeCss from "../styles/theme.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../lib/theme-provider";
 import { AccountWorkspace } from "@/components/account-workspace";
@@ -112,6 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: workspaceCss },
       { rel: "stylesheet", href: activitiesCss },
       { rel: "stylesheet", href: accountCss },
+      { rel: "stylesheet", href: themeCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       {
         rel: "stylesheet",

@@ -1,4 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
+import { backendErrorMessage } from "./backend-errors";
+
+type ProfileRow = {
+  id: string;
+  username: string;
+  display_name?: string;
+  avatar_url?: string;
+  status: UserStatus;
+  bio?: string;
+};
+const mapProfile = (p: ProfileRow): UserProfile => ({
+  id: p.id,
+  username: p.username,
+  displayName: p.display_name ?? p.username,
+  avatarUrl: p.avatar_url,
+  status: p.status,
+  bio: p.bio,
+});
 
 export type UserStatus = "online" | "offline" | "studying" | "busy";
 
@@ -84,7 +102,12 @@ export async function searchUserExact(query: string): Promise<SearchUserResult |
     if (error.message.includes("Limite de buscas excedido")) {
       throw new Error("Limite de 10 buscas por minuto atingido. Aguarde um instante.");
     }
-    throw new Error(error.message || "Erro ao buscar usuário.");
+    throw new Error(
+      backendErrorMessage(
+        error,
+        "Não foi possível buscar seu colega. Confira a conexão e tente novamente.",
+      ),
+    );
   }
 
   if (!data || (Array.isArray(data) && data.length === 0)) {
@@ -135,7 +158,7 @@ export async function listFriends(userId: string): Promise<Friendship[]> {
 
   const { data: profiles } = await supabase.from("profiles").select("*").in("id", friendIds);
 
-  const profileMap = new Map((profiles ?? []).map((p: UserProfile) => [p.id, p]));
+  const profileMap = new Map((profiles ?? []).map((p: ProfileRow) => [p.id, mapProfile(p)]));
 
   return data.map(
     (f: {
@@ -189,10 +212,11 @@ export async function listPendingRequests(
   const partnerIds = data.map((f: { user_id: string; friend_id: string }) =>
     f.user_id === userId ? f.friend_id : f.user_id,
   );
+  if (!partnerIds.length) return { incoming: [], outgoing: [] };
 
   const { data: profiles } = await supabase.from("profiles").select("*").in("id", partnerIds);
 
-  const profileMap = new Map((profiles ?? []).map((p: UserProfile) => [p.id, p]));
+  const profileMap = new Map((profiles ?? []).map((p: ProfileRow) => [p.id, mapProfile(p)]));
 
   const incoming: Friendship[] = [];
   const outgoing: Friendship[] = [];
@@ -235,19 +259,9 @@ export async function sendFriendRequest(userId: string, targetUserId: string): P
     return;
   }
 
-  // Fallback para inserção direta se a RPC não estiver disponível
-  const { error } = await supabase.from("friendships").insert({
-    user_id: userId,
-    friend_id: targetUserId,
-    status: "pending",
-  });
-
-  if (error) {
-    if (error.code === "23505") {
-      throw new Error("Já existe um pedido de amizade com este usuário.");
-    }
-    throw new Error(error.message || "Não foi possível enviar o pedido de amizade.");
-  }
+  throw new Error(
+    backendErrorMessage(rpcError, "Não foi possível enviar o pedido de amizade. Tente novamente."),
+  );
 }
 
 /**
@@ -263,12 +277,12 @@ export async function acceptFriendRequest(friendshipId: string): Promise<void> {
 
   if (!rpcError) return;
 
-  const { error } = await supabase
-    .from("friendships")
-    .update({ status: "accepted", updated_at: new Date().toISOString() })
-    .eq("id", friendshipId);
-
-  if (error) throw new Error(error.message || "Erro ao aceitar pedido.");
+  throw new Error(
+    backendErrorMessage(
+      rpcError,
+      "Não foi possível aceitar o pedido. Atualize a lista e tente novamente.",
+    ),
+  );
 }
 
 /**
@@ -286,7 +300,7 @@ export async function removeFriendship(friendshipId: string): Promise<void> {
 
   const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
 
-  if (error) throw new Error(error.message || "Erro ao remover amizade.");
+  if (error) throw new Error(backendErrorMessage(error, "Não foi possível remover a amizade."));
 }
 
 /**
@@ -307,7 +321,7 @@ export async function blockUser(
   });
 
   if (blockErr && blockErr.code !== "23505") {
-    throw new Error(blockErr.message || "Erro ao bloquear usuário.");
+    throw new Error(backendErrorMessage(blockErr, "Não foi possível bloquear este usuário."));
   }
 
   // Remove any existing friendship between them
@@ -337,7 +351,7 @@ export async function reportUser(
     details: details ? sanitizePlainText(details) : null,
   });
 
-  if (error) throw new Error(error.message || "Erro ao registrar denúncia.");
+  if (error) throw new Error(backendErrorMessage(error, "Não foi possível registrar a denúncia."));
 }
 
 /**
@@ -367,14 +381,22 @@ export async function createStudyGroup(
     .select()
     .single();
 
-  if (error || !data) throw new Error(error?.message || "Erro ao criar grupo.");
+  if (error || !data)
+    throw new Error(backendErrorMessage(error, "Não foi possível criar o grupo."));
 
   // Add creator as admin member
-  await supabase.from("group_members").insert({
+  const { error: memberError } = await supabase.from("group_members").insert({
     group_id: data.id,
     user_id: userId,
     role: "admin",
   });
+  if (memberError)
+    throw new Error(
+      backendErrorMessage(
+        memberError,
+        "Grupo criado, mas não foi possível registrar sua participação. Atualize a página.",
+      ),
+    );
 
   return {
     id: data.id,
@@ -397,24 +419,14 @@ export async function joinGroupByCode(userId: string, code: string): Promise<Stu
 
   const cleanCode = sanitizePlainText(code).toUpperCase();
 
-  const { data: group, error: groupErr } = await supabase
-    .from("study_groups")
-    .select("*")
-    .eq("invite_code", cleanCode)
-    .single();
-
-  if (groupErr || !group) {
-    throw new Error("Código de convite inválido ou grupo não encontrado.");
-  }
-
-  const { error: memberErr } = await supabase.from("group_members").insert({
-    group_id: group.id,
-    user_id: userId,
-    role: "member",
+  const { data: group, error: groupErr } = await supabase.rpc("join_study_group", {
+    p_code: cleanCode,
   });
 
-  if (memberErr && memberErr.code !== "23505") {
-    throw new Error(memberErr.message || "Não foi possível ingressar no grupo.");
+  if (groupErr || !group) {
+    throw new Error(
+      backendErrorMessage(groupErr, "Código de convite inválido ou grupo não encontrado."),
+    );
   }
 
   return {

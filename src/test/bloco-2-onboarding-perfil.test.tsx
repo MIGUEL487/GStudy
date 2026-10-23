@@ -97,7 +97,7 @@ describe("Bloco 2: Onboarding e Perfil do Estudante", () => {
       expect(getNextSchoolYear("fundamental-9")).toBe("medio-1");
       expect(getNextSchoolYear("medio-1")).toBe("medio-2");
       expect(getNextSchoolYear("medio-3")).toBe("cursinho");
-      expect(getNextSchoolYear("cursinho")).toBe("superior");
+      expect(getNextSchoolYear("cursinho")).toBeNull();
       expect(getNextSchoolYear("superior")).toBeNull();
     });
 
@@ -182,7 +182,7 @@ describe("Bloco 2: Onboarding e Perfil do Estudante", () => {
       fireEvent.click(screen.getByRole("button", { name: /Avançar/i }));
 
       await waitFor(() => {
-        expect(screen.getByText("Quais provas você pretende prestar?")).toBeInTheDocument();
+        expect(screen.getByText("Vai prestar vestibular?")).toBeInTheDocument();
       });
 
       // Conclui onboarding

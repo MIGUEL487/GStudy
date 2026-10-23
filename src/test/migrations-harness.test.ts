@@ -161,6 +161,103 @@ describe("PostgreSQL Migrations & RLS Harness (PGlite)", () => {
     );
     expect(Number(publicMsgsCount.rows[0].total)).toBe(2);
 
+    // Exercise actual PostgreSQL grants, policies and triggers with two identities.
+    await expect(
+      db.exec(`update public.study_rooms set created_by = '${userB}' where id = '${publicRoomId}'`),
+    ).rejects.toThrow();
+    await expect(
+      db.exec(`update public.study_rooms set is_private = true where id = '${publicRoomId}'`),
+    ).rejects.toThrow();
+    await expect(
+      db.exec(
+        `update public.study_room_participants set room_id = '${privateRoomId}' where user_id = '${userB}'`,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.query(`select public.send_room_message('${privateRoomId}', 'intrusão', 'falso', 'falso')`),
+    ).rejects.toThrow();
+    await expect(
+      db.exec(
+        `insert into public.direct_messages(sender_id, recipient_id, content) values('${userB}', '${userA}', 'sem amizade')`,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      db.exec(
+        `insert into public.notifications(user_id, type, title, body) values('${userA}', 'system', 'falso', 'falso')`,
+      ),
+    ).rejects.toThrow();
+
+    await db.exec(`set request.jwt.claim.sub = '${userA}'`);
+    await db.query(`select public.send_friend_request_v2('${userB}')`);
+    await db.query(`select public.send_friend_request_v2('${userB}')`);
+    const friendship = await db.query<{ id: string }>(`select id from public.friendships`);
+    expect(friendship.rows).toHaveLength(1);
+    const friendshipId = friendship.rows[0]!.id;
+    await expect(
+      db.exec(`update public.friendships set status = 'accepted' where id = '${friendshipId}'`),
+    ).rejects.toThrow();
+    await db.exec(`set request.jwt.claim.sub = '${userB}'`);
+    await db.query(`select public.respond_friend_request('${friendshipId}', true)`);
+    await db.exec(
+      `insert into public.direct_messages(sender_id, recipient_id, content) values('${userB}', '${userA}', 'mensagem original')`,
+    );
+    await db.exec(`set request.jwt.claim.sub = '${userA}'`);
+    await expect(
+      db.exec(`update public.direct_messages set content = 'adulterada'`),
+    ).rejects.toThrow();
+    await db.exec(`update public.direct_messages set read_at = now()`);
+    expect(
+      (await db.query(`select read_at from public.direct_messages`)).rows[0]!.read_at,
+    ).not.toBeNull();
+
+    const groupId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+    await db.exec(
+      `insert into public.study_groups(id,name,created_by,invite_code) values('${groupId}', 'Grupo A', '${userA}', 'SECRET42')`,
+    );
+    await db.exec(
+      `insert into public.group_members(group_id,user_id,role) values('${groupId}', '${userA}', 'admin')`,
+    );
+    await db.exec(`set request.jwt.claim.sub = '${userB}'`);
+    expect((await db.query(`select * from public.study_groups`)).rows).toHaveLength(0);
+    await expect(
+      db.exec(
+        `insert into public.group_members(group_id,user_id,role) values('${groupId}', '${userB}', 'admin')`,
+      ),
+    ).rejects.toThrow();
+    await db.query(`select public.join_study_group('SECRET42')`);
+    expect(
+      (await db.query(`select * from public.group_members where group_id = '${groupId}'`)).rows,
+    ).toHaveLength(2);
+
+    for (let i = 1; i < 20; i++)
+      await db.exec(
+        `insert into public.direct_messages(sender_id,recipient_id,content) values('${userB}','${userA}','teste de limite')`,
+      );
+    await expect(
+      db.exec(
+        `insert into public.direct_messages(sender_id,recipient_id,content) values('${userB}','${userA}','excesso')`,
+      ),
+    ).rejects.toThrow(/Aguarde/);
+    await db.exec(
+      `set request.jwt.claim.sub = '${userA}'; insert into public.user_blocks(blocker_id,blocked_id) values('${userA}','${userB}')`,
+    );
+    await db.exec(`set request.jwt.claim.sub = '${userB}'`);
+    expect(
+      (await db.query(`select id from public.profiles where id = '${userA}'`)).rows,
+    ).toHaveLength(0);
+    expect((await db.query(`select id from public.direct_messages`)).rows).toHaveLength(0);
+    expect((await db.query(`select id from public.study_rooms`)).rows).toHaveLength(0);
+    await expect(
+      db.query(`select public.send_room_message('${publicRoomId}', 'bloqueado', 'falso', 'falso')`),
+    ).rejects.toThrow();
+    await db.exec(`set role anon; set request.jwt.claim.sub = ''`);
+    await expect(db.query(`select * from public.direct_messages`)).rejects.toThrow();
+    await db.exec(`reset role`);
+    await db.exec(
+      fs.readFileSync(path.join(migrationsDir, "0013_social_security_hardening.sql"), "utf8"),
+    );
+    await db.close();
+
     console.log("PGlite harness concluído com sucesso: RLS e isolamento validados sem recursão!");
   }, 60000);
 });
