@@ -4,21 +4,40 @@ export type GameType =
   | "memory-pairs"
   | "sequence-order"
   | "word-hangman"
+  | "typing-fast"
+  | "drag-classify"
   | "map-click";
 
-export type GameSubject = "matematica" | "geografia" | "portugues";
+export type GameSubject =
+  | "matematica"
+  | "geografia"
+  | "portugues"
+  | "biologia"
+  | "historia"
+  | "fisica"
+  | "ingles"
+  | "outros";
 
 export type GameDifficulty = "facil" | "medio" | "dificil";
+export type GameLaunch = {
+  gameId?: string | undefined;
+  seed?: string | undefined;
+  difficulty?: GameDifficulty | undefined;
+  challengeId?: string | undefined;
+};
 
 export interface GameQuestion {
   id: string;
   prompt: string;
-  options?: string[];
-  correctAnswer?: string | number;
-  correctIndex?: number;
-  targetKey?: string;
-  sequence?: string[];
-  explanation?: string;
+  options?: string[] | undefined;
+  correctAnswer?: string | number | undefined;
+  correctIndex?: number | undefined;
+  targetKey?: string | undefined;
+  sequence?: string[] | undefined;
+  pairs?: { left: string; right: string }[] | undefined;
+  categories?: string[] | undefined;
+  items?: { label: string; category: string }[] | undefined;
+  explanation?: string | undefined;
 }
 
 export interface GameDefinition {
@@ -31,6 +50,9 @@ export interface GameDefinition {
   iconName: string;
   estimatedMinutes: number;
   timeLimitSeconds?: number;
+  source?: "local" | "ai";
+  topic?: string;
+  fixedDifficulty?: GameDifficulty;
   questions: Record<GameDifficulty, GameQuestion[]>;
 }
 
@@ -56,20 +78,34 @@ export interface GameResult {
 
 export const HIGHSCORES_STORAGE_KEY = "gstudy_game_highscores";
 
-export function getStoredHighScores(): Record<string, GameHighScore> {
+export const highScoresKey = (userId: string) => `${HIGHSCORES_STORAGE_KEY}:${userId}`;
+
+export function getStoredHighScores(userId?: string): Record<string, GameHighScore> {
+  if (!userId) return {};
   if (typeof window === "undefined" || !window.localStorage) return {};
   try {
-    const raw = localStorage.getItem(HIGHSCORES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = localStorage.getItem(highScoresKey(userId));
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([, score]) =>
+          score &&
+          typeof score === "object" &&
+          Number.isSafeInteger(score.bestScore) &&
+          score.bestScore >= 0,
+      ),
+    );
   } catch {
     return {};
   }
 }
 
-export function saveGameHighScore(result: GameResult): boolean {
+export function saveGameHighScore(result: GameResult, userId?: string): boolean {
+  if (!userId || !Number.isSafeInteger(result.score) || result.score < 0) return false;
   if (typeof window === "undefined" || !window.localStorage) return false;
   try {
-    const scores = getStoredHighScores();
+    const scores = getStoredHighScores(userId);
     const key = `${result.gameId}_${result.difficulty}`;
     const previous = scores[key];
     const isNew = !previous || result.score > previous.bestScore;
@@ -82,9 +118,25 @@ export function saveGameHighScore(result: GameResult): boolean {
         stars: Math.max(result.stars, previous?.stars ?? 0),
         updatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(HIGHSCORES_STORAGE_KEY, JSON.stringify(scores));
+      localStorage.setItem(highScoresKey(userId), JSON.stringify(scores));
     }
     return isNew;
+  } catch {
+    return false;
+  }
+}
+
+export function cacheGameHighScores(
+  userId: string,
+  records: Record<string, GameHighScore>,
+): boolean {
+  try {
+    const current = getStoredHighScores(userId);
+    for (const [key, record] of Object.entries(records)) {
+      if (!current[key] || record.bestScore > current[key]!.bestScore) current[key] = record;
+    }
+    localStorage.setItem(highScoresKey(userId), JSON.stringify(current));
+    return true;
   } catch {
     return false;
   }

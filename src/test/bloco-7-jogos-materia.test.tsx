@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { GAMES_CATALOG, getGamesBySubject, getGameById } from "@/lib/games/catalog";
 import {
   calculateGameStars,
@@ -10,6 +10,13 @@ import {
 } from "@/lib/games/types";
 import { GameCatalog } from "@/components/games/game-catalog";
 import { GamePlayer } from "@/components/games/game-player";
+vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
+vi.mock("@/lib/games.functions", () => ({
+  generateGame: vi.fn(),
+  readSharedGame: vi.fn(),
+  explainGameMistake: vi.fn(),
+}));
+afterEach(cleanup);
 
 describe("Bloco 7: Catálogo de Jogos por Matéria e Motor GameDefinition", () => {
   beforeEach(() => {
@@ -75,6 +82,13 @@ describe("Bloco 7: Catálogo de Jogos por Matéria e Motor GameDefinition", () =
   });
 
   describe("7.2 Sistema de Pontuação, Combo, Estrelas e XP", () => {
+    it("preserva o armazenamento global antigo sem atribuí-lo a outra conta", () => {
+      const raw = JSON.stringify({ antigo: { bestScore: 900 } });
+      localStorage.setItem(HIGHSCORES_STORAGE_KEY, raw);
+      expect(getStoredHighScores("account-a")).toEqual({});
+      expect(getStoredHighScores()).toEqual({});
+      expect(localStorage.getItem(HIGHSCORES_STORAGE_KEY)).toBe(raw);
+    });
     it("calcula estrelas corretamente: 3 estrelas para >= 85%, 2 para >= 60%, 1 caso contrário", () => {
       expect(calculateGameStars(9, 10)).toBe(3); // 90%
       expect(calculateGameStars(8, 10)).toBe(2); // 80%
@@ -104,22 +118,23 @@ describe("Bloco 7: Catálogo de Jogos por Matéria e Motor GameDefinition", () =
         isNewRecord: false,
       };
 
-      const isNew1 = saveGameHighScore(res1);
+      const isNew1 = saveGameHighScore(res1, "account-a");
       expect(isNew1).toBe(true);
 
-      const stored = getStoredHighScores();
+      const stored = getStoredHighScores("account-a");
+      expect(getStoredHighScores("account-b")).toEqual({});
       expect(stored["math-calc-mental_medio"]?.bestScore).toBe(500);
 
       // Score menor não supera recorde
       const res2 = { ...res1, score: 400 };
-      const isNew2 = saveGameHighScore(res2);
+      const isNew2 = saveGameHighScore(res2, "account-a");
       expect(isNew2).toBe(false);
 
       // Score maior supera recorde
       const res3 = { ...res1, score: 750, stars: 3 };
-      const isNew3 = saveGameHighScore(res3);
+      const isNew3 = saveGameHighScore(res3, "account-a");
       expect(isNew3).toBe(true);
-      expect(getStoredHighScores()["math-calc-mental_medio"]?.bestScore).toBe(750);
+      expect(getStoredHighScores("account-a")["math-calc-mental_medio"]?.bestScore).toBe(750);
     });
   });
 
@@ -147,16 +162,16 @@ describe("Bloco 7: Catálogo de Jogos por Matéria e Motor GameDefinition", () =
       expect(screen.queryByText("Relâmpago de Cálculo Mental")).not.toBeInTheDocument();
     });
 
-    it("abre o player de jogo ao clicar em 'Jogar solo'", () => {
+    it("abre o player de jogo ao clicar em 'Jogar solo'", async () => {
       render(<GameCatalog />);
 
       const playBtn = screen.getByLabelText(/Jogar solo: Relâmpago de Cálculo Mental/i);
       fireEvent.click(playBtn);
 
       expect(
-        screen.getByRole("dialog", { name: /Jogo: Relâmpago de Cálculo Mental/i }),
+        await screen.findByRole("dialog", { name: /Relâmpago de Cálculo Mental/i }),
       ).toBeInTheDocument();
-      expect(screen.getByText(/Como jogar:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Os jogos não gastam corações/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Começar desafio/i })).toBeInTheDocument();
     });
   });

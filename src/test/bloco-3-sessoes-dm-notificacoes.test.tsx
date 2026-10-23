@@ -14,6 +14,12 @@ import { SessionsView } from "@/components/sessions-view";
 import { NotificationsPopover } from "@/components/notifications-popover";
 import { FriendsDrawer } from "@/components/friends-drawer";
 import { DirectMessagesModal } from "@/components/direct-messages-modal";
+vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
+vi.mock("@/lib/games.functions", () => ({
+  generateGame: vi.fn(),
+  readSharedGame: vi.fn(),
+  explainGameMistake: vi.fn(),
+}));
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({

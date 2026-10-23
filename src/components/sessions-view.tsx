@@ -3,6 +3,7 @@ import { m, AnimatePresence } from "motion/react";
 import { Radio, Users, Gamepad2 } from "lucide-react";
 import { StudyRoomsView } from "./study-rooms-view";
 import { SocialFriendsPanel } from "./social-friends-panel";
+import type { GameLaunch } from "@/lib/games/types";
 const GameCatalog = lazy(() =>
   import("./games/game-catalog").then((module) => ({ default: module.GameCatalog })),
 );
@@ -12,9 +13,10 @@ export type SessionTab = "rooms" | "groups" | "games";
 
 interface SessionsViewProps {
   initialTab?: SessionTab;
+  initialGame?: GameLaunch | undefined;
 }
 
-export function SessionsView({ initialTab = "rooms" }: SessionsViewProps) {
+export function SessionsView({ initialTab = "rooms", initialGame }: SessionsViewProps) {
   const [tab, setTab] = useState<SessionTab>(initialTab);
   useEffect(() => setTab(initialTab), [initialTab]);
 
@@ -81,7 +83,7 @@ export function SessionsView({ initialTab = "rooms" }: SessionsViewProps) {
           {tab === "groups" && <SocialFriendsPanel initialTab="groups" groupsOnly />}
           {tab === "games" && (
             <Suspense fallback={<p role="status">Carregando jogos…</p>}>
-              <GameCatalog />
+              <GameCatalog initialLaunch={initialGame} />
             </Suspense>
           )}
         </m.div>
