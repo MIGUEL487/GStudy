@@ -32,8 +32,8 @@ create policy "participants_can_read_room_messages"
       select 1 from public.study_rooms r
       where r.id = study_room_messages.room_id
       and (
-        r.is_public = true
-        or r.owner_id = (select auth.uid())
+        r.is_private = false
+        or r.created_by = (select auth.uid())
         or exists (
           select 1 from public.study_room_participants p
           where p.room_id = r.id and p.user_id = (select auth.uid())
@@ -53,8 +53,8 @@ create policy "participants_can_send_messages"
       select 1 from public.study_rooms r
       where r.id = study_room_messages.room_id
       and (
-        r.is_public = true
-        or r.owner_id = (select auth.uid())
+        r.is_private = false
+        or r.created_by = (select auth.uid())
         or exists (
           select 1 from public.study_room_participants p
           where p.room_id = r.id and p.user_id = (select auth.uid())

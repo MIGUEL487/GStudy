@@ -64,3 +64,19 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
   5. `public.record_room_focus_session(p_room_id, p_minutes)`: RPC `SECURITY DEFINER SET search_path = ''` que registra blocos de foco concluídos e destrava conquistas automaticamente.
 - **Como Aplicar no Supabase:**
   Copie o conteúdo de `drizzle/migrations/0009_social_gamification_and_rankings.sql` e execute no painel **SQL Editor** do projeto Supabase.
+
+---
+
+## 0010_fix_rls_recursion_and_room_chat_columns.sql
+
+- **Fase:** Bloco 0 — Correção de RLS e Integridade de Migrações
+- **Data:** 23/10/2026
+- **Feature Flag Relacionada:** `VITE_FEATURE_SOCIAL`
+- **Conteúdo da Migration:**
+  1. `public.is_group_member(p_group_id, p_user_id)`: Função auxiliar `SECURITY DEFINER SET search_path = ''` para eliminar recursão de consulta em `group_members`.
+  2. `public.is_friend(p_user_a, p_user_b)`: Função auxiliar `SECURITY DEFINER SET search_path = ''` para checagem bilateral segura de amizade sem loop.
+  3. `public.is_study_room_participant(p_room_id, p_user_id)`: Função auxiliar `SECURITY DEFINER SET search_path = ''` para validação de participação em salas.
+  4. `public.is_study_room_accessible(p_room_id, p_user_id)`: Função auxiliar `SECURITY DEFINER SET search_path = ''` que unifica verificação de acesso a salas e mensagens de chat.
+  5. **Correção de Políticas de RLS:** Substituição de subqueries recursivas por chamadas diretas às funções auxiliares em `group_members`, `study_groups`, `profiles`, `study_rooms`, `study_room_participants` e `study_room_messages`.
+- **Como Aplicar no Supabase:**
+  Copie o conteúdo de `drizzle/migrations/0010_fix_rls_recursion_and_room_chat_columns.sql` e execute no painel **SQL Editor** do projeto Supabase.
