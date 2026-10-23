@@ -200,17 +200,14 @@ describe("Aula com lousa em destaque e cartão do aluno", () => {
     );
     expect(mocks.complete).toHaveBeenCalledWith("feynman");
   });
-  it("troca os alunos e envia a persona selecionada sem alterar os autores anteriores", async () => {
+  it("fixa a escolha inicial e identifica o autor real de cada resposta", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
     mocks.reply.mockResolvedValue({ text: "Você consegue explicar por que isso funciona?" });
     start();
-    fireEvent.click(
-      within(screen.getByRole("group", { name: "Escolher aluno" })).getByRole("button", {
-        name: "Lia",
-      }),
-    );
+    expect(screen.queryByRole("group", { name: "Escolher aluno" })).not.toBeInTheDocument();
     expect(
       within(screen.getByRole("complementary", { name: "Seu aluno virtual" })).getByText(
-        /Oi, sou a Lia!/,
+        /Oi, prof!/,
       ),
     ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Agora é a sua vez"), {
@@ -218,12 +215,12 @@ describe("Aula com lousa em destaque e cartão do aluno", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar explicação" }));
     await waitFor(() => expect(mocks.clear).toHaveBeenCalled());
-    expect(mocks.reply.mock.calls[0]![0].data.studentId).toBe("lia");
+    expect(mocks.reply.mock.calls[0]![0].data.studentId).toBe("gui");
     expect(mocks.reply.mock.calls[0]![0].data.messages[0]).not.toHaveProperty("studentId");
     fireEvent.click(screen.getByRole("button", { name: "Ver conversa" }));
     const history = screen.getByRole("region", { name: "Conversa da aula" });
-    expect(within(history).getByText("Gui")).toBeInTheDocument();
-    expect(within(history).getAllByText("Lia")).toHaveLength(2);
+    expect(within(history).getAllByText("Gui")).toHaveLength(2);
+    vi.restoreAllMocks();
   });
   it("usa uma tentativa por conversa e impede o primeiro envio quando o limite foi atingido", async () => {
     mocks.reply.mockResolvedValue({ text: "Pode dar mais um exemplo?" });

@@ -121,6 +121,32 @@
 .feyn-studio .whiteboard--paper {
   box-shadow: 0 8px 30px #4832220a;
 }
+
+[data-theme="dark"] .feyn-studio .feyn-studio-compose,
+[data-theme="dark"] .feyn-mobile-tabs,
+[data-theme="dark"] .feyn-studio .feyn-history-toggle,
+[data-theme="dark"] .feyn-studio .feyn-student-card {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .feyn-tab-btn.is-active {
+  background: var(--muted);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .feyn-studio .feyn-topic strong,
+[data-theme="dark"] .feyn-studio .feyn-student-copy h2 {
+  color: var(--foreground);
+}
+
+[data-theme="dark"] .feyn-studio .feyn-compose-fields textarea {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
 .feyn-studio .feyn-student-card {
   box-shadow: 0 8px 30px #4832220a;
   animation: feyn-student-arrive 0.65s var(--ease);
