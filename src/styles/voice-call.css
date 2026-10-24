@@ -1,243 +1,404 @@
-/* Dark Academia Voice Call Styles */
-
-.voice-call-bar {
+.call-start button,
+.call-screen button,
+.call-people-sheet button,
+.call-dnd select,
+.call-dnd-header,
+.call-header-button,
+.incoming-voice-dialog button {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.call-start button:hover,
+.call-screen button:hover,
+.call-header-button:hover {
+  background: var(--surface-hover);
+}
+.call-screen button:disabled,
+.call-people-sheet button:disabled,
+.call-start button:disabled,
+.incoming-voice-dialog button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.call-header-button {
+  text-decoration: none;
+  opacity: calc(0.7 + var(--voice-level, 0) * 0.3);
+  transform: scale(calc(1 + var(--voice-level, 0) * 0.035));
+}
+.call-header-button span {
+  font-size: 12px;
+}
+.call-start p,
+.call-dnd p {
+  font-size: 13px;
+  margin-top: 8px;
+  max-width: 36ch;
+}
+.call-start p[role="alert"],
+.call-error {
+  color: var(--destructive);
+}
+.call-dnd label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.call-dnd select {
+  max-width: 100%;
+}
+.call-screen {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+.call-screen > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
-  border-radius: 12px;
-  background: var(--card, #fffaf2);
-  border: 1px solid var(--border, #d7c6af);
-  box-shadow: 0 4px 16px rgba(44, 34, 25, 0.06);
-  margin-bottom: 16px;
+  gap: 16px;
 }
-
-@media (max-width: 640px) {
-  .voice-call-bar {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
+.call-screen h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1.2;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
 }
-
-.voice-status-group {
-  display: flex;
-  align-items: center;
+.call-screen p {
+  margin: 0;
+}
+.call-screen > header p,
+.call-permission-note {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.call-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 300px);
+  gap: 20px;
+  align-items: start;
+}
+.call-stage {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+.call-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   gap: 12px;
 }
-
-.voice-pulse-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #2e8540;
-  box-shadow: 0 0 0 0 rgba(46, 133, 64, 0.5);
-  animation: voice-pulse 2s infinite;
-}
-
-@keyframes voice-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(46, 133, 64, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(46, 133, 64, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(46, 133, 64, 0);
-  }
-}
-
-.voice-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.voice-ctrl-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #d7c6af);
-  background: var(--surface, #f5ebd9);
-  color: var(--foreground, #2c2219);
-  font-size: 13px;
-  font-family: var(--font-serif);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s var(--ease);
-}
-
-.voice-ctrl-btn:hover {
-  background: var(--surface-hover, #ebdfca);
-}
-
-.voice-ctrl-btn.is-active {
-  background: var(--primary, #b8860b);
-  border-color: var(--primary, #b8860b);
-  color: #fff;
-}
-
-.voice-ctrl-btn.is-muted,
-.voice-ctrl-btn.is-deafened {
-  background: #fde8e8;
-  border-color: #f2cfc7;
-  color: #c53030;
-}
-
-.voice-ctrl-btn.is-disconnect {
-  background: #fde8e8;
-  border-color: #f2cfc7;
-  color: #c53030;
-}
-
-.voice-ctrl-btn.is-disconnect:hover {
-  background: #fbd5d5;
-}
-
-.voice-participants-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.voice-peer-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  min-height: 36px;
-  border-radius: 20px;
-  background: var(--surface, #f5ebd9);
-  border: 1.5px solid var(--border, #d7c6af);
-  font-size: 12px;
-  color: var(--foreground, #2c2219);
-  transition: all 0.2s ease;
-}
-
-.voice-peer-chip.is-speaking {
-  border-color: #2e8540;
-  box-shadow: 0 0 8px rgba(46, 133, 64, 0.4);
-}
-
-.voice-screen-preview {
-  margin-top: 14px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #17130f;
-  border: 1px solid var(--border, #d7c6af);
-  position: relative;
-}
-
-.voice-screen-video {
-  width: 100%;
-  max-height: 400px;
-  object-fit: contain;
-  display: block;
-}
-
-/* Incoming Call Toast / Modal */
-.incoming-call-modal {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1000;
-  width: 320px;
-  border-radius: 14px;
-  background: var(--card, #fffaf2);
-  border: 1px solid var(--border, #d7c6af);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-  padding: 16px;
+.call-member-tile {
+  --voice-level: 0;
+  min-width: 0;
+  min-height: 190px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: relative;
+  isolation: isolate;
 }
-
-@keyframes slide-up {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.call-member-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--voice-level, 0);
 }
-
-.incoming-call-header {
+.call-member-tile > p {
+  text-align: center;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-weight: 600;
+}
+.call-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  aspect-ratio: 1;
+  background: var(--surface-hover);
+  color: var(--foreground);
+  border-radius: 50%;
+  overflow: hidden;
+  font: 600 26px var(--font-serif);
+}
+.call-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+.call-member-status {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
 }
-
-.incoming-call-timer-bar {
-  width: 100%;
-  height: 4px;
-  background: var(--surface, #f5ebd9);
-  border-radius: 2px;
+.call-speaking-bars {
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.call-speaking-bars i {
+  display: block;
+  width: 3px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--accent);
+  transform: scaleY(calc(0.15 + var(--voice-level, 0) * 0.85));
+}
+.call-speaking-bars i:nth-child(2) {
+  transform: scaleY(calc(0.2 + var(--voice-level, 0) * 0.8));
+}
+.call-speaking-bars i:nth-child(3) {
+  transform: scaleY(calc(0.1 + var(--voice-level, 0) * 0.7));
+}
+.call-share-stage {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
 }
-
-.incoming-call-timer-fill {
-  height: 100%;
-  background: var(--primary, #b8860b);
-  transition: width 1s linear;
+.call-share-stage video {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: contain;
+  display: block;
+  background: var(--background);
 }
-
-.incoming-call-actions {
+.call-share-stage p {
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.has-share .call-member-tile {
+  min-height: 130px;
+  padding: 12px;
+}
+.has-share .call-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+}
+.call-people-desktop {
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  max-height: 65dvh;
+  overflow: auto;
+}
+.call-people-tabs {
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
-
-.incoming-call-btn-accept {
+.call-people-tabs button {
+  padding: 8px;
+  font-size: 12px;
   flex: 1;
-  display: inline-flex;
+}
+.call-people-tabs [aria-selected="true"] {
+  background: var(--surface-hover);
+  font-weight: 700;
+}
+.call-person {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.call-person .call-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+}
+.call-person > span:not(.call-avatar) {
+  flex: 1;
+  min-width: 70px;
+  overflow-wrap: anywhere;
+}
+.call-person small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.call-person button {
+  font-size: 12px;
+}
+.call-person > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.call-people-desktop p,
+.call-people-sheet p {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-top: 12px;
+}
+.call-toolbar {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: none;
-  background: #2e8540;
-  color: #fff;
-  font-family: var(--font-serif);
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  z-index: 10;
+}
+.call-toolbar button {
   font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease;
 }
-
-.incoming-call-btn-accept:hover {
-  background: #246a33;
+.call-toolbar .call-leave {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
 }
-
-.incoming-call-btn-reject {
+.call-share-control {
+  position: relative;
+}
+.call-share-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  padding: 6px;
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.call-permission-note {
+  max-width: 80ch;
+}
+.call-screen .call-people-mobile {
+  display: none;
+}
+.incoming-voice-dialog {
+  max-width: 420px;
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+.incoming-voice-dialog > button.absolute {
+  display: none;
+}
+.incoming-voice-dialog .call-actions {
+  display: flex;
+  gap: 10px;
+}
+.incoming-voice-dialog .call-actions button {
   flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #d7c6af);
-  background: var(--surface, #f5ebd9);
-  color: var(--muted-foreground, #74583d);
-  font-family: var(--font-serif);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
 }
-
-.incoming-call-btn-reject:hover {
-  background: #fde8e8;
-  color: #c53030;
-  border-color: #f2cfc7;
+.call-invite-progress {
+  height: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.call-invite-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 1s linear;
+}
+.call-people-sheet {
+  max-height: 90dvh;
+  overflow: auto;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+@media (max-width: 900px) {
+  .call-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .call-people-desktop {
+    display: none;
+  }
+  .call-screen .call-people-mobile {
+    display: inline-flex;
+  }
+  .call-member-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .call-member-tile {
+    min-height: 175px;
+  }
+  .call-toolbar {
+    gap: 8px;
+    padding: 10px;
+  }
+  .call-toolbar > button,
+  .call-toolbar > .call-share-control {
+    flex: 1;
+  }
+  .call-toolbar .call-share-control button {
+    width: 100%;
+  }
+  .call-header-button span {
+    display: none;
+  }
+}
+@media (max-width: 430px) {
+  .call-toolbar button {
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .call-toolbar > .call-leave {
+    flex-basis: 100%;
+    flex-direction: row;
+  }
+  .call-screen > header {
+    align-items: start;
+  }
+  .call-member-status span {
+    font-size: 11px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .call-header-button {
+    transform: none;
+    opacity: 1;
+  }
+  .call-speaking-bars i {
+    transform: scaleY(0.4) !important;
+  }
+  .call-invite-progress span {
+    transition: none;
+  }
 }

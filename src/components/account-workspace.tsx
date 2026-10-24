@@ -7,6 +7,8 @@ import { LearningProvider } from "./learning-provider";
 import { RecallSessionProvider } from "./recall-session-provider";
 import { AccountSyncProvider } from "./account-sync-provider";
 import { HeartsProvider } from "./hearts-provider";
+import { VoiceProvider } from "./voice/voice-provider";
+import { IncomingCall } from "./voice/voice-controls";
 
 export function AccountWorkspace({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -16,7 +18,12 @@ export function AccountWorkspace({ children }: { children: ReactNode }) {
         <LearningProvider>
           <RecallSessionProvider userId={user.id}>
             <NotionHydrator />
-            <HeartsProvider userId={user.id}>{children}</HeartsProvider>
+            <HeartsProvider userId={user.id}>
+              <VoiceProvider userId={user.id}>
+                {children}
+                <IncomingCall />
+              </VoiceProvider>
+            </HeartsProvider>
           </RecallSessionProvider>
         </LearningProvider>
       </StudyProvider>

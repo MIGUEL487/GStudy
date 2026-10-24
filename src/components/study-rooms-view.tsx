@@ -17,8 +17,6 @@ import {
   Send,
   Volume2,
   VolumeX,
-  Mic,
-  MicOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "./auth-gate";
@@ -43,7 +41,7 @@ import {
   type RoomMessage,
 } from "@/lib/study-rooms-model";
 import { triggerGoalCelebration, recordFocusSession } from "@/lib/social-gamification-model";
-import { isVoiceFeatureEnabled, StudyRoomVoiceMesh } from "@/lib/webrtc-voice-model";
+import { StartCallButton } from "./voice/voice-controls";
 import "@/styles/study-rooms.css";
 
 export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
@@ -73,11 +71,6 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
   const [typingIndicator, setTypingIndicator] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Voice State (WebRTC Mesh)
-  const [isVoiceMuted, setIsVoiceMuted] = useState(true);
-  const [speakingUsers, setSpeakingUsers] = useState<Record<string, boolean>>({});
-  const voiceMeshRef = useRef<StudyRoomVoiceMesh | null>(null);
 
   // Pomodoro local tick
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -200,54 +193,6 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
   }, [activeRoomId, user?.id, soundEnabled]);
-
-  // WebRTC Mesh Voice
-  useEffect(() => {
-    if (!activeRoomId || !user?.id || !isVoiceFeatureEnabled()) return;
-
-    const mesh = new StudyRoomVoiceMesh(activeRoomId, user.id, {
-      onSpeakingChange: (uid, isSpeaking) => {
-        setSpeakingUsers((prev) => ({ ...prev, [uid]: isSpeaking }));
-      },
-      onVoiceStateChange: (muted) => {
-        setIsVoiceMuted(muted);
-      },
-      onError: (err) => {
-        toast.error(err.message);
-      },
-    });
-
-    voiceMeshRef.current = mesh;
-    void mesh.initSignaling();
-
-    // Call existing peers
-    participants.forEach((p) => {
-      if (p.userId !== user.id) {
-        void mesh.callPeer(p.userId);
-      }
-    });
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.key === "m" || e.key === "M") &&
-        !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
-      ) {
-        e.preventDefault();
-        void mesh.toggleMute().then((newMuted) => {
-          setIsVoiceMuted(newMuted);
-          toast.info(newMuted ? "Microfone mutado" : "Microfone aberto");
-        });
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      mesh.disconnect();
-      voiceMeshRef.current = null;
-    };
-  }, [activeRoomId, user?.id, participants]);
 
   // Pomodoro local countdown timer
   useEffect(() => {
@@ -497,26 +442,7 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {isVoiceFeatureEnabled() && (
-              <div className="room-voice-controls">
-                <button
-                  type="button"
-                  className={`voice-mic-btn ${isVoiceMuted ? "is-muted" : "is-active"}`}
-                  onClick={async () => {
-                    if (voiceMeshRef.current) {
-                      const nextMuted = await voiceMeshRef.current.toggleMute();
-                      setIsVoiceMuted(nextMuted);
-                      toast.info(nextMuted ? "Microfone mutado" : "Microfone aberto");
-                    }
-                  }}
-                  title="Alternar microfone (Atalho: M)"
-                >
-                  {isVoiceMuted ? <MicOff size={16} /> : <Mic size={16} />}
-                  <span>{isVoiceMuted ? "Mutado" : "Transmitindo"}</span>
-                </button>
-                <span className="voice-hint-badge">M</span>
-              </div>
-            )}
+            <StartCallButton roomId={activeRoomId} />
 
             <button
               type="button"
@@ -641,9 +567,7 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
                 return (
                   <div key={p.userId} className="participant-card">
                     <div className="participant-header">
-                      <div
-                        className={`avatar-halo ${speakingUsers[p.userId] ? "is-speaking" : ""}`}
-                      >
+                      <div className="avatar-halo">
                         <Avatar url={p.avatarUrl} name={p.displayName ?? "Aluno"} size={42} />
                       </div>
                       <div>

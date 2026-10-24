@@ -29,6 +29,7 @@ import { HeartsStatus } from "./learning-status";
 import { toast } from "sonner";
 import { FriendsDrawer } from "./friends-drawer";
 import { NotificationsPopover } from "./notifications-popover";
+import { VoiceHeader } from "./voice/voice-controls";
 import { StudentOnboardingModal } from "./student-onboarding-modal";
 import { SchoolYearRolloverModal } from "./school-year-rollover-modal";
 import {
@@ -194,9 +195,9 @@ export function StudyLayout({ children }: { children: ReactNode }) {
       <div className="workspace">
         <header className="topbar" inert={focused}>
           <div className="topbar-left">
-            <Link to="/" className="brand mobile-brand">
+            <Link to="/" className="brand mobile-brand" aria-label="GStudy · Início">
               <img src={logo.url} alt="" />
-              GStudy
+              <span>GStudy</span>
             </Link>
             <BookOpen size={15} className="desktop-crumb" />
             <span>Meu espaço de estudo</span>
@@ -206,6 +207,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
           <div className="topbar-right">
             <HeartsStatus />
             <SyncStatus />
+            <VoiceHeader />
             <Leaf size={14} className="desktop-crumb" />
             <span>Seu ritmo. Sua jornada.</span>
             {socialEnabled && user && (
