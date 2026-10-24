@@ -4,9 +4,20 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
 
 ## Ordem e limites de aplicação
 
-Em um banco novo, aplique `0000` a `0015`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. As correções `0013`, `0014` e `0015` são aditivas e podem ser reaplicadas.
+Em um banco novo, aplique `0000` a `0016`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. As correções `0013` a `0016` são aditivas e podem ser reaplicadas.
 
 Nenhuma migração foi aplicada ao banco remoto durante esta correção. O harness PGlite executa a sequência completa com `auth.uid()` e os papéis `anon`, `authenticated` e `service_role`; verifica acessos e escritas reais entre duas identidades, inclusive tentativas indevidas.
+
+## 0016_voice_calls.sql
+
+- Chamadas começam somente pelo botão Ligar; entrar em uma sala não abre conexão nem pede microfone. `voice_calls`, `call_members`, `call_invites`, `call_preferences` e `call_signals` usam RLS, escrita somente por RPC e identidade de `auth.uid()`. A chamada admite seis participantes aceitos, começa mutada e expira após oito horas; participações sem heartbeat por três minutos deixam de autorizar acesso.
+- Convites duram 30 segundos. `respond_voice_invite` aceita somente o destinatário; recusas impõem 30 segundos de espera no servidor, inclusive entre chamadas diferentes. Não perturbar é salvo por conta: uma hora, até meia-noite de São Paulo ou até desligar. Convites silenciosos e expirados geram notificação perdida uma vez, consultada também ao reabrir o app.
+- A sinalização usa registros imutáveis criados por `send_voice_signal`; o destinatário recebe somente registros que o servidor atribuiu ao remetente autenticado. O código não confia em identidade enviada por broadcast. Há deduplicação no cliente, limites no servidor e recuperação por consulta a cada três segundos se um evento Realtime se perder. Registros com mais de 90 segundos ficam invisíveis e são removidos no próximo envio.
+- Habilite `call_signals`, `call_members` e `call_invites` na publicação `supabase_realtime` pelo painel Supabase. A migração adiciona uma policy de leitura em `realtime.messages` quando esse schema existe, para canais privados `voice:<UUID>` de participantes ativos. Não concede envio de broadcast. Audite policies Realtime antigas permissivas do projeto; o harness local valida as tabelas e as funções, mas não executa o serviço Realtime hospedado.
+- Criador da chamada, dono da sala e administradores do grupo podem silenciar ou remover participantes. Silêncio imposto também interrompe a reprodução no receptor; quem foi removido perde acesso às RPCs, aos registros de sinalização e aos demais peers na próxima atualização. Bloqueios bilaterais prevalecem.
+- Respeite `VITE_FEATURE_VOICE` e `VITE_FEATURE_SOCIAL`. STUN público funciona sem configuração adicional; redes restritivas podem exigir `VITE_TURN_URL`, `VITE_TURN_USERNAME` e `VITE_TURN_CREDENTIAL` no ambiente de build. Essas credenciais TURN são públicas no cliente WebRTC: use credenciais temporárias/de escopo limitado do seu provedor, nunca uma chave administrativa. Nenhum valor foi escrito em `.env` ou solicitado em chat.
+- A tela não grava áudio ou vídeo. Compartilhamento usa somente vídeo, até 1280×720 e 15 fps, com seleção da aba GStudy ou do navegador. Sem `getDisplayMedia`, o botão fica oculto; receber compartilhamento continua disponível. O navegador controla a seleção e a permissão.
+- Sem a migração, iniciar uma chamada mostra uma mensagem amigável e preserva os demais recursos. Nada foi aplicado remotamente. Para retenção, o administrador pode agendar limpeza de chamadas encerradas, convites antigos e sinalização expirada conforme a política do projeto; não habilitamos extensões nem jobs remotos.
 
 ## 0015_games.sql
 

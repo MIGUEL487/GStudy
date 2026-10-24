@@ -277,6 +277,22 @@ textarea {
   .topbar {
     gap: 8px;
     padding-inline: 16px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 68px;
+    padding-block: 8px;
+  }
+  .topbar:has(.call-header-button, .call-dnd-header) {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .topbar:has(.call-header-button, .call-dnd-header) .mobile-brand span {
+    display: none;
+  }
+  .mobile-brand {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
   }
   .topbar-left > :not(.mobile-brand),
   .topbar-right > span,
@@ -286,6 +302,17 @@ textarea {
   .topbar-right {
     gap: 0;
     min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+  .hearts-status-details {
+    position: fixed;
+    top: 76px;
+    right: 12px;
+    left: 12px;
+    width: auto;
   }
   .topbar-right > button[aria-label="Sair da conta"] {
     display: none;

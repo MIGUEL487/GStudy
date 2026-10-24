@@ -9,10 +9,14 @@ export const qaUser = {
   created_at: "2026-10-23T12:00:00Z",
 };
 /** Browser-only fixtures: authentication still goes through the app's ordinary Supabase client. */
-export async function qaContext(browser, { width = 390, theme = "dark" } = {}) {
+export async function qaContext(
+  browser,
+  { width = 390, theme = "dark", user = qaUser, ...options } = {},
+) {
   const context = await browser.newContext({
     viewport: { width, height: 900 },
     reducedMotion: "reduce",
+    ...options,
   });
   await context.addInitScript(
     ({ user, theme }) => {
@@ -41,16 +45,16 @@ export async function qaContext(browser, { width = 390, theme = "dark" } = {}) {
       );
       localStorage.setItem("gstudy_theme", theme);
     },
-    { user: qaUser, theme },
+    { user, theme },
   );
   await context.route("https://gstudy-test.supabase.co/**", async (route) => {
     const url = new URL(route.request().url());
     let data = [];
-    if (url.pathname === "/auth/v1/user") data = qaUser;
+    if (url.pathname === "/auth/v1/user") data = user;
     else if (url.pathname.endsWith("/profiles"))
       data = url.searchParams.get("id")?.startsWith("eq.")
         ? {
-            id: qaUser.id,
+            id: user.id,
             username: "ana_silva",
             display_name: "Ana Silva",
             onboarding_completed: true,

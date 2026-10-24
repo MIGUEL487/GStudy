@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AmigosRouteImport } from './routes/amigos'
 import { Route as CalendarioRouteImport } from './routes/calendario'
+import { Route as ChamadaRouteImport } from './routes/chamada'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as PrepararRouteImport } from './routes/preparar'
 import { Route as SalasRouteImport } from './routes/salas'
@@ -43,6 +44,11 @@ const AmigosRoute = AmigosRouteImport.update({
 const CalendarioRoute = CalendarioRouteImport.update({
   id: '/calendario',
   path: '/calendario',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChamadaRoute = ChamadaRouteImport.update({
+  id: '/chamada',
+  path: '/chamada',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/amigos': typeof AmigosRoute
   '/calendario': typeof CalendarioRoute
+  '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/amigos': typeof AmigosRoute
   '/calendario': typeof CalendarioRoute
+  '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/amigos': typeof AmigosRoute
   '/calendario': typeof CalendarioRoute
+  '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/'
     | '/amigos'
     | '/calendario'
+    | '/chamada'
     | '/configuracoes'
     | '/preparar'
     | '/salas'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/'
     | '/amigos'
     | '/calendario'
+    | '/chamada'
     | '/configuracoes'
     | '/preparar'
     | '/salas'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/'
     | '/amigos'
     | '/calendario'
+    | '/chamada'
     | '/configuracoes'
     | '/preparar'
     | '/salas'
@@ -271,6 +283,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AmigosRoute: typeof AmigosRoute
   CalendarioRoute: typeof CalendarioRoute
+  ChamadaRoute: typeof ChamadaRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   PrepararRoute: typeof PrepararRoute
   SalasRoute: typeof SalasRoute
@@ -311,6 +324,13 @@ declare module '@tanstack/react-router' {
       path: '/calendario'
       fullPath: '/calendario'
       preLoaderRoute: typeof CalendarioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chamada': {
+      id: '/chamada'
+      path: '/chamada'
+      fullPath: '/chamada'
+      preLoaderRoute: typeof ChamadaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configuracoes': {
@@ -439,6 +459,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AmigosRoute: AmigosRoute,
   CalendarioRoute: CalendarioRoute,
+  ChamadaRoute: ChamadaRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   PrepararRoute: PrepararRoute,
   SalasRoute: SalasRoute,

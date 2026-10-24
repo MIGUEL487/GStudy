@@ -21,3 +21,20 @@ Os testes Vitest de streaming usam os SDKs reais com HTTP simulado para verifica
 Com o mesmo servidor local, execute `npm run test:games`. São 80 partidas completas: oito mecânicas em 360, 390, 430, 768 e 1440 px, nos temas claro e escuro. O teste usa os controles visíveis, verifica a última resposta na pontuação, o registro de XP confirmado, ausência de erros JavaScript e de transbordamento horizontal. Supabase e IA são interceptados; estes resultados não comprovam disponibilidade do banco publicado. As permissões, limites e idempotência dos RPCs são verificados separadamente no harness PGlite.
 
 `QA_WIDTHS=390,1440` limita as larguras. `QA_OUTPUT` define a pasta de relatório, capturas e traces (padrão `/tmp/gstudy-games-check`). O relatório é salvo a cada partida. Se a execução for interrompida, `QA_RESUME=1` retoma apenas os cenários que faltaram ou falharam; use essa opção somente com os mesmos arquivos da aplicação. Alterações no aplicativo exigem uma nova rodada em outra pasta.
+
+## Chamadas
+
+Execute `npm run test:voice` com o servidor local acima. São dois contextos reais do Chromium em 390 e 1440 px, claro e escuro. Supabase é interceptado no navegador e encaminhado a um PGlite isolado que executa todas as migrações e os RPCs reais com a identidade de cada contexto. IA fica bloqueada. A mídia usa `RTCPeerConnection`, `getUserMedia`, áudio de teste, análise de nível e, quando autorizado pelo navegador, captura da aba real.
+
+O fluxo verifica convite sem abertura de mídia, recusa e espera real de 30 segundos, Não perturbar com notificação silenciosa, atendimento com microfone desligado, conexão entre os dois contextos, bytes de áudio recebidos, indicador de fala, mudo, silêncio imposto pelo responsável, vídeo compartilhado e encerramento ao sair. Falhas deixam trace, captura e diagnóstico em `QA_OUTPUT` (padrão `/tmp/gstudy-voice-check`). Receber vídeo só conta como confirmado quando o elemento tem frames disponíveis. Estas verificações não usam o serviço Realtime hospedado: exercitam a recuperação por consulta de sinalização, protegida pelas RLS reais. Realtime em produção e dispositivos físicos continuam exigindo verificação após configuração manual.
+
+Neste ambiente o Chromium aplica a policy gerenciada `WebRtcIPHandling=disable_non_proxied_udp`. Sem TURN, não fornece candidatos ICE; a aplicação mostra a limitação de rede. A policy não foi modificada. Para reproduzir o caminho TURN por TCP **somente no computador de teste**, instale o relay opcional fora do aplicativo:
+
+```sh
+npm install --prefix /tmp/gstudy-qa-relay --ignore-scripts --no-audit --no-fund node-turn@0.0.6
+QA_TURN_MODULE=/tmp/gstudy-qa-relay/node_modules/node-turn node scripts/qa-turn-relay.mjs
+```
+
+Em outro terminal, acrescente ao comando Vite de teste: `VITE_TURN_URL='turn:127.0.0.1:3480?transport=tcp' VITE_TURN_USERNAME=gstudy-local-qa VITE_TURN_CREDENTIAL=local-test-only`. As credenciais são públicas, descartáveis e válidas somente para o relay ligado em loopback. Nenhum `.env` é criado. O pacote opcional serve exclusivamente ao QA, não foi adicionado às dependências do GStudy e não é um servidor TURN de produção. Encerre o processo do relay após testar.
+
+Se usar a porta 3003 para esse Vite, execute `QA_BASE_URL=http://127.0.0.1:3003 npm run test:voice`. Pode apontar o Vite a um TURN de teste já disponível em vez do relay local. Em redes sem esse requisito, o STUN pode ser suficiente.

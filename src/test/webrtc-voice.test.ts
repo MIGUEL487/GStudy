@@ -1,252 +1,157 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  StudyRoomVoiceMesh,
-  isVoiceFeatureEnabled,
-  isDndEnabled,
-  setDndEnabled,
-  MAX_VOICE_PARTICIPANTS,
-  CALL_INVITE_TIMEOUT_MS,
-  type CallInvite,
-} from "@/lib/webrtc-voice-model";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { VoiceMesh, voiceIceServers } from "@/lib/voice-mesh";
+import { MAX_VOICE_PARTICIPANTS, microphoneError, type VoiceMember } from "@/lib/voice-rpc";
 
-const mocks = vi.hoisted(() => ({
-  channel: vi.fn(),
-  removeChannel: vi.fn(),
-}));
-
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    channel: (...args: unknown[]) => mocks.channel(...args),
-    removeChannel: (...args: unknown[]) => mocks.removeChannel(...args),
-  },
-}));
-
-describe("WebRTC Voice Mesh — Study Room Audio & Bloco 8", () => {
+const peers: FakePeer[] = [];
+class FakePeer {
+  connectionState = "new";
+  remoteDescription: object | null = null;
+  onicecandidate: unknown;
+  ontrack: unknown;
+  onconnectionstatechange: unknown;
+  close = vi.fn();
+  addIceCandidate = vi.fn();
+  constructor() {
+    peers.push(this);
+  }
+  addTransceiver = vi.fn(() => ({
+    sender: { replaceTrack: vi.fn().mockResolvedValue(undefined) },
+  }));
+  createOffer = vi.fn().mockResolvedValue({ type: "offer", sdp: "offer" });
+  createAnswer = vi.fn().mockResolvedValue({ type: "answer", sdp: "answer" });
+  setLocalDescription = vi.fn().mockResolvedValue(undefined);
+  setRemoteDescription = vi.fn(async (desc: object) => {
+    this.remoteDescription = desc;
+  });
+}
+const member = (id: string, muted = true): VoiceMember => ({
+  user_id: id,
+  name: id,
+  avatar_url: null,
+  muted,
+  force_muted: false,
+  sharing: false,
+});
+const callbacks = () => ({
+  error: vi.fn(),
+  level: vi.fn(),
+  screen: vi.fn(),
+  sharingEnded: vi.fn(),
+});
+describe("Chamadas com consentimento e mídia controlada", () => {
   beforeEach(() => {
-    localStorage.clear();
-    vi.clearAllMocks();
-  });
-
-  it("verifica se flag VITE_FEATURE_VOICE responde corretamente", () => {
-    expect(typeof isVoiceFeatureEnabled()).toBe("boolean");
-  });
-
-  it("inicia SEMPRE com o microfone mutado por padrão de privacidade", () => {
-    const mesh = new StudyRoomVoiceMesh("room-123", "user-456");
-    expect(mesh.getMutedState()).toBe(true);
-    expect(mesh.getSpeakingState()).toBe(false);
-    expect(mesh.getDeafenedState()).toBe(false);
-    expect(mesh.getScreenSharingState()).toBe(false);
-  });
-
-  it("limita a capacidade máxima de participantes mesh a 6", () => {
-    expect(MAX_VOICE_PARTICIPANTS).toBe(6);
-  });
-
-  it("solicita getUserMedia ao desmutar pela primeira vez e notifica callback", async () => {
-    const mockTrack = { enabled: true, stop: vi.fn() };
-    const mockStream = {
-      getAudioTracks: vi.fn().mockReturnValue([mockTrack]),
-      getTracks: vi.fn().mockReturnValue([mockTrack]),
-    };
-    const getUserMediaMock = vi.fn().mockResolvedValue(mockStream);
-
-    Object.defineProperty(globalThis, "navigator", {
-      value: {
-        mediaDevices: {
-          getUserMedia: getUserMediaMock,
-        },
+    peers.length = 0;
+    vi.stubGlobal("RTCPeerConnection", FakePeer);
+    vi.stubGlobal(
+      "MediaStream",
+      class {
+        getTracks() {
+          return [];
+        }
+        addTrack() {}
       },
-      configurable: true,
-      writable: true,
-    });
-
-    const onVoiceStateChange = vi.fn();
-    const mesh = new StudyRoomVoiceMesh("room-123", "user-456", { onVoiceStateChange });
-
-    const newMutedState = await mesh.toggleMute();
-    expect(newMutedState).toBe(false);
-    expect(getUserMediaMock).toHaveBeenCalledWith({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: false,
-    });
-    expect(onVoiceStateChange).toHaveBeenCalledWith(false);
-
-    // Muta de volta
-    const mutedAgain = await mesh.toggleMute();
-    expect(mutedAgain).toBe(true);
-    expect(mockTrack.enabled).toBe(false);
-    expect(onVoiceStateChange).toHaveBeenCalledWith(true);
-
-    mesh.disconnect();
-    expect(mockTrack.stop).toHaveBeenCalled();
+    );
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   });
-
-  it("permite ensurdecer (deafen) mutando microfone e áudio", () => {
-    const onDeafenChange = vi.fn();
-    const mesh = new StudyRoomVoiceMesh("room-123", "user-456", { onDeafenChange });
-
-    expect(mesh.getDeafenedState()).toBe(false);
-
-    // Ativa ensurdecer
-    const deafened = mesh.toggleDeafen();
-    expect(deafened).toBe(true);
-    expect(mesh.getDeafenedState()).toBe(true);
-    expect(mesh.getMutedState()).toBe(true);
-    expect(onDeafenChange).toHaveBeenCalledWith(true);
-
-    // Desativa ensurdecer
-    const undeafened = mesh.toggleDeafen();
-    expect(undeafened).toBe(false);
-    expect(mesh.getDeafenedState()).toBe(false);
-    expect(onDeafenChange).toHaveBeenCalledWith(false);
-
-    mesh.disconnect();
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
-
-  it("inicia e encerra compartilhamento de tela com getDisplayMedia", async () => {
-    const mockVideoTrack = {
-      stop: vi.fn(),
-      onended: null as (() => void) | null,
-    };
-    const mockScreenStream = {
-      getVideoTracks: vi.fn().mockReturnValue([mockVideoTrack]),
-      getTracks: vi.fn().mockReturnValue([mockVideoTrack]),
-    };
-    const getDisplayMediaMock = vi.fn().mockResolvedValue(mockScreenStream);
-
-    Object.defineProperty(globalThis, "navigator", {
-      value: {
-        mediaDevices: {
-          getDisplayMedia: getDisplayMediaMock,
-        },
+  it("conecta somente membros aceitos, começa mutado e mantém os peers ao atualizar a lista", async () => {
+    const send = vi.fn().mockResolvedValue(undefined),
+      cb = callbacks(),
+      mesh = new VoiceMesh("a", send, cb);
+    mesh.sync([member("a"), member("b")]);
+    await vi.waitFor(() =>
+      expect(send).toHaveBeenCalledWith("b", "offer", { type: "offer", sdp: "offer" }),
+    );
+    expect(mesh.isMuted).toBe(true);
+    expect(peers).toHaveLength(1);
+    mesh.sync([member("a"), member("b")]);
+    expect(peers).toHaveLength(1);
+    mesh.receive({
+      id: "1",
+      call_id: "call",
+      sender_id: "intruso",
+      recipient_id: "a",
+      kind: "offer",
+      payload: { type: "offer", sdp: "falso" },
+    });
+    expect(peers).toHaveLength(1);
+    mesh.sync([member("a")]);
+    expect(peers[0]!.close).toHaveBeenCalledOnce();
+    mesh.close();
+  });
+  it("limita a malha a cinco peers e não abre microfone ao entrar", () => {
+    const getUserMedia = vi.fn();
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
+    const mesh = new VoiceMesh("a", vi.fn().mockResolvedValue(undefined), callbacks());
+    mesh.sync("abcdefghi".split("").map((id) => member(id)));
+    expect(peers).toHaveLength(MAX_VOICE_PARTICIPANTS - 1);
+    expect(getUserMedia).not.toHaveBeenCalled();
+    mesh.close();
+  });
+  it("solicita permissão somente ao preparar o microfone, respeita silêncio forçado e encerra as faixas", async () => {
+    const track = { enabled: true, stop: vi.fn() },
+      stream = { getAudioTracks: () => [track], getTracks: () => [track] };
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
+    const mesh = new VoiceMesh("a", vi.fn().mockResolvedValue(undefined), callbacks());
+    await mesh.prepareMicrophone();
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    expect(track.enabled).toBe(false);
+    mesh.setMuted(false);
+    expect(track.enabled).toBe(true);
+    mesh.sync([{ ...member("a"), force_muted: true }]);
+    expect(track.enabled).toBe(false);
+    mesh.close();
+    expect(track.stop).toHaveBeenCalledOnce();
+  });
+  it("não abre microfone depois de sair enquanto a permissão estava pendente", async () => {
+    let resolve!: (stream: unknown) => void;
+    vi.stubGlobal("navigator", {
+      mediaDevices: {
+        getUserMedia: () =>
+          new Promise((r) => {
+            resolve = r;
+          }),
       },
-      configurable: true,
-      writable: true,
     });
-
-    const onScreenShareChange = vi.fn();
-    const mesh = new StudyRoomVoiceMesh("room-123", "user-456", { onScreenShareChange });
-
-    const stream = await mesh.startScreenShare();
-    expect(stream).toBe(mockScreenStream);
-    expect(mesh.getScreenSharingState()).toBe(true);
-    expect(onScreenShareChange).toHaveBeenCalledWith(true, mockScreenStream);
-
-    // Encerra compartilhamento
-    mesh.stopScreenShare();
-    expect(mesh.getScreenSharingState()).toBe(false);
-    expect(mockVideoTrack.stop).toHaveBeenCalled();
-    expect(onScreenShareChange).toHaveBeenCalledWith(false, null);
-
-    mesh.disconnect();
+    const stop = vi.fn(),
+      mesh = new VoiceMesh("a", vi.fn(), callbacks());
+    const pending = mesh.prepareMicrophone();
+    mesh.close();
+    resolve({ getTracks: () => [{ stop }] });
+    await pending;
+    expect(stop).toHaveBeenCalledOnce();
+    expect(mesh.isMuted).toBe(true);
   });
-
-  it("rejeita novas conexões quando a capacidade de 6 participantes é atingida", async () => {
-    const onError = vi.fn();
-    const mesh = new StudyRoomVoiceMesh("room-123", "user-456", { onError });
-
-    // Simula 5 peers já conectados (com o usuário local somam 6)
-    for (let i = 1; i <= 5; i++) {
-      (mesh as unknown as { peers: Map<string, unknown> }).peers.set(`peer-${i}`, {
-        close: vi.fn(),
-      } as unknown);
-    }
-
-    await mesh.callPeer("peer-6");
-    expect(onError).toHaveBeenCalledWith(
+  it("limita a tela a 720p/15fps e para ao sair", async () => {
+    const track = { stop: vi.fn(), onended: null },
+      stream = { getVideoTracks: () => [track], getTracks: () => [track] };
+    const getDisplayMedia = vi.fn().mockResolvedValue(stream);
+    vi.stubGlobal("navigator", { mediaDevices: { getDisplayMedia } });
+    const mesh = new VoiceMesh("a", vi.fn(), callbacks());
+    await mesh.shareScreen(true);
+    expect(getDisplayMedia).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringContaining("capacidade máxima de 6 participantes"),
+        audio: false,
+        preferCurrentTab: true,
+        video: expect.objectContaining({
+          frameRate: { ideal: 15, max: 15 },
+          height: { ideal: 720, max: 720 },
+        }),
       }),
     );
-
-    mesh.disconnect();
+    expect(mesh.isSharing).toBe(true);
+    mesh.close();
+    expect(track.stop).toHaveBeenCalledOnce();
   });
-
-  describe("Sistema de 'Não Perturbar' (DND) e Convites", () => {
-    it("DND inicia desligado e pode ser ativado e persistido", () => {
-      expect(isDndEnabled()).toBe(false);
-
-      setDndEnabled(true);
-      expect(isDndEnabled()).toBe(true);
-
-      setDndEnabled(false);
-      expect(isDndEnabled()).toBe(false);
-    });
-
-    it("CALL_INVITE_TIMEOUT_MS é configurado para 30 segundos", () => {
-      expect(CALL_INVITE_TIMEOUT_MS).toBe(30_000);
-    });
-
-    it("bloqueia recebimento de convites quando DND está ativado", () => {
-      setDndEnabled(true);
-
-      let broadcastCallback: ((payload: { payload: CallInvite }) => void) | null = null;
-      mocks.channel.mockReturnValue({
-        on: vi.fn((event, config, cb) => {
-          broadcastCallback = cb;
-          return { subscribe: vi.fn() };
-        }),
-      });
-
-      const onInvite = vi.fn();
-      const unsubscribe = StudyRoomVoiceMesh.listenForCallInvites("user-target", onInvite);
-
-      // Simula chegada de convite
-      if (broadcastCallback) {
-        (broadcastCallback as (p: { payload: CallInvite }) => void)({
-          payload: {
-            id: "inv-1",
-            fromUserId: "user-sender",
-            fromUserName: "Pedro",
-            toUserId: "user-target",
-            roomId: "room-abc",
-            roomTitle: "Sala de Física",
-            createdAt: new Date().toISOString(),
-            expiresAt: Date.now() + 30_000,
-          },
-        });
-      }
-
-      // Convite bloqueado por DND!
-      expect(onInvite).not.toHaveBeenCalled();
-
-      unsubscribe();
-    });
-
-    it("permite recebimento de convite dentro do prazo de 30s quando DND está desativado", () => {
-      setDndEnabled(false);
-
-      let broadcastCallback: ((payload: { payload: CallInvite }) => void) | null = null;
-      mocks.channel.mockReturnValue({
-        on: vi.fn((event, config, cb) => {
-          broadcastCallback = cb;
-          return { subscribe: vi.fn() };
-        }),
-      });
-
-      const onInvite = vi.fn();
-      const unsubscribe = StudyRoomVoiceMesh.listenForCallInvites("user-target", onInvite);
-
-      const validInvite: CallInvite = {
-        id: "inv-2",
-        fromUserId: "user-sender",
-        fromUserName: "Ana",
-        toUserId: "user-target",
-        roomId: "room-xyz",
-        roomTitle: "Sala de Biologia",
-        createdAt: new Date().toISOString(),
-        expiresAt: Date.now() + 25_000, // ainda válido
-      };
-
-      if (broadcastCallback) {
-        (broadcastCallback as (p: { payload: CallInvite }) => void)({
-          payload: validInvite,
-        });
-      }
-
-      expect(onInvite).toHaveBeenCalledWith(validInvite);
-      unsubscribe();
-    });
+  it("traduz erros de dispositivo e oferece STUN sem exigir TURN", () => {
+    expect(microphoneError(new DOMException("raw", "NotAllowedError"))).toContain(
+      "não foi autorizado",
+    );
+    expect(microphoneError(new DOMException("raw", "NotFoundError"))).toContain("Não encontramos");
+    expect(voiceIceServers()[0]!.urls).toContain("stun:");
   });
 });

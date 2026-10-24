@@ -44,6 +44,7 @@ import {
   type RankingVisibility,
 } from "@/lib/social-gamification-model";
 import "@/styles/social-friends.css";
+import { StartCallButton } from "./voice/voice-controls";
 
 type Tab = "friends" | "pending" | "search" | "groups" | "ranking";
 
@@ -628,6 +629,7 @@ export function SocialFriendsPanel({
                       </span>
                     </div>
                   </div>
+                  <StartCallButton groupId={g.id} />
                 </div>
               ))}
             </div>

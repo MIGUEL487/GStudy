@@ -1,129 +1,100 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
-import { VoiceCallPanel } from "@/components/voice/voice-call-panel";
-import { StudyRoomVoiceMesh, isDndEnabled, setDndEnabled } from "@/lib/webrtc-voice-model";
-
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    channel: vi.fn(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      send: vi.fn().mockResolvedValue(true),
-    })),
-    removeChannel: vi.fn(),
-  },
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import CallScreen from "@/components/voice/call-screen";
+import { IncomingCall, StartCallButton, VoicePreferences } from "@/components/voice/voice-controls";
+const fixture = vi.hoisted(() => ({ voice: null as Record<string, unknown> | null }));
+vi.mock("@/components/voice/voice-provider", () => ({ useVoice: () => fixture.voice }));
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
 }));
-
-describe("Bloco 8: Interface de Voz WebRTC, Controles e Convites", () => {
+describe("Interface de chamadas explícitas", () => {
   beforeEach(() => {
-    localStorage.clear();
-    vi.clearAllMocks();
-
-    const mockTrack = { enabled: true, stop: vi.fn(), onended: null };
-    const mockAudioStream = {
-      getAudioTracks: vi.fn().mockReturnValue([mockTrack]),
-      getTracks: vi.fn().mockReturnValue([mockTrack]),
+    fixture.voice = {
+      userId: "a",
+      callId: null,
+      snapshot: null,
+      inbox: { invites: [], preferences: {} },
+      now: Date.now(),
+      busy: false,
+      error: "",
+      muted: true,
+      ready: true,
+      screens: new Map(),
+      connections: new Map(),
+      start: vi.fn(),
+      respond: vi.fn(),
+      dnd: vi.fn(),
+      bindLevel: vi.fn(),
+      toggleMute: vi.fn(),
+      leave: vi.fn(),
+      resumeAudio: vi.fn(),
     };
-    const mockVideoStream = {
-      getVideoTracks: vi.fn().mockReturnValue([mockTrack]),
-      getTracks: vi.fn().mockReturnValue([mockTrack]),
-    };
-
-    Object.defineProperty(globalThis, "navigator", {
-      value: {
-        mediaDevices: {
-          getUserMedia: vi.fn().mockResolvedValue(mockAudioStream),
-          getDisplayMedia: vi.fn().mockResolvedValue(mockVideoStream),
+  });
+  afterEach(cleanup);
+  it("não inicia uma chamada ao renderizar uma sala", () => {
+    render(<StartCallButton roomId="room" />);
+    expect(fixture.voice!.start).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Ligar" }));
+    expect(fixture.voice!.start).toHaveBeenCalledWith("room", undefined);
+  });
+  it("some com a flag desativada", () => {
+    fixture.voice = null;
+    const { container } = render(<StartCallButton roomId="room" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+  it("não atende ao receber um convite e não exibe convite expirado", () => {
+    fixture.voice!.inbox = {
+      preferences: {},
+      invites: [
+        {
+          id: "invite",
+          name: "Bruno",
+          call_id: "call",
+          avatar_url: null,
+          title: "Grupo",
+          expires_at: new Date(Date.now() + 25000).toISOString(),
         },
-      },
-      configurable: true,
-      writable: true,
+      ],
+    };
+    const { rerender } = render(<IncomingCall />);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(fixture.voice!.respond).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Recusar" }));
+    expect(fixture.voice!.respond).toHaveBeenCalledWith("invite", false);
+    fixture.voice!.now = Date.now() + 30000;
+    rerender(<IncomingCall />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("envia a duração de Não perturbar ao servidor sem chave local global", () => {
+    render(<VoicePreferences />);
+    fireEvent.change(screen.getByLabelText("Duração de Não perturbar"), {
+      target: { value: "today" },
     });
+    expect(fixture.voice!.dnd).toHaveBeenCalledWith("today");
   });
-
-  it("renderiza os controles de voz com microfone mutado por padrão", () => {
-    render(
-      <VoiceCallPanel
-        roomId="room-1"
-        roomTitle="Mesa Redonda: História"
-        userId="user-1"
-        userName="Mariana"
-      />,
-    );
-
-    expect(screen.getByText("Mesa Redonda: História")).toBeInTheDocument();
-    expect(screen.getByLabelText("Desmutar microfone")).toBeInTheDocument();
-    expect(screen.getByLabelText("Ensurdecer")).toBeInTheDocument();
-    expect(screen.getByLabelText("Compartilhar tela")).toBeInTheDocument();
-    expect(screen.getByLabelText("Sair da chamada")).toBeInTheDocument();
-
-    // Chip de usuário local
-    expect(screen.getByText(/Mariana/i)).toBeInTheDocument();
-    expect(screen.getByText(/\(Você\)/i)).toBeInTheDocument();
-  });
-
-  it("permite alternar microfone e atualiza o botão", async () => {
-    render(
-      <VoiceCallPanel
-        roomId="room-1"
-        roomTitle="Sala de Estudos"
-        userId="user-1"
-        userName="Lucas"
-      />,
-    );
-
-    const micBtn = screen.getByLabelText("Desmutar microfone");
-    await act(async () => {
-      fireEvent.click(micBtn);
-    });
-
-    expect(screen.getByLabelText("Mutar microfone")).toBeInTheDocument();
-    expect(screen.getByText("Falando")).toBeInTheDocument();
-  });
-
-  it("permite alternar ensurdecer (deafen)", async () => {
-    render(
-      <VoiceCallPanel
-        roomId="room-1"
-        roomTitle="Sala de Estudos"
-        userId="user-1"
-        userName="Lucas"
-      />,
-    );
-
-    const deafenBtn = screen.getByLabelText("Ensurdecer");
-    act(() => {
-      fireEvent.click(deafenBtn);
-    });
-
-    expect(screen.getByLabelText("Reativar áudio")).toBeInTheDocument();
-  });
-
-  it("aciona callback onDisconnect ao clicar em sair da chamada", () => {
-    const onDisconnect = vi.fn();
-    render(
-      <VoiceCallPanel
-        roomId="room-1"
-        roomTitle="Sala de Estudos"
-        userId="user-1"
-        userName="Lucas"
-        onDisconnect={onDisconnect}
-      />,
-    );
-
-    const exitBtn = screen.getByLabelText("Sair da chamada");
-    fireEvent.click(exitBtn);
-
-    expect(onDisconnect).toHaveBeenCalled();
-  });
-
-  it("respeita o modo Não Perturbar (DND) e reflete na configuração", () => {
-    expect(isDndEnabled()).toBe(false);
-
-    setDndEnabled(true);
-    expect(isDndEnabled()).toBe(true);
-
-    setDndEnabled(false);
-    expect(isDndEnabled()).toBe(false);
+  it("mostra estado de privacidade e controles, sem pedir mídia automaticamente", () => {
+    fixture.voice!.callId = "call";
+    fixture.voice!.snapshot = {
+      title: "Sala",
+      can_moderate: false,
+      members: [
+        {
+          user_id: "a",
+          name: "Ana",
+          avatar_url: null,
+          muted: true,
+          force_muted: false,
+          sharing: false,
+        },
+      ],
+      candidates: [],
+    };
+    render(<CallScreen />);
+    expect(screen.getByText(/não é gravada/)).toBeInTheDocument();
+    expect(fixture.voice!.toggleMute).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Ativar microfone" }));
+    expect(fixture.voice!.toggleMute).toHaveBeenCalledOnce();
   });
 });
