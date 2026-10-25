@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
-import { sanitizePlainText } from "./social-model";
+import { backendErrorMessage } from "./backend-errors";
+import { signalSocialUpdate } from "./social-inbox";
 
 export type DirectMessage = {
   id: string;
@@ -23,21 +24,26 @@ export async function fetchDirectMessages(
       .or(
         `and(sender_id.eq.${currentUserId},recipient_id.eq.${friendId}),and(sender_id.eq.${friendId},recipient_id.eq.${currentUserId})`,
       )
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(100);
 
-    if (error || !data) return [];
+    if (error)
+      throw new Error(backendErrorMessage(error, "Não foi possível carregar esta conversa."));
+    if (!data) return [];
 
-    return data.map((m: Record<string, unknown>) => ({
-      id: String(m.id),
-      senderId: String(m.sender_id),
-      recipientId: String(m.recipient_id),
-      content: String(m.content),
-      readAt: m.read_at ? String(m.read_at) : null,
-      createdAt: String(m.created_at),
-    }));
-  } catch {
-    return [];
+    return data
+      .slice()
+      .reverse()
+      .map((m: Record<string, unknown>) => ({
+        id: String(m.id),
+        senderId: String(m.sender_id),
+        recipientId: String(m.recipient_id),
+        content: String(m.content),
+        readAt: m.read_at ? String(m.read_at) : null,
+        createdAt: String(m.created_at),
+      }));
+  } catch (cause) {
+    throw cause instanceof Error ? cause : new Error("Não foi possível carregar esta conversa.");
   }
 }
 
@@ -46,7 +52,7 @@ export async function sendDirectMessage(
   recipientId: string,
   rawContent: string,
 ): Promise<DirectMessage | null> {
-  const clean = sanitizePlainText(rawContent).trim();
+  const clean = rawContent.trim();
   if (!clean || clean.length > 1000) return null;
 
   try {
@@ -80,14 +86,21 @@ export async function markDirectMessagesAsRead(
   friendId: string,
 ): Promise<void> {
   try {
-    await supabase
+    const { error } = await supabase
       .from("direct_messages")
       .update({ read_at: new Date().toISOString() })
       .eq("recipient_id", currentUserId)
       .eq("sender_id", friendId)
       .is("read_at", null);
-  } catch {
-    // silent fallback
+    if (error)
+      throw new Error(
+        backendErrorMessage(error, "Não foi possível confirmar a leitura das mensagens."),
+      );
+    signalSocialUpdate();
+  } catch (cause) {
+    throw cause instanceof Error
+      ? cause
+      : new Error("Não foi possível confirmar a leitura das mensagens.");
   }
 }
 
@@ -100,7 +113,7 @@ export function subscribeToDirectMessages(
 
   const pairKey = [currentUserId, friendId].sort().join(":");
   const channel = supabase
-    .channel(`dm:${pairKey}`)
+    .channel(`dm:${pairKey}`, { config: { private: true } })
     .on(
       "postgres_changes",
       {

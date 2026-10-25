@@ -10,6 +10,10 @@ import {
   type AppNotification,
 } from "@/lib/notifications-model";
 import { acceptFriendRequest, removeFriendship } from "@/lib/social-model";
+import { confirmSchoolYearAdvance, profileUpdatedEvent } from "@/lib/student-profile";
+import { schoolYearSchema } from "@/lib/school-year";
+import { signalSocialUpdate } from "@/lib/social-inbox";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import "@/styles/sessions-and-social.css";
 
 interface NotificationsPopoverProps {
@@ -20,49 +24,71 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState("");
+  const reload = useRef(() => {});
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
 
-    void fetchNotifications(userId).then((items) => {
-      if (!cancelled) setNotifications(items);
-    });
+    const refresh = () => {
+      void fetchNotifications(userId)
+        .then((items) => {
+          if (!cancelled) {
+            setNotifications(items);
+            setError("");
+          }
+        })
+        .catch((cause) => {
+          if (!cancelled)
+            setError(
+              cause instanceof Error ? cause.message : "Não foi possível carregar notificações.",
+            );
+        });
+    };
+    reload.current = refresh;
+    refresh();
 
     const unsubscribe = subscribeToNotifications(userId, (newNotification) => {
-      setNotifications((prev) => [newNotification, ...prev]);
-      toast.info(newNotification.title, { description: newNotification.body });
+      setNotifications((prev) =>
+        prev.some((item) => item.id === newNotification.id) ? prev : [newNotification, ...prev],
+      );
+      if (newNotification.type !== "missed_call")
+        toast.info(newNotification.title, { description: newNotification.body });
     });
+    const timer = setInterval(() => {
+      if (!document.hidden) refresh();
+    }, 10000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("gstudy-social-updated", refresh);
+    window.addEventListener(profileUpdatedEvent, refresh);
 
     return () => {
       cancelled = true;
       unsubscribe();
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("gstudy-social-updated", refresh);
+      window.removeEventListener(profileUpdatedEvent, refresh);
     };
   }, [userId]);
-
-  // Click outside to close
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleMarkAllRead = async () => {
-    await markAllNotificationsAsRead(userId);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    toast.success("Todas as notificações foram marcadas como lidas.");
+    try {
+      await markAllNotificationsAsRead(userId);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      toast.success("Todas as notificações foram marcadas como lidas.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Não foi possível marcar notificações como lidas.",
+      );
+    }
   };
 
   const handleAcceptFriend = async (notification: AppNotification) => {
-    const friendshipId = notification.data?.friendship_id as string;
+    const friendshipId = notification.data?.["friendship_id"] as string;
     if (!friendshipId) return;
 
     try {
@@ -72,13 +98,14 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
         prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
       );
       toast.success("Pedido de amizade aceito!");
+      signalSocialUpdate();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao aceitar pedido.");
     }
   };
 
   const handleRejectFriend = async (notification: AppNotification) => {
-    const friendshipId = notification.data?.friendship_id as string;
+    const friendshipId = notification.data?.["friendship_id"] as string;
     if (!friendshipId) return;
 
     try {
@@ -88,6 +115,7 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
         prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
       );
       toast.info("Pedido de amizade recusado.");
+      signalSocialUpdate();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao recusar pedido.");
     }
@@ -108,20 +136,34 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
   };
 
   return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        className="header-badge-btn"
-        aria-label="Abrir notificações"
-        title="Notificações"
-        onClick={() => setOpen(!open)}
-      >
-        <Bell size={20} strokeWidth={1.8} />
-        {unreadCount > 0 && <span className="header-badge-counter">{unreadCount}</span>}
-      </button>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) reload.current();
+        setOpen(next);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="header-badge-btn"
+          aria-label="Abrir notificações"
+          title="Notificações"
+        >
+          <Bell size={20} strokeWidth={1.8} />
+          {unreadCount > 0 && <span className="header-badge-counter">{unreadCount}</span>}
+        </button>
+      </PopoverTrigger>
 
       {open && (
-        <div className="notifications-popover" role="dialog" aria-label="Painel de notificações">
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          className="notifications-popover"
+          role="dialog"
+          aria-label="Painel de notificações"
+        >
           <header className="notifications-header">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">Notificações</span>
@@ -144,6 +186,11 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
           </header>
 
           <div className="overflow-y-auto max-h-[400px]">
+            {error && (
+              <p role="alert" className="form-error">
+                {error}
+              </p>
+            )}
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">
                 Nenhuma notificação no momento.
@@ -156,9 +203,49 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-xs text-foreground mb-0.5">{n.title}</p>
                       <p className="text-xs text-muted-foreground leading-normal">{n.body}</p>
+                      {n.type === "year_rollover" && (
+                        <div className="notification-year-actions">
+                          {!n.read &&
+                            schoolYearSchema.safeParse(n.data?.["schoolYear"]).success && (
+                              <button
+                                onClick={async () => {
+                                  const year = String(n.data!["schoolYear"]);
+                                  if (!(await confirmSchoolYearAdvance(year))) {
+                                    setError("Não foi possível confirmar sua etapa escolar.");
+                                    return;
+                                  }
+                                  try {
+                                    await markNotificationAsRead(n.id);
+                                    setNotifications((rows) =>
+                                      rows.map((row) =>
+                                        row.id === n.id ? { ...row, read: true } : row,
+                                      ),
+                                    );
+                                  } catch (cause) {
+                                    setError(
+                                      cause instanceof Error
+                                        ? cause.message
+                                        : "Não foi possível atualizar a notificação.",
+                                    );
+                                  }
+                                }}
+                              >
+                                Confirmar
+                              </button>
+                            )}
+                          <button
+                            onClick={() => {
+                              setOpen(false);
+                              void navigate({ to: "/configuracoes", search: { tab: "profile" } });
+                            }}
+                          >
+                            Alterar
+                          </button>
+                        </div>
+                      )}
                       {n.type === "game_challenge" &&
-                        typeof n.data?.challengeId === "string" &&
-                        /^[0-9a-f-]{36}$/i.test(n.data.challengeId) && (
+                        typeof n.data?.["challengeId"] === "string" &&
+                        /^[0-9a-f-]{36}$/i.test(n.data["challengeId"]) && (
                           <button
                             className="duo-btn ghost"
                             onClick={() => {
@@ -174,7 +261,7 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
                               setOpen(false);
                               void navigate({
                                 to: "/sessoes",
-                                search: { tab: "games", challenge: String(n.data!.challengeId) },
+                                search: { tab: "games", challenge: String(n.data!["challengeId"]) },
                               });
                             }}
                           >
@@ -208,8 +295,8 @@ export function NotificationsPopover({ userId }: NotificationsPopoverProps) {
               ))
             )}
           </div>
-        </div>
+        </PopoverContent>
       )}
-    </div>
+    </Popover>
   );
 }

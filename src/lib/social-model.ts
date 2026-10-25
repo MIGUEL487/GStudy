@@ -145,8 +145,7 @@ export async function listFriends(userId: string): Promise<Friendship[]> {
     .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
 
   if (error) {
-    console.error("Erro ao listar amigos:", error);
-    return [];
+    throw new Error(backendErrorMessage(error, "Não foi possível carregar seus amigos."));
   }
 
   if (!data || data.length === 0) return [];
@@ -156,7 +155,14 @@ export async function listFriends(userId: string): Promise<Friendship[]> {
     f.user_id === userId ? f.friend_id : f.user_id,
   );
 
-  const { data: profiles } = await supabase.from("profiles").select("*").in("id", friendIds);
+  const { data: profiles, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", friendIds);
+  if (profileError)
+    throw new Error(
+      backendErrorMessage(profileError, "Não foi possível carregar os perfis dos seus amigos."),
+    );
 
   const profileMap = new Map((profiles ?? []).map((p: ProfileRow) => [p.id, mapProfile(p)]));
 
@@ -207,14 +213,28 @@ export async function listPendingRequests(
     .eq("status", "pending")
     .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
 
-  if (error || !data) return { incoming: [], outgoing: [] };
+  if (error)
+    throw new Error(
+      backendErrorMessage(error, "Não foi possível carregar seus pedidos de amizade."),
+    );
+  if (!data) return { incoming: [], outgoing: [] };
 
   const partnerIds = data.map((f: { user_id: string; friend_id: string }) =>
     f.user_id === userId ? f.friend_id : f.user_id,
   );
   if (!partnerIds.length) return { incoming: [], outgoing: [] };
 
-  const { data: profiles } = await supabase.from("profiles").select("*").in("id", partnerIds);
+  const { data: profiles, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", partnerIds);
+  if (profileError)
+    throw new Error(
+      backendErrorMessage(
+        profileError,
+        "Não foi possível carregar os perfis dos pedidos de amizade.",
+      ),
+    );
 
   const profileMap = new Map((profiles ?? []).map((p: ProfileRow) => [p.id, mapProfile(p)]));
 

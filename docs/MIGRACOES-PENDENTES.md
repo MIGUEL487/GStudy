@@ -4,9 +4,17 @@ Este documento rastreia as migrations geradas no código e prontas para execuç�
 
 ## Ordem e limites de aplicação
 
-Em um banco novo, aplique `0000` a `0016`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. As correções `0013` a `0016` são aditivas e podem ser reaplicadas.
+Em um banco novo, aplique `0000` a `0017`, em ordem. Em um banco existente, confira o histórico e aplique somente as migrações pendentes. As migrações históricas contêm `CREATE POLICY` sem proteção contra repetição; não reaplique indiscriminadamente. As correções `0013` a `0017` são aditivas e podem ser reaplicadas.
 
 Nenhuma migração foi aplicada ao banco remoto durante esta correção. O harness PGlite executa a sequência completa com `auth.uid()` e os papéis `anon`, `authenticated` e `service_role`; verifica acessos e escritas reais entre duas identidades, inclusive tentativas indevidas.
+
+## 0017_student_social_completion.sql
+
+- `save_student_profile(p_patch)` aceita somente nome, foto, etapa escolar, dias de aula e tema. Valida campos, usa a identidade da sessão e preserva as demais colunas. Configurações só atualizam a cópia local e anunciam sucesso depois da confirmação do servidor. `advance_school_year` usa a mesma validação; confirmar a etapa também marca os avisos escolares da própria conta como lidos.
+- `school_year_at` e `get_student_rollover` calculam os anos decorridos em São Paulo, sem cron e sem inferir faculdade. `student_rollover_notices` evita notificações repetidas no mesmo ano. A leitura apresenta a etapa prevista; a escolha só altera o marco escolar ao confirmar ou editar. Fechar o aviso o mantém na central e evita repeti-lo a cada troca de foco naquela sessão.
+- `get_social_inbox` devolve pedidos recebidos e mensagens privadas não lidas, por amigo, somente para a sessão atual. Índice parcial atende às mensagens ainda não lidas. O botão Amigos mostra a soma; cada conversa mostra sua contagem. Falhas de leitura/gravação produzem mensagens amigáveis, sem inventar confirmação.
+- Os canais `social:<UID>`, `notifications:<UID>` e `dm:<UID>:<UID>` passam a privados, com policy de leitura em `realtime.messages` quando o schema existe. Mensagens continuam vindo de registros protegidos por RLS; identidade enviada por broadcast não é usada. Publique `friendships`, `profiles`, `direct_messages` e `notifications` no Realtime, além das tabelas de chamadas/salas usadas. As consultas de recuperação mantêm os contadores atualizados mesmo sem um evento. Não é concedido envio de broadcast.
+- Nada foi aplicado ao banco remoto. Sem esta migração, as novas confirmações e contagens avisam que aguardam atualização; os demais recursos continuam disponíveis. Mantenha `VITE_FEATURE_SOCIAL` conforme o ambiente. Não há nova chave, flag ou extensão.
 
 ## 0016_voice_calls.sql
 

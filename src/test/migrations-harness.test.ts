@@ -4,6 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { checkVoiceDatabase } from "./voice-database-checks";
+import { checkProfileSocialDatabase } from "./profile-social-database-checks";
 
 describe("PostgreSQL Migrations & RLS Harness (PGlite)", () => {
   it("executa bootstrap do auth, aplica todas as migrações e valida RLS sem recursão", async () => {
@@ -449,6 +450,10 @@ describe("PostgreSQL Migrations & RLS Harness (PGlite)", () => {
     await db.exec(fs.readFileSync(path.join(migrationsDir, "0015_games.sql"), "utf8"));
     await checkVoiceDatabase(db, userA, userB);
     await db.exec(fs.readFileSync(path.join(migrationsDir, "0016_voice_calls.sql"), "utf8"));
+    await checkProfileSocialDatabase(db, userA, userB);
+    await db.exec(
+      fs.readFileSync(path.join(migrationsDir, "0017_student_social_completion.sql"), "utf8"),
+    );
     await db.close();
 
     console.log("PGlite harness concluído com sucesso: RLS e isolamento validados sem recursão!");

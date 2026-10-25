@@ -112,7 +112,9 @@ export function SocialFriendsPanel({
         setSelectedGroupId(myGroups[0].id);
       }
     } catch (err) {
-      console.error(err);
+      toast.error(
+        err instanceof Error ? err.message : "Não foi possível carregar seus amigos e grupos.",
+      );
     } finally {
       setLoading(false);
     }

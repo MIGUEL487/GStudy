@@ -1,5 +1,15 @@
 # Verificações no navegador
 
+## Perfil e amigos
+
+Com o Vite de teste na porta 3002, execute `CHROMIUM_PATH=/usr/bin/chromium npm run test:social`. Para outra porta use `QA_BASE_URL`. O script abre duas contas em contextos isolados e encaminha as requisições Supabase para um PGlite local, com todas as migrações e os papéis reais. IA fica bloqueada.
+
+O fluxo confere a soma de pedido e mensagem não lida; abre a conversa e verifica a leitura no banco; envia texto matemático sem perder `<` e `>`; denuncia e bloqueia; busca por username e e-mail; recusa, cancela, envia e aceita pedidos; preserva outro amigo ao bloquear; salva nome/ano na conta; cria uma única notificação de novo ano e confirma sua etapa pelo painel. O padrão cobre 390/1440 px, claro/escuro. `QA_WIDTHS`, `QA_THEMES` e `QA_OUTPUT` limitam a rodada e definem a pasta de capturas, traces e relatório.
+
+O simulador respeita o retorno mínimo de INSERT/UPDATE do PostgREST. Uma denúncia pode ser enviada sem conceder ao remetente acesso de leitura à tabela de moderação. As verificações administrativas usam somente o banco isolado do teste. Não alteramos as policies para fazer a simulação passar, e estes resultados não comprovam o serviço Realtime hospedado nem um dispositivo físico.
+
+## Streaming
+
 O teste usa Chromium real e intercepta Supabase e todas as funções remotas da aplicação. Um servidor HTTP local envia eventos NDJSON espaçados para verificar chegada progressiva e cancelamento de rede. Não há chamada a provedores de IA nem login de teste na aplicação publicada.
 
 Instale com `npm ci` e prepare o navegador com `npx playwright install chromium`. Se houver Chromium instalado no sistema, informe seu caminho em `CHROMIUM_PATH`.

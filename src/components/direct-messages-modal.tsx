@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, X, Check, CheckCheck } from "lucide-react";
+import { Send, X, Check, CheckCheck, MoreHorizontal } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { toast } from "sonner";
 import {
   fetchDirectMessages,
@@ -9,6 +10,8 @@ import {
   type DirectMessage,
 } from "@/lib/direct-messages-model";
 import type { UserProfile } from "@/lib/social-model";
+import { blockUser, reportUser } from "@/lib/social-model";
+import { signalSocialUpdate } from "@/lib/social-inbox";
 import "@/styles/sessions-and-social.css";
 
 interface DirectMessagesModalProps {
@@ -21,23 +24,41 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState(""),
+    [reporting, setReporting] = useState(false),
+    [reason, setReason] = useState(""),
+    [moderating, setModerating] = useState(false);
+  const follow = useRef(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    void fetchDirectMessages(currentUserId, friend.id).then((items) => {
-      if (!cancelled) setMessages(items);
-      void markDirectMessagesAsRead(currentUserId, friend.id);
-    });
+    void fetchDirectMessages(currentUserId, friend.id)
+      .then((items) => {
+        if (cancelled) return;
+        setMessages(items);
+        void markDirectMessagesAsRead(currentUserId, friend.id).catch((cause) => {
+          if (!cancelled) setError(cause.message);
+        });
+      })
+      .catch((cause) => {
+        if (!cancelled)
+          setError(
+            cause instanceof Error ? cause.message : "Não foi possível carregar a conversa.",
+          );
+      });
 
     const unsubscribe = subscribeToDirectMessages(currentUserId, friend.id, (msg) => {
+      if (cancelled) return;
       setMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
       if (msg.recipientId === currentUserId) {
-        void markDirectMessagesAsRead(currentUserId, friend.id);
+        void markDirectMessagesAsRead(currentUserId, friend.id).catch((cause) => {
+          if (!cancelled) setError(cause.message);
+        });
       }
     });
 
@@ -48,11 +69,13 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
   }, [currentUserId, friend.id]);
 
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && follow.current) {
       if (typeof scrollRef.current.scrollTo === "function") {
         scrollRef.current.scrollTo({
           top: scrollRef.current.scrollHeight,
-          behavior: "smooth",
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "instant"
+            : "smooth",
         });
       } else {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -70,7 +93,8 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
     setSending(false);
 
     if (sent) {
-      setMessages((prev) => [...prev, sent]);
+      follow.current = true;
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
       setText("");
     } else {
       toast.error("Não foi possível enviar a mensagem.");
@@ -104,13 +128,13 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
   };
 
   return (
-    <div
-      className="dm-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Conversa com ${friend.displayName}`}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <div className="dm-modal-card">
+      <DialogContent className="dm-modal-card dm-accessible" aria-describedby={undefined}>
         <header className="dm-header">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -124,9 +148,10 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
               />
             </div>
             <div>
-              <h3 className="font-semibold text-sm leading-tight text-foreground">
+              <DialogTitle className="font-semibold text-sm leading-tight text-foreground">
+                <span className="sr-only">Conversa com </span>
                 {friend.displayName}
-              </h3>
+              </DialogTitle>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <span>@{friend.username}</span>
                 <span>·</span>
@@ -135,6 +160,48 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
             </div>
           </div>
 
+          <details className="dm-options">
+            <summary aria-label="Opções da conversa">
+              <MoreHorizontal size={18} />
+            </summary>
+            <div>
+              <button
+                disabled={moderating}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      `Bloquear ${friend.displayName}? Vocês deixarão de trocar mensagens e chamadas.`,
+                    )
+                  )
+                    return;
+                  setModerating(true);
+                  try {
+                    await blockUser(currentUserId, friend.id);
+                    signalSocialUpdate();
+                    onClose();
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Não foi possível bloquear esta pessoa.",
+                    );
+                  } finally {
+                    setModerating(false);
+                  }
+                }}
+              >
+                Bloquear pessoa
+              </button>
+              <button
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  setReporting(true);
+                }}
+              >
+                Denunciar pessoa
+              </button>
+            </div>
+          </details>
           <button
             type="button"
             className="header-badge-btn"
@@ -145,7 +212,52 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
           </button>
         </header>
 
-        <div className="dm-messages-container" ref={scrollRef}>
+        {error && (
+          <p role="alert" className="form-error">
+            {error}
+          </p>
+        )}
+        {reporting && (
+          <form
+            className="dm-report"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setModerating(true);
+              try {
+                await reportUser(currentUserId, friend.id, reason);
+                toast.success("Denúncia registrada.");
+                setReporting(false);
+                setReason("");
+              } catch (cause) {
+                setError(
+                  cause instanceof Error ? cause.message : "Não foi possível enviar a denúncia.",
+                );
+              } finally {
+                setModerating(false);
+              }
+            }}
+          >
+            <label>
+              Motivo da denúncia
+              <input
+                value={reason}
+                minLength={3}
+                maxLength={200}
+                required
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </label>
+            <button disabled={moderating || reason.trim().length < 3}>Enviar denúncia</button>
+          </form>
+        )}
+        <div
+          className="dm-messages-container"
+          ref={scrollRef}
+          onScroll={() => {
+            const node = scrollRef.current;
+            if (node) follow.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+          }}
+        >
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
               <p className="text-sm font-medium text-foreground mb-1">
@@ -200,7 +312,7 @@ export function DirectMessagesModal({ currentUserId, friend, onClose }: DirectMe
             <Send size={16} />
           </button>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

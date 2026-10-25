@@ -6,10 +6,11 @@ import { schoolYearLabel } from "@/lib/school-year";
 import { confirmSchoolYearAdvance } from "@/lib/student-profile";
 import { useStudy } from "./study-provider";
 import "@/styles/onboarding.css";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 
 interface SchoolYearRolloverModalProps {
   currentSchoolYear: string;
-  suggestedNextYear?: string;
+  suggestedNextYear?: string | undefined;
   currentCalendarYear: number;
   onDismiss: () => void;
 }
@@ -53,13 +54,13 @@ export function SchoolYearRolloverModal({
   };
 
   return (
-    <div
-      className="rollover-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Atualização de ano letivo"
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onDismiss();
+      }}
     >
-      <div className="rollover-card">
+      <DialogContent className="rollover-card" aria-describedby="rollover-explanation">
         <div className="flex items-center gap-2.5 text-accent mb-2">
           <Calendar size={20} />
           <span className="text-xs uppercase tracking-wider font-semibold">
@@ -67,11 +68,12 @@ export function SchoolYearRolloverModal({
           </span>
         </div>
 
-        <h3>Novo ciclo de estudos começou!</h3>
-        <p>
-          Identificamos que você estava matriculado no{" "}
-          <strong>{schoolYearLabel(currentSchoolYear)}</strong>. Você avançou de etapa neste ano?
-        </p>
+        <DialogTitle>Novo ano letivo</DialogTitle>
+        <DialogDescription id="rollover-explanation">
+          Sua etapa prevista agora é{" "}
+          <strong>{schoolYearLabel(suggestedNextYear ?? currentSchoolYear)}</strong>. Confirme ou
+          altere nas configurações.
+        </DialogDescription>
 
         <div className="rollover-actions">
           {suggestedNextYear && (
@@ -81,7 +83,7 @@ export function SchoolYearRolloverModal({
               disabled={submitting}
               onClick={handleAdvance}
             >
-              <span>Sim, avançar para {schoolYearLabel(suggestedNextYear)}</span>
+              <span>Confirmar {schoolYearLabel(suggestedNextYear)}</span>
               <ArrowRight size={16} />
             </button>
           )}
@@ -106,7 +108,7 @@ export function SchoolYearRolloverModal({
             </Link>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

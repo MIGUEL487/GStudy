@@ -15,6 +15,7 @@
     "test:stream": "node scripts/stream-check.mjs",
     "test:games": "node scripts/games-check.mjs",
     "test:voice": "node scripts/voice-check.mjs",
+    "test:social": "node scripts/social-check.mjs",
     "verify:schema": "node scripts/verify-supabase-schema.mjs"
   },
   "overrides": {
