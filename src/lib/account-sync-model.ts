@@ -1,3 +1,9 @@
+import {
+  quizDocumentKey,
+  quizDocumentSchema,
+  quizRecordSchema,
+  mergeQuizRecords,
+} from "./quiz-progress";
 import { z } from "zod";
 import { schoolYearSchema } from "./school-year";
 import { loadData, storageKey, initialData } from "./study-model";
@@ -6,20 +12,29 @@ import { parseRecallSessions, recallStorageKey } from "./recall-session";
 import { attemptKey, readAttempts } from "./daily-attempts";
 import { socratesStorageKey, readSocratesDocument } from "./socrates-model";
 
-export const namespaces = ["workspace", "learning", "recall", "attempts", "socrates"] as const;
+export const namespaces = [
+  "workspace",
+  "learning",
+  "recall",
+  "attempts",
+  "socrates",
+  "quizzes",
+] as const;
 export type Namespace = (typeof namespaces)[number];
 export type Document = Record<string, unknown>;
 export type Fingerprint = Record<string, string>;
 export const localDocumentKey = (user: string, ns: Namespace) =>
-  ns === "workspace"
-    ? `${storageKey}:${user}`
-    : ns === "learning"
-      ? `${learningKey}:${user}`
-      : ns === "socrates"
-        ? socratesStorageKey(user)
-        : ns === "recall"
-          ? recallStorageKey(user)
-          : attemptKey(user);
+  ns === "quizzes"
+    ? quizDocumentKey(user)
+    : ns === "workspace"
+      ? `${storageKey}:${user}`
+      : ns === "learning"
+        ? `${learningKey}:${user}`
+        : ns === "socrates"
+          ? socratesStorageKey(user)
+          : ns === "recall"
+            ? recallStorageKey(user)
+            : attemptKey(user);
 const named = z.object({ id: z.string().min(1).max(300), title: z.string() });
 const workspace = z.object({
   version: z.literal(1),
@@ -77,6 +92,7 @@ const workspace = z.object({
   ),
 });
 export function parseAccountDocument(ns: Namespace, value: unknown): Document {
+  if (ns === "quizzes") return quizDocumentSchema.parse(value) as unknown as Document;
   if (ns === "workspace") {
     workspace.parse(value);
     return loadData({
@@ -179,6 +195,15 @@ export function mergeAccountDocuments(
       return result;
     }
     if (record(l) && record(r)) {
+      if (
+        ns === "quizzes" &&
+        typeof l["activity"] === "string" &&
+        typeof r["activity"] === "string"
+      ) {
+        const result = mergeQuizRecords(quizRecordSchema.parse(l), quizRecordSchema.parse(r));
+        copies += result.copies.length;
+        return result;
+      }
       if (ns === "recall" && typeof l["phase"] === "string" && typeof r["phase"] === "string") {
         const newer = Number(l["updatedAt"]) >= Number(r["updatedAt"]) ? l : r,
           older = newer === l ? r : l;

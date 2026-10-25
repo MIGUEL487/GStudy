@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, CircleCheck, Compass, Lightbulb } from "lucide-react";
 import { awardXp } from "@/lib/learn-client";
 import type { LearningSearch } from "@/lib/learning-model";
-import { readQuizProgress, writeQuizProgress, type QuizProgress } from "@/lib/quiz-progress";
+import {
+  quizHeartEvent,
+  quizPosition,
+  quizDocumentKey,
+  type QuizProgress,
+} from "@/lib/quiz-progress";
+import { savedQuiz, saveQuiz, readQuizDocument, quizUpdatedEvent } from "@/lib/quiz-store";
 import { useLessonContext } from "./learning-provider";
 import { useGeneratedActivity } from "@/hooks/use-generated-activity";
 import { LessonShell, Finish, ErrorBox, UnavailableLesson, BreathPauseScreen } from "./lesson";
@@ -36,14 +42,26 @@ export function prepareQuizQuestions(raw: QuizQuestion[], random = Math.random):
 
 export function QuizLesson({ search }: { search: LearningSearch }) {
   const account = useHearts();
-  const storageKey = `gstudy.quiz.v2:${account?.userId ?? "signed-out"}:${JSON.stringify(search)}`;
-  return <QuizSession key={storageKey} search={search} storageKey={storageKey} />;
+  const user = account?.userId ?? "signed-out";
+  const activity = JSON.stringify(search);
+  return (
+    <QuizSession key={`${user}:${activity}`} search={search} user={user} activity={activity} />
+  );
 }
 
-function QuizSession({ search, storageKey }: { search: LearningSearch; storageKey: string }) {
+function QuizSession({
+  search,
+  user,
+  activity,
+}: {
+  search: LearningSearch;
+  user: string;
+  activity: string;
+}) {
+  const storageKey = `gstudy.quiz.v2:${user}:${activity}`;
   const lesson = useLessonContext(search);
   const hearts = useHearts();
-  const [restored] = useState(() => readQuizProgress(storageKey));
+  const [restored] = useState(() => savedQuiz(user, activity, storageKey));
   const [usingSaved, setUsingSaved] = useState(Boolean(restored.value));
   const [session, setSession] = useState<QuizProgress | null>(restored.value);
   const current = useRef(session);
@@ -60,7 +78,10 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
   );
   const persist = useCallback(
     (next: QuizProgress) => {
-      if (!writeQuizProgress(storageKey, next)) {
+      const previous = current.current;
+      current.current = next;
+      if (!saveQuiz(user, activity, next)) {
+        current.current = previous;
         setLocalError(
           "Não foi possível salvar sua resposta. Libere espaço no navegador e tente novamente.",
         );
@@ -71,8 +92,55 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
       setLocalError("");
       return true;
     },
-    [storageKey],
+    [user, activity],
   );
+  const [history, setHistory] = useState<QuizProgress[]>([]);
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        const rows = readQuizDocument(user).sessions.filter((row) => row.activity === activity);
+        setHistory(rows.flatMap((row) => [row.progress, ...row.copies]));
+        const local = current.current;
+        if (!local) return;
+        const incoming = rows.find((row) => row.id === local.sessionId)?.progress;
+        if (
+          incoming &&
+          (quizPosition(incoming) > quizPosition(local) ||
+            (quizPosition(incoming) === quizPosition(local) &&
+              local.pendingHeartId &&
+              !incoming.pendingHeartId))
+        ) {
+          current.current = incoming;
+          setSession(incoming);
+          setUsingSaved(true);
+        }
+      } catch {
+        setLocalError("Não foi possível ler o histórico. Seus dados foram preservados.");
+      }
+    };
+    const storage = (event: StorageEvent) => {
+      if (event.key === quizDocumentKey(user)) refresh();
+    };
+    // Import the old per-activity cache without deleting its backup.
+    try {
+      if (
+        restored.value &&
+        !readQuizDocument(user).sessions.some((row) => row.id === restored.value!.sessionId)
+      ) {
+        if (!saveQuiz(user, activity, restored.value))
+          setLocalError("Não foi possível salvar o quiz na conta deste aparelho.");
+      }
+    } catch {
+      setLocalError("Não foi possível ler o histórico. Seus dados foram preservados.");
+    }
+    refresh();
+    window.addEventListener("storage", storage);
+    window.addEventListener(quizUpdatedEvent, refresh);
+    return () => {
+      window.removeEventListener("storage", storage);
+      window.removeEventListener(quizUpdatedEvent, refresh);
+    };
+  }, [user, activity, restored]);
   useEffect(() => {
     if (session || !enabled || generated.result?.mode !== "quiz") return;
     const questions = prepareQuizQuestions(generated.result.quiz.questions);
@@ -155,6 +223,28 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
     </section>
   );
 
+  const savedHistory = (
+    <>
+      {history.length > 1 && (
+        <details>
+          <summary>Quizzes salvos e respostas preservadas</summary>
+          {history.map((value, index) => (
+            <button
+              key={index}
+              className="text-action"
+              onClick={() => {
+                if (persist({ ...value, sessionId: crypto.randomUUID() })) setUsingSaved(true);
+              }}
+            >
+              Retomar quiz {index + 1} · pergunta {value.index + 1}
+              {value.done ? " · concluído" : ""}
+            </button>
+          ))}
+        </details>
+      )}
+    </>
+  );
+
   if (lesson.ready && !enabled)
     return (
       <LessonShell progress={0} {...shell}>
@@ -212,6 +302,7 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
   if (session.done)
     return (
       <LessonShell progress={1} {...shell}>
+        {savedHistory}
         <Finish
           xp={session.right * 10 + 5}
           title="Cada tentativa ensina."
@@ -269,7 +360,7 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
       checked: true,
       right: latest.right + Number(right),
       mistakes: right ? latest.mistakes : [...latest.mistakes, latest.index],
-      pendingHeartId: right ? null : crypto.randomUUID(),
+      pendingHeartId: right ? null : quizHeartEvent(latest.sessionId, latest.index),
     });
   };
   const next = () => {
@@ -289,6 +380,7 @@ function QuizSession({ search, storageKey }: { search: LearningSearch; storageKe
       {...shell}
     >
       <div className="lesson-body">
+        {savedHistory}
         <div className="activity-intro">
           <Compass size={18} aria-hidden="true" />
           <span>Errar também faz parte de aprender.</span>
