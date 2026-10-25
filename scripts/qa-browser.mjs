@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium, devices } from "playwright";
 
 export const qaUser = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -14,8 +14,17 @@ export async function qaContext(
   { width = 390, theme = "dark", user = qaUser, ...options } = {},
 ) {
   const context = await browser.newContext({
-    viewport: { width, height: 900 },
-    reducedMotion: "reduce",
+    ...(process.env.QA_DEVICE ? devices[process.env.QA_DEVICE] : {}),
+    viewport: { width, height: width < 768 ? 844 : 900 },
+    reducedMotion: process.env.QA_REDUCED_MOTION || "reduce",
+    ...(process.env.QA_ANIMATION === "1"
+      ? {
+          recordVideo: {
+            dir: process.env.QA_ANIMATION_OUTPUT + "/videos",
+            size: { width: Math.min(width, 1440), height: 900 },
+          },
+        }
+      : {}),
     ...options,
   });
   await context.addInitScript(
@@ -76,6 +85,17 @@ export async function qaContext(
       body: JSON.stringify(data),
     });
   });
+  const base = process.env.QA_BASE_URL || "http://127.0.0.1:3002";
+  await context.route(`${base}/_serverFn/**`, (route) =>
+    route.fulfill({ status: 503, body: "Função não incluída na simulação local." }),
+  );
+  if (process.env.QA_ANIMATION === "1") {
+    const { instrumentAnimations } = await import("./qa-animation.mjs");
+    await instrumentAnimations(context, {
+      output: process.env.QA_ANIMATION_OUTPUT,
+      mobile: width < 768,
+    });
+  }
   return context;
 }
 export function launchQaBrowser() {

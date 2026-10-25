@@ -72,6 +72,18 @@ export function StudyLayout({ children }: { children: ReactNode }) {
   } | null>(null);
 
   useEffect(() => {
+    // Sessões is a primary mobile destination. Parse it while the home screen is idle so
+    // the first tap does not compete with the route animation on slower phones.
+    const preload = () => void import("./sessions-view");
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preload, { timeout: 1500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(preload, 700);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     let cancelled = false;
 

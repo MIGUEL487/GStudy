@@ -1,5 +1,19 @@
 # Verificações no navegador
 
+## Tema, animações e desempenho
+
+`npm run test:theme` verifica claro→escuro e escuro→claro em 390 e 1440 px. Confere a expansão circular de 720 ms a partir do canto inferior esquerdo, o caminho imediato com `prefers-reduced-motion`, o degradê e o filtro da imagem inicial. O relatório, as capturas intermediárias/finais e os traces ficam em `QA_OUTPUT` (padrão `/tmp/gstudy-theme-check`).
+
+`npm run test:animations` orquestra os fluxos funcionais abaixo com vídeo, capturas e instrumentação do navegador. Pixel 7 e desktop percorrem interface, quiz, streaming, jogos, chamada e lousa; iPhone 14 percorre a interface completa. O celular usa desaceleração de CPU 4×. A rodada mede CLS, percentil 95 do intervalo entre quadros, Long Animation Frames, remontagens dos provedores/layout persistentes e quedas transitórias de brilho no vídeo. Cada projeto também roda a interface com movimento reduzido. `QA_PROJECT` e `QA_SUITES` limitam uma rodada de diagnóstico. Os perfis móveis são emulações no Chromium e não substituem Safari ou aparelhos físicos.
+
+Para o vídeo, o Playwright requer seu binário de FFmpeg. `PLAYWRIGHT_BROWSERS_PATH` pode apontar para uma instalação temporária. Na matriz completa, `QA_BASE_URL` deve apontar para o Vite local em modo `e2e`, com Supabase público de teste; todas as requisições são interceptadas pelos fixtures locais. As verificações de tema e Lighthouse também rodam sobre uma compilação local de produção.
+
+`npm run test:lighthouse` exige `QA_LIGHTHOUSE_MODULE` apontando para `lighthouse/core/index.js`, instalado fora das dependências do aplicativo. Ele usa a mesma sessão autenticada simulada e executa três medições mobile, salvando HTML e JSON. A compilação de produção deve usar `compressPublicAssets: true`. O relatório informa LCP, TBT, CLS, versão do Lighthouse e limites da simulação.
+
+## Quiz entre aparelhos
+
+`npm run test:quiz-sync` abre dois contextos separados com a mesma conta em 390 e 1440 px, claro e escuro. O progresso nasce no documento real do PGlite, avança em um navegador, aparece no outro e sobrevive ao recarregamento. Os dois contextos respondem a mesma questão errada para confirmar um único desconto de coração no servidor. Traces, capturas e relatório ficam em `QA_OUTPUT`.
+
 ## Perfil e amigos
 
 Com o Vite de teste na porta 3002, execute `CHROMIUM_PATH=/usr/bin/chromium npm run test:social`. Para outra porta use `QA_BASE_URL`. O script abre duas contas em contextos isolados e encaminha as requisições Supabase para um PGlite local, com todas as migrações e os papéis reais. IA fica bloqueada.

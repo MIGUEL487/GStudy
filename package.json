@@ -17,7 +17,10 @@
     "test:voice": "node scripts/voice-check.mjs",
     "test:social": "node scripts/social-check.mjs",
     "verify:schema": "node scripts/verify-supabase-schema.mjs",
-    "test:quiz-sync": "node scripts/quiz-sync-check.mjs"
+    "test:quiz-sync": "node scripts/quiz-sync-check.mjs",
+    "test:theme": "node scripts/theme-check.mjs",
+    "test:animations": "node scripts/anim-check.mjs",
+    "test:lighthouse": "node scripts/lighthouse-check.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

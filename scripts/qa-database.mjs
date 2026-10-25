@@ -44,6 +44,11 @@ export async function qaDatabase(users) {
   };
   const functions = new Set([
     "get_student_rollover",
+    "save_student_onboarding",
+    "check_username_available",
+    "get_learning_hearts",
+    "lose_learning_heart",
+    "record_learning_reward",
     "save_student_profile",
     "advance_school_year",
     "get_social_inbox",

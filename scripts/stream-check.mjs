@@ -89,122 +89,132 @@ const proxy = `http://127.0.0.1:${server.address().port}`;
 const browser = await launchQaBrowser();
 const results = [];
 try {
-  for (const width of [390, 1440]) {
-    for (const mode of ["feynman", "socrates", "quiz", "flashcards", "explain"]) {
-      const context = await qaContext(browser, { width });
-      const page = await context.newPage();
-      page.setDefaultTimeout(10000);
-      const pageErrors = [];
-      page.on("pageerror", (error) => pageErrors.push(error.message));
-      let behavior = "normal";
-      await context.route(`${base}/_serverFn/**`, async (route) => {
-        const path = new URL(route.request().url()).pathname.split("/").at(-1);
-        const handler = Buffer.from(path, "base64url").toString();
-        if (handler.includes("getSocratesQuota"))
-          await route.fulfill({
-            contentType: "application/json",
-            body: JSON.stringify({ result: { ok: true, quota } }),
-          });
-        else if (/socratesReply|feynmanReply|generateActivity/.test(handler))
-          await route.continue({ url: `${proxy}/stream?mode=${mode}&behavior=${behavior}` });
-        else await route.fulfill({ status: 503, body: "RPC not included in visual QA" });
-      });
-      await context.tracing.start({ screenshots: true, snapshots: true });
-      try {
-        const path =
-          mode === "socrates"
-            ? "/socrates"
-            : `/aprender/${mode === "explain" ? "explicacoes" : mode}`;
-        await page.goto(base + path);
-        if (mode === "feynman") {
-          await page.getByPlaceholder("Qual é o tema da aula? Ex.: Fotossíntese").fill("Energia");
-          await page.getByRole("button", { name: "Começar a aula" }).click();
-          await page.getByLabel("Agora é a sua vez").fill("Energia passa entre os seres vivos.");
-          await page.getByRole("button", { name: "Enviar explicação" }).click();
-        } else if (mode === "socrates") {
-          await page
-            .getByLabel("Sua pergunta ou explicação")
-            .fill("Como a energia passa entre os seres vivos?");
-          await page.getByRole("button", { name: "Enviar para Sócrates" }).click();
-        }
-        if (["quiz", "flashcards", "explain"].includes(mode)) {
-          await page.getByRole("region", { name: "Conteúdo recebido" }).waitFor();
-          assert.equal(
-            await page
-              .getByText(
-                mode === "quiz"
-                  ? "Pergunta recebida 2?"
-                  : mode === "flashcards"
-                    ? "Conceito recebido 2?"
-                    : "Ideia recebida 2",
-                { exact: true },
-              )
-              .count(),
-            0,
-          );
-          await page.getByRole("button", { name: "Parar geração" }).click();
-          await page.getByText(/Geração interrompida/).waitFor();
-          await page.screenshot({ path: `${output}/${width}-${mode}-partial.png`, fullPage: true });
-          await page.getByRole("button", { name: "Tentar novamente" }).click();
-          if (mode === "quiz")
-            await page.getByRole("button", { name: "Conferir resposta" }).waitFor();
-          else if (mode === "flashcards")
-            await page.getByText("Conceito recebido 1?", { exact: true }).waitFor();
-          else await page.getByText("Ideia recebida 1", { exact: true }).waitFor();
-          await page.getByRole("button", { name: "Parar geração" }).waitFor({ state: "hidden" });
-        } else {
-          await page.getByText(first.trim(), { exact: true }).first().waitFor();
-          assert.equal(await page.getByText(last, { exact: true }).count(), 0);
-          const before = cancellations;
-          await page.getByRole("button", { name: "Interromper resposta da IA" }).first().click();
-          await page
-            .getByText(/Geração interrompida/)
-            .first()
-            .waitFor();
-          await page.waitForFunction(() => !document.querySelector('[aria-label="Digitando…"]'));
-          assert(cancellations > before);
-          await page.screenshot({ path: `${output}/${width}-${mode}-stopped.png`, fullPage: true });
+  for (const width of (process.env.QA_WIDTHS || "390,1440").split(",").map(Number)) {
+    for (const theme of (process.env.QA_THEMES || "light,dark").split(","))
+      for (const mode of ["feynman", "socrates", "quiz", "flashcards", "explain"]) {
+        const context = await qaContext(browser, { width, theme });
+        const page = await context.newPage();
+        page.setDefaultTimeout(10000);
+        const pageErrors = [];
+        page.on("pageerror", (error) => pageErrors.push(error.message));
+        let behavior = "normal";
+        await context.route(`${base}/_serverFn/**`, async (route) => {
+          const path = new URL(route.request().url()).pathname.split("/").at(-1);
+          const handler = Buffer.from(path, "base64url").toString();
+          if (handler.includes("getSocratesQuota"))
+            await route.fulfill({
+              contentType: "application/json",
+              body: JSON.stringify({ result: { ok: true, quota } }),
+            });
+          else if (/socratesReply|feynmanReply|generateActivity/.test(handler))
+            await route.continue({ url: `${proxy}/stream?mode=${mode}&behavior=${behavior}` });
+          else await route.fulfill({ status: 503, body: "RPC not included in visual QA" });
+        });
+        await context.tracing.start({ screenshots: true, snapshots: true });
+        try {
+          const path =
+            mode === "socrates"
+              ? "/socrates"
+              : `/aprender/${mode === "explain" ? "explicacoes" : mode}`;
+          await page.goto(base + path);
           if (mode === "feynman") {
-            behavior = "error";
-            await page.getByRole("button", { name: "Continuar resposta" }).click();
-            await page.getByText("Conexão de teste interrompida", { exact: true }).waitFor();
-            await page.getByText(first.trim(), { exact: true }).first().waitFor();
-            behavior = "normal";
-            await page.getByRole("button", { name: "Tentar de novo" }).click();
+            await page.getByPlaceholder("Qual é o tema da aula? Ex.: Fotossíntese").fill("Energia");
+            await page.getByRole("button", { name: "Começar a aula" }).click();
+            await page.getByLabel("Agora é a sua vez").fill("Energia passa entre os seres vivos.");
+            await page.getByRole("button", { name: "Enviar explicação" }).click();
+          } else if (mode === "socrates") {
             await page
-              .getByText(first + last, { exact: true })
+              .getByLabel("Sua pergunta ou explicação")
+              .fill("Como a energia passa entre os seres vivos?");
+            await page.getByRole("button", { name: "Enviar para Sócrates" }).click();
+          }
+          if (["quiz", "flashcards", "explain"].includes(mode)) {
+            await page.getByRole("region", { name: "Conteúdo recebido" }).waitFor();
+            assert.equal(
+              await page
+                .getByText(
+                  mode === "quiz"
+                    ? "Pergunta recebida 2?"
+                    : mode === "flashcards"
+                      ? "Conceito recebido 2?"
+                      : "Ideia recebida 2",
+                  { exact: true },
+                )
+                .count(),
+              0,
+            );
+            await page.getByRole("button", { name: "Parar geração" }).click();
+            await page.getByText(/Geração interrompida/).waitFor();
+            await page.screenshot({
+              path: `${output}/${width}-${theme}-${mode}-partial.png`,
+              fullPage: true,
+            });
+            await page.getByRole("button", { name: "Tentar novamente" }).click();
+            if (mode === "quiz")
+              await page.getByRole("button", { name: "Conferir resposta" }).waitFor();
+            else if (mode === "flashcards")
+              await page.getByText("Conceito recebido 1?", { exact: true }).waitFor();
+            else await page.getByText("Ideia recebida 1", { exact: true }).waitFor();
+            await page.getByRole("button", { name: "Parar geração" }).waitFor({ state: "hidden" });
+          } else {
+            await page.getByText(first.trim(), { exact: true }).first().waitFor();
+            assert.equal(await page.getByText(last, { exact: true }).count(), 0);
+            const before = cancellations;
+            await page.getByRole("button", { name: "Interromper resposta da IA" }).first().click();
+            await page
+              .getByText(/Geração interrompida/)
               .first()
               .waitFor();
+            await page.waitForFunction(() => !document.querySelector('[aria-label="Digitando…"]'));
+            assert(cancellations > before);
+            await page.screenshot({
+              path: `${output}/${width}-${theme}-${mode}-stopped.png`,
+              fullPage: true,
+            });
+            if (mode === "feynman") {
+              behavior = "error";
+              await page.getByRole("button", { name: "Continuar resposta" }).click();
+              await page.getByText("Conexão de teste interrompida", { exact: true }).waitFor();
+              await page.getByText(first.trim(), { exact: true }).first().waitFor();
+              behavior = "normal";
+              await page.getByRole("button", { name: "Tentar de novo" }).click();
+              await page
+                .getByText(first + last, { exact: true })
+                .first()
+                .waitFor();
+            }
+            if (mode === "socrates") {
+              await page
+                .locator(".socrates-message.is-assistant")
+                .filter({ hasText: first.trim() })
+                .waitFor();
+              await page.reload();
+              const picker = page.getByLabel("Suas conversas");
+              await picker.locator('option:not([value=""])').first().waitFor({ state: "attached" });
+              const id = await picker
+                .locator("option")
+                .evaluateAll((options) => options.find((o) => o.value)?.value);
+              await picker.selectOption(id);
+              await page.getByText(first.trim(), { exact: true }).waitFor();
+            }
           }
-          if (mode === "socrates") {
-            await page
-              .locator(".socrates-message.is-assistant")
-              .filter({ hasText: first.trim() })
-              .waitFor();
-            await page.reload();
-            const picker = page.getByLabel("Suas conversas");
-            await picker.locator('option:not([value=""])').first().waitFor({ state: "attached" });
-            const id = await picker
-              .locator("option")
-              .evaluateAll((options) => options.find((o) => o.value)?.value);
-            await picker.selectOption(id);
-            await page.getByText(first.trim(), { exact: true }).waitFor();
-          }
+          assert.equal(
+            await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+            false,
+          );
+          assert.deepEqual(pageErrors, []);
+          results.push({ width, theme, mode, passed: true });
+        } catch (error) {
+          results.push({ width, theme, mode, passed: false, error: String(error), pageErrors });
+          console.log(results.at(-1));
+          await page.screenshot({
+            path: `${output}/${width}-${theme}-${mode}-failure.png`,
+            fullPage: true,
+          });
         }
-        assert.equal(
-          await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-          false,
-        );
-        assert.deepEqual(pageErrors, []);
-        results.push({ width, mode, passed: true });
-      } catch (error) {
-        results.push({ width, mode, passed: false, error: String(error), pageErrors });
-        console.log(results.at(-1));
-        await page.screenshot({ path: `${output}/${width}-${mode}-failure.png`, fullPage: true });
+        await context.tracing.stop({ path: `${output}/${width}-${theme}-${mode}.zip` });
+        await context.close();
       }
-      await context.tracing.stop({ path: `${output}/${width}-${mode}.zip` });
-      await context.close();
-    }
   }
 } finally {
   await browser.close();

@@ -267,7 +267,7 @@ describe("Bloco 3: Sessões, DMs, Notificações e Amigos", () => {
       // Alterna para Grupos
       const groupsBtn = screen.getByRole("tab", { name: /Grupos/i });
       fireEvent.click(groupsBtn);
-      expect(screen.getByTestId("mock-groups-panel")).toBeInTheDocument();
+      expect(await screen.findByTestId("mock-groups-panel")).toBeInTheDocument();
 
       // Alterna para Jogos
       const gamesBtn = screen.getByRole("tab", { name: /Jogos/i });

@@ -44,17 +44,6 @@ try {
           contexts.push(context);
           await context.tracing.start({ screenshots: true, snapshots: true });
           await attach(context, qaUser);
-          await context.route("**/rest/v1/rpc/get_learning_hearts", (route) =>
-            route.fulfill({
-              json: {
-                hearts: 3,
-                max: 3,
-                regen_minutes: 120,
-                server_now: new Date().toISOString(),
-                next_at: null,
-              },
-            }),
-          );
         }
         const [a, b] = await Promise.all(contexts.map((c) => c.newPage()));
         for (const p of [a, b]) {
@@ -85,6 +74,17 @@ try {
           tx.query(`select document from public.account_documents where namespace='quizzes'`),
         );
         assert.equal(cloud.rows[0].document.sessions[0].progress.right, 1);
+        // Both devices answer the same question incorrectly: only one server charge.
+        for (const page of [a, b]) {
+          await page.getByRole("button", { name: "Incorreta", exact: true }).click();
+          await page.getByRole("button", { name: "Conferir resposta" }).click();
+          await page.getByRole("button", { name: "Próxima pergunta" }).waitFor();
+          await page.getByText("A explicação foi preservada.", { exact: true }).waitFor();
+        }
+        const hearts = await as(qaUser.id, (tx) =>
+          tx.query(`select public.get_learning_hearts() as value`),
+        );
+        assert.equal(hearts.rows[0].value.hearts, 2);
         assert.deepEqual(errors, []);
         await b.screenshot({ path: `${output}/${width}-${theme}.png`, fullPage: true });
         results.push({
@@ -93,6 +93,7 @@ try {
           status: "passed",
           restoredAcrossBrowsers: true,
           restoredAfterReload: true,
+          sameWrongAnswerChargedOnce: true,
         });
       } catch (error) {
         for (const [i, context] of contexts.entries())

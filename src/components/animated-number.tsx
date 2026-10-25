@@ -30,6 +30,7 @@ export function AnimatedNumber({
 
     const startTime = performance.now();
 
+    let handle: number;
     const step = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
@@ -40,14 +41,14 @@ export function AnimatedNumber({
       currentRef.current = nextVal;
 
       if (progress < 1) {
-        requestAnimationFrame(step);
+        handle = requestAnimationFrame(step);
       } else {
         setDisplayValue(value);
         currentRef.current = value;
       }
     };
 
-    const handle = requestAnimationFrame(step);
+    handle = requestAnimationFrame(step);
     return () => cancelAnimationFrame(handle);
   }, [value, duration]);
 
