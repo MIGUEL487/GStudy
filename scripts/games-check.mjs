@@ -22,7 +22,7 @@ const ids = [
 const targets = (process.env.QA_WIDTHS || "360,390,430,768,1440").split(",").map(Number);
 try {
   for (const width of targets)
-    for (const theme of ["light", "dark"]) {
+    for (const theme of (process.env.QA_THEMES || "light,dark").split(",")) {
       const context = await qaContext(browser, { width, theme });
       const page = await context.newPage();
       page.setDefaultTimeout(12000);

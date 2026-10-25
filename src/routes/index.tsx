@@ -32,6 +32,7 @@ import {
 
 export const Route = createFileRoute("/")({
   head: () => ({
+    links: [{ rel: "preload", as: "image", href: studyImage.url, fetchPriority: "high" }],
     meta: [
       { title: "GStudy · Meu espaço de estudo" },
       {
@@ -92,6 +93,9 @@ function Index() {
       <section className="study-banner">
         <img
           src={studyImage.url}
+          width={1024}
+          height={235}
+          fetchPriority="high"
           alt="Mesa de estudos iluminada pelo sol, com livros, caderno e uma xícara"
         />
         <div className="banner-copy">

@@ -2,7 +2,9 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { Radio, Users, Gamepad2 } from "lucide-react";
 import { StudyRoomsView } from "./study-rooms-view";
-import { SocialFriendsPanel } from "./social-friends-panel";
+const SocialFriendsPanel = lazy(() =>
+  import("./social-friends-panel").then((module) => ({ default: module.SocialFriendsPanel })),
+);
 import type { GameLaunch } from "@/lib/games/types";
 const GameCatalog = lazy(() =>
   import("./games/game-catalog").then((module) => ({ default: module.GameCatalog })),
@@ -80,7 +82,11 @@ export function SessionsView({ initialTab = "rooms", initialGame }: SessionsView
           transition={{ duration: 0.15 }}
         >
           {tab === "rooms" && <StudyRoomsView />}
-          {tab === "groups" && <SocialFriendsPanel initialTab="groups" groupsOnly />}
+          {tab === "groups" && (
+            <Suspense fallback={<p role="status">Carregando grupos…</p>}>
+              <SocialFriendsPanel initialTab="groups" groupsOnly />
+            </Suspense>
+          )}
           {tab === "games" && (
             <Suspense fallback={<p role="status">Carregando jogos…</p>}>
               <GameCatalog initialLaunch={initialGame} />

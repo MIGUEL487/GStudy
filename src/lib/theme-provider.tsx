@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   useMemo,
@@ -25,6 +26,14 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 const THEME_STORAGE_KEY = "gstudy_theme";
+
+type ThemeTransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => {
+    ready: Promise<void>;
+    finished: Promise<void>;
+    skipTransition: () => void;
+  };
+};
 
 export function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";
@@ -54,8 +63,9 @@ export function applyThemeToDOM(theme: Theme) {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   // Match SSR on the first React render; the head script already painted the palette.
   const [theme, setThemeState] = useState<Theme>("light");
+  const transitionRunning = useRef(false);
 
-  const setTheme = useCallback((nextTheme: Theme) => {
+  const commitTheme = useCallback((nextTheme: Theme) => {
     setThemeState(nextTheme);
     applyThemeToDOM(nextTheme);
     try {
@@ -84,9 +94,44 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  const setTheme = useCallback((nextTheme: Theme) => commitTheme(nextTheme), [commitTheme]);
+
   const toggleTheme = useCallback(() => {
-    setTheme(theme === "light" ? "dark" : "light");
-  }, [theme, setTheme]);
+    if (transitionRunning.current) return;
+    const nextTheme = theme === "light" ? "dark" : "light";
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const viewDocument = document as ThemeTransitionDocument;
+    if (reduced || !viewDocument.startViewTransition) {
+      commitTheme(nextTheme);
+      return;
+    }
+
+    transitionRunning.current = true;
+    document.documentElement.classList.add("theme-view-transition");
+    const transition = viewDocument.startViewTransition(() => commitTheme(nextTheme));
+    void transition.finished.finally(() => {
+      transitionRunning.current = false;
+      document.documentElement.classList.remove("theme-view-transition");
+    });
+    void transition.ready
+      .then(() => {
+        const radius = Math.hypot(window.innerWidth, window.innerHeight);
+        document.documentElement.animate(
+          {
+            clipPath: ["circle(0px at 0% 100%)", `circle(${radius}px at 0% 100%)`],
+          },
+          {
+            duration: 720,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+            fill: "both",
+            pseudoElement: "::view-transition-new(root)",
+          },
+        );
+      })
+      .catch(() => {
+        // The theme was already committed; unsupported animation details need no retry.
+      });
+  }, [theme, commitTheme]);
 
   useEffect(() => {
     // Sync with DOM attribute set by head inline script
