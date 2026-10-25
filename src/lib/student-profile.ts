@@ -1,6 +1,44 @@
 import { supabase } from "@/integrations/supabase/client";
 import { schoolYearAt } from "./school-year";
 import { backendErrorMessage } from "./backend-errors";
+import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { schoolYearSchema } from "./school-year";
+export const profileUpdatedEvent = "gstudy-profile-updated";
+export async function saveStudentProfile(patch: {
+  display_name?: string;
+  avatar_url?: string | null;
+  school_year?: string;
+  school_days?: number[];
+  theme?: "light" | "dark";
+}) {
+  const { data, error } = await (supabase as unknown as SupabaseClient).rpc(
+    "save_student_profile",
+    { p_patch: patch },
+  );
+  if (error)
+    throw new Error(
+      backendErrorMessage(error, "Não foi possível salvar seu perfil. Tente novamente."),
+    );
+  if (!data || typeof data !== "object" || data.saved !== true)
+    throw new Error("Não foi possível confirmar que seu perfil foi salvo.");
+  window.dispatchEvent(new Event(profileUpdatedEvent));
+}
+export async function getStudentRollover() {
+  const { data, error } = await (supabase as unknown as SupabaseClient).rpc("get_student_rollover");
+  if (error)
+    throw new Error(backendErrorMessage(error, "Não foi possível conferir a virada de ano agora."));
+  const result = z
+    .object({
+      needsPrompt: z.boolean(),
+      currentCalendarYear: z.number().int(),
+      currentSchoolYear: schoolYearSchema.optional(),
+      suggestedNextYear: schoolYearSchema.optional(),
+    })
+    .safeParse(data);
+  if (!result.success) throw new Error("Não foi possível confirmar a etapa escolar agora.");
+  return result.data;
+}
 
 export type StudentProfile = {
   id: string;
@@ -256,6 +294,7 @@ export function checkSchoolYearRollover(
  */
 export async function confirmSchoolYearAdvance(newSchoolYear: string): Promise<boolean> {
   try {
+    if (!schoolYearSchema.safeParse(newSchoolYear).success) return false;
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return false;
 
@@ -263,18 +302,8 @@ export async function confirmSchoolYearAdvance(newSchoolYear: string): Promise<b
       p_new_school_year: newSchoolYear,
     });
 
-    if (rpcError) {
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          school_year: newSchoolYear,
-          year_selected_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userData.user.id);
-
-      if (updateError) return false;
-    }
+    if (rpcError) return false;
+    window.dispatchEvent(new Event(profileUpdatedEvent));
 
     return true;
   } catch {

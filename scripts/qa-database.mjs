@@ -43,6 +43,14 @@ export async function qaDatabase(users) {
     return next;
   };
   const functions = new Set([
+    "get_student_rollover",
+    "save_student_profile",
+    "advance_school_year",
+    "get_social_inbox",
+    "sync_account_document",
+    "search_user_exact",
+    "send_friend_request_v2",
+    "respond_friend_request",
     "voice_inbox",
     "start_voice_call",
     "invite_voice_peer",
@@ -54,6 +62,10 @@ export async function qaDatabase(users) {
     "send_voice_signal",
   ]);
   const tables = new Set([
+    "account_documents",
+    "direct_messages",
+    "user_blocks",
+    "user_reports",
     "profiles",
     "study_groups",
     "group_members",
@@ -87,17 +99,19 @@ export async function qaDatabase(users) {
           if (functions.has(name)) {
             const input = route.request().postDataJSON() ?? {},
               entries = Object.entries(input);
-            if (entries.some(([key]) => !/^p_[a-z_]+$/.test(key)))
+            if (entries.some(([key]) => !/^[a-z_]+$/.test(key)))
               throw new Error("Invalid QA argument");
+            const argsSql = entries.map(([key], i) => `${key}=>$${i + 1}`).join(",");
             const result = await tx.query(
-              `select public.${name}(${entries.map(([key], i) => `${key}=>$${i + 1}`).join(",")}) as value`,
+              name === "search_user_exact"
+                ? `select * from public.${name}(${argsSql})`
+                : `select public.${name}(${argsSql}) as value`,
               entries.map(([, value]) =>
                 typeof value === "object" && value !== null ? JSON.stringify(value) : value,
               ),
             );
-            return result.rows[0].value;
+            return name === "search_user_exact" ? result.rows : result.rows[0].value;
           }
-          if (route.request().method() !== "GET") return [];
           const clauses = [],
             args = [];
           for (const [key, filter] of url.searchParams) {
@@ -112,13 +126,64 @@ export async function qaDatabase(users) {
             } else if (filter === "is.null") clauses.push(`${key} is null`);
             else if (filter.startsWith("in.(")) {
               args.push(filter.slice(4, -1).split(","));
-              clauses.push(`${key}=any($${args.length}::uuid[])`);
+              clauses.push(
+                `${key}=any($${args.length}::${key === "namespace" ? "text" : "uuid"}[])`,
+              );
             }
           }
-          const result = await tx.query(
-            `select * from public.${name}${clauses.length ? " where " + clauses.join(" and ") : ""}${name === "call_signals" ? " order by id desc limit 1000" : ""}`,
-            args,
-          );
+          const pair = url.searchParams.get("or")?.includes("and(")
+            ? url.searchParams
+                .get("or")
+                ?.match(
+                  /(?:user_id|sender_id)\.eq\.([^,)]+),(?:friend_id|recipient_id)\.eq\.([^,)]+)/,
+                )
+            : undefined;
+          if (pair) {
+            const fields =
+              name === "friendships" ? ["user_id", "friend_id"] : ["sender_id", "recipient_id"];
+            args.push(pair[1], pair[2]);
+            clauses.push(
+              `least(${fields[0]},${fields[1]})=least($${args.length - 1}::uuid,$${args.length}::uuid) and greatest(${fields[0]},${fields[1]})=greatest($${args.length - 1}::uuid,$${args.length}::uuid)`,
+            );
+          }
+          const where = clauses.length ? " where " + clauses.join(" and ") : "";
+          const order = url.searchParams.get("order")?.match(/^([a-z_]+)\.(asc|desc)$/);
+          const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get("limit") || 1000)));
+          const method = route.request().method();
+          const returning = route.request().headers().prefer?.includes("return=representation")
+            ? " returning *"
+            : "";
+          let result;
+          if (method === "POST") {
+            const input = route.request().postDataJSON(),
+              row = Array.isArray(input) ? input[0] : input,
+              fields = Object.keys(row);
+            if (fields.some((field) => !/^[a-z_]+$/.test(field)))
+              throw new Error("Invalid QA field");
+            result = await tx.query(
+              `insert into public.${name}(${fields.join(",")}) values(${fields.map((_, i) => "$" + (i + 1)).join(",")})${returning}`,
+              fields.map((field) => row[field]),
+            );
+          } else if (method === "PATCH") {
+            const input = route.request().postDataJSON(),
+              fields = Object.keys(input);
+            if (fields.some((field) => !/^[a-z_]+$/.test(field)))
+              throw new Error("Invalid QA field");
+            const values = fields.map((field) => {
+              args.push(input[field]);
+              return `${field}=$${args.length}`;
+            });
+            result = await tx.query(
+              `update public.${name} set ${values.join(",")}${where}${returning}`,
+              args,
+            );
+          } else if (method === "DELETE")
+            result = await tx.query(`delete from public.${name}${where}${returning}`, args);
+          else
+            result = await tx.query(
+              `select * from public.${name}${where}${order ? ` order by ${order[1]} ${order[2]}` : ""} limit ${limit}`,
+              args,
+            );
           return route.request().headers().accept?.includes("vnd.pgrst.object")
             ? (result.rows[0] ?? null)
             : result.rows;
@@ -168,5 +233,5 @@ export async function qaDatabase(users) {
       });
     });
   };
-  return { db, attach };
+  return { db, attach, as };
 }

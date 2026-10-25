@@ -47,9 +47,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     const hash = new URLSearchParams(url.hash.slice(1));
     sessionStorage.removeItem("gstudy-password-recovery");
     if (hash.has("error") || url.searchParams.has("error")) {
-      setError(
-        "A entrada foi cancelada ou não foi autorizada. Tente novamente com Google ou Notion.",
-      );
+      setError("A entrada foi cancelada ou não foi autorizada. Tente novamente com o Google.");
       sessionStorage.removeItem("gstudy.oauth.intent");
     }
     try {
@@ -124,18 +122,18 @@ export function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function LoginScreen({ initialError }: { initialError: string }) {
-  const [busy, setBusy] = useState<"google" | "notion" | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(initialError);
-  const enter = async (provider: "google" | "notion") => {
+  const enter = async () => {
     if (busy) return;
-    setBusy(provider);
+    setBusy(true);
     setError("");
     try {
-      await startOAuth(provider);
+      await startOAuth("google");
     } catch (e) {
       setError(oauthError(e));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
   return (
@@ -147,32 +145,15 @@ function LoginScreen({ initialError }: { initialError: string }) {
         </div>
         <h1>Seu espaço de estudo.</h1>
         <p className="page-subtitle">Entre para acessar seus cadernos, matérias e trilhas.</p>
-        <Button
-          variant="outline"
-          className="w-full"
-          disabled={!!busy}
-          onClick={() => void enter("google")}
-        >
+        <Button variant="outline" className="w-full" disabled={!!busy} onClick={() => void enter()}>
           <GoogleMark />
-          {busy === "google" ? "Conectando…" : "Continuar com o Google"}
-        </Button>
-        <Button
-          variant="outline"
-          className="w-full"
-          disabled={!!busy}
-          onClick={() => void enter("notion")}
-        >
-          <NotionMark />
-          {busy === "notion" ? "Conectando…" : "Continuar com o Notion"}
+          {busy ? "Conectando…" : "Continuar com o Google"}
         </Button>
         {error && (
           <p className="form-error" role="alert">
             {error}
           </p>
         )}
-        <p className="page-subtitle text-xs">
-          Ao conectar o Notion, você escolhe quais páginas de estudo quer compartilhar com o GStudy.
-        </p>
       </div>
       <div className="login-art">
         <img

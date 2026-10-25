@@ -49,10 +49,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe("Entrada social", () => {
-  it("mostra Google e Notion sem pedir senha ou enviar e-mail", async () => {
+  it("oferece somente Google sem pedir senha ou enviar e-mail", async () => {
     await renderLogin();
     expect(screen.getByRole("button", { name: "Continuar com o Google" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continuar com o Notion" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Continuar com o Notion" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Senha")).not.toBeInTheDocument();
     expect(screen.queryByText("Esqueci a senha")).not.toBeInTheDocument();
   });
@@ -61,15 +63,10 @@ describe("Entrada social", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continuar com o Google" }));
     await waitFor(() => expect(mocks.startOAuth).toHaveBeenCalledWith("google"));
   });
-  it("inicia a entrada Notion", async () => {
-    await renderLogin();
-    fireEvent.click(screen.getByRole("button", { name: "Continuar com o Notion" }));
-    await waitFor(() => expect(mocks.startOAuth).toHaveBeenCalledWith("notion"));
-  });
   it("mostra falha do provedor e permite tentar novamente", async () => {
     mocks.startOAuth.mockRejectedValueOnce(new Error("Provedor indisponível"));
     await renderLogin();
-    fireEvent.click(screen.getByRole("button", { name: "Continuar com o Notion" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar com o Google" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Provedor indisponível");
     expect(screen.getByRole("button", { name: "Continuar com o Google" })).not.toBeDisabled();
   });

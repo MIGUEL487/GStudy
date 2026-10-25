@@ -223,8 +223,8 @@ describe("Bloco 2: Onboarding e Perfil do Estudante", () => {
         />,
       );
 
-      expect(screen.getByText("Novo ciclo de estudos começou!")).toBeInTheDocument();
-      expect(screen.getByText(/Sim, avançar para 1º ano · Ensino médio/i)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Novo ano letivo" })).toBeInTheDocument();
+      expect(screen.getByText(/Confirmar 1º ano · Ensino médio/i)).toBeInTheDocument();
       expect(screen.getByText(/Continuar no 9º ano · Ensino fundamental/i)).toBeInTheDocument();
     });
   });

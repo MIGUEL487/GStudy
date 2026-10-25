@@ -1,16 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  Users,
-  X,
-  UserPlus,
-  MessageCircle,
-  Check,
-  Search,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Users, UserPlus, MessageCircle, Check, X, Search } from "lucide-react";
 import { toast } from "sonner";
+import { Sheet, SheetContent, SheetTitle } from "./ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   listFriends,
   listPendingRequests,
@@ -22,399 +14,319 @@ import {
   type UserProfile,
   type SearchUserResult,
 } from "@/lib/social-model";
+import { getSocialInbox, subscribeSocialInbox, signalSocialUpdate } from "@/lib/social-inbox";
 import { DirectMessagesModal } from "./direct-messages-modal";
 import "@/styles/sessions-and-social.css";
 
-interface FriendsDrawerProps {
-  userId: string;
+const statuses = {
+  online: "Online",
+  studying: "Estudando agora",
+  busy: "Ocupado",
+  offline: "Offline",
+};
+export function FriendsDrawer({ userId }: { userId: string }) {
+  return <FriendsPanel key={userId} userId={userId} />;
 }
-
-export function FriendsDrawer({ userId }: FriendsDrawerProps) {
-  const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"friends" | "requests" | "add">("friends");
-
-  const [friends, setFriends] = useState<Friendship[]>([]);
-  const [incoming, setIncoming] = useState<Friendship[]>([]);
-  const [outgoing, setOutgoing] = useState<Friendship[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResult, setSearchResult] = useState<SearchUserResult | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [sendingRequest, setSendingRequest] = useState(false);
-  const [searchNotFound, setSearchNotFound] = useState(false);
-
-  // DM state
-  const [activeChatFriend, setActiveChatFriend] = useState<UserProfile | null>(null);
-
-  const loadSocialData = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
+function FriendsPanel({ userId }: { userId: string }) {
+  const mobile = useIsMobile(),
+    alive = useRef(true),
+    refreshing = useRef(false);
+  const [open, setOpen] = useState(false),
+    [tab, setTab] = useState<"friends" | "requests" | "add">("friends");
+  const [friends, setFriends] = useState<Friendship[]>([]),
+    [incoming, setIncoming] = useState<Friendship[]>([]),
+    [outgoing, setOutgoing] = useState<Friendship[]>([]);
+  const [inbox, setInbox] = useState<Awaited<ReturnType<typeof getSocialInbox>>>({
+    pending: 0,
+    unread: {},
+  });
+  const [loading, setLoading] = useState(false),
+    [busy, setBusy] = useState(""),
+    [error, setError] = useState("");
+  const [query, setQuery] = useState(""),
+    [result, setResult] = useState<SearchUserResult | null>(null),
+    [searched, setSearched] = useState(false);
+  const [chat, setChat] = useState<UserProfile | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const refresh = useCallback(async () => {
+    if (!userId || refreshing.current) return;
+    refreshing.current = true;
     try {
-      const [fList, reqs] = await Promise.all([listFriends(userId), listPendingRequests(userId)]);
-      setFriends(fList);
-      setIncoming(reqs.incoming);
-      setOutgoing(reqs.outgoing);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
+      const next = await getSocialInbox();
+      if (alive.current) setInbox(next);
+    } catch (cause) {
+      if (alive.current)
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Não foi possível atualizar pedidos e mensagens.",
+        );
     }
-  }, [userId]);
-
-  useEffect(() => {
-    if (open) {
-      void loadSocialData();
-    }
-  }, [open, loadSocialData]);
-
-  // Initial count of incoming requests for header badge
-  useEffect(() => {
-    if (!userId) return;
-    void listPendingRequests(userId).then((reqs) => {
-      setIncoming(reqs.incoming);
-    });
-  }, [userId]);
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = searchQuery.trim();
-    if (!query || searching) return;
-
-    setSearching(true);
-    setSearchResult(null);
-    setSearchNotFound(false);
-
-    try {
-      const result = await searchUserExact(query);
-      if (result) {
-        setSearchResult(result);
-      } else {
-        setSearchNotFound(true);
+    if (openRef.current) {
+      setLoading(true);
+      try {
+        const [nextFriends, requests] = await Promise.all([
+          listFriends(userId),
+          listPendingRequests(userId),
+        ]);
+        if (alive.current) {
+          setFriends(nextFriends);
+          setIncoming(requests.incoming);
+          setOutgoing(requests.outgoing);
+        }
+      } catch (cause) {
+        if (alive.current)
+          setError(
+            cause instanceof Error ? cause.message : "Não foi possível atualizar seus amigos.",
+          );
+      } finally {
+        if (alive.current) setLoading(false);
       }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro na busca.");
+    }
+    refreshing.current = false;
+  }, [userId]);
+  useEffect(() => {
+    alive.current = true;
+    void refresh();
+    const stop = subscribeSocialInbox(userId, () => void refresh());
+    return () => {
+      alive.current = false;
+      stop();
+    };
+  }, [userId, refresh]);
+  useEffect(() => {
+    if (open) void refresh();
+  }, [open, refresh]);
+  const act = async (key: string, task: () => Promise<void>) => {
+    if (busy) return;
+    setBusy(key);
+    setError("");
+    try {
+      await task();
+      signalSocialUpdate();
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível completar esta ação.");
     } finally {
-      setSearching(false);
+      setBusy("");
     }
   };
-
-  const handleSendRequest = async (targetId: string) => {
-    if (sendingRequest) return;
-    setSendingRequest(true);
-    try {
-      await sendFriendRequest(userId, targetId);
-      toast.success("Pedido de amizade enviado!");
-      setSearchResult(null);
-      setSearchQuery("");
-      await loadSocialData();
-      setActiveTab("requests");
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível enviar o pedido.");
-    } finally {
-      setSendingRequest(false);
-    }
-  };
-
-  const handleAccept = async (friendshipId: string) => {
-    try {
-      await acceptFriendRequest(friendshipId);
-      toast.success("Amizade aceita!");
-      await loadSocialData();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao aceitar pedido.");
-    }
-  };
-
-  const handleReject = async (friendshipId: string) => {
-    try {
-      await removeFriendship(friendshipId);
-      toast.info("Pedido recusado.");
-      await loadSocialData();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao recusar pedido.");
-    }
-  };
-
-  const getStatusDot = (status?: string) => {
-    switch (status) {
-      case "online":
-        return "bg-emerald-500";
-      case "studying":
-        return "bg-amber-500";
-      case "busy":
-        return "bg-red-500";
-      default:
-        return "bg-zinc-400";
-    }
-  };
-
+  const requests = (rows: Friendship[], sent = false) =>
+    rows.map((item) => (
+      <article className="friend-row" key={item.id}>
+        <div>
+          <strong>{item.profile?.displayName ?? "Estudante"}</strong>
+          <small>@{item.profile?.username ?? "usuário"}</small>
+        </div>
+        <div className="friend-actions">
+          {!sent && (
+            <button
+              disabled={Boolean(busy)}
+              aria-label="Aceitar pedido"
+              title="Aceitar pedido"
+              onClick={() => void act(item.id, () => acceptFriendRequest(item.id))}
+            >
+              <Check size={18} />
+            </button>
+          )}
+          <button
+            disabled={Boolean(busy)}
+            aria-label={sent ? "Cancelar pedido" : "Recusar pedido"}
+            title={sent ? "Cancelar pedido" : "Recusar pedido"}
+            onClick={() => void act(item.id, () => removeFriendship(item.id))}
+          >
+            {sent ? "Cancelar" : <X size={18} />}
+          </button>
+        </div>
+      </article>
+    ));
+  const pending = Math.max(inbox.pending, incoming.length);
+  const count = pending + Object.values(inbox.unread).reduce((sum, n) => sum + n, 0);
   return (
     <>
       <button
         type="button"
         className="header-badge-btn"
-        aria-label="Abrir amigos de estudo"
-        title="Amigos e Mensagens"
+        aria-label={
+          count ? `Abrir amigos de estudo, ${count} pendências` : "Abrir amigos de estudo"
+        }
+        title="Amigos e mensagens"
         onClick={() => setOpen(true)}
       >
         <Users size={20} strokeWidth={1.8} />
-        {incoming.length > 0 && <span className="header-badge-counter">{incoming.length}</span>}
+        {count > 0 && <span className="header-badge-counter">{count}</span>}
       </button>
-
-      {open && (
-        <>
-          <div className="drawer-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />
-
-          <aside className="drawer-panel" role="dialog" aria-label="Amigos e conexões">
-            <header className="drawer-header">
-              <div className="flex items-center gap-2">
-                <Users size={20} className="text-accent" />
-                <h2 className="drawer-title">Amigos de Estudo</h2>
-              </div>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side={mobile ? "bottom" : "right"}
+          className="friends-sheet"
+          closeLabel="Fechar painel de amigos"
+          aria-describedby={undefined}
+          onCloseAutoFocus={(event) => {
+            if (chat) event.preventDefault();
+          }}
+        >
+          <header className="drawer-header">
+            <SheetTitle>Amigos de Estudo</SheetTitle>
+          </header>
+          <nav className="drawer-tabs" aria-label="Abas de amigos" role="tablist">
+            {(
+              [
+                ["friends", `Amigos (${friends.length})`],
+                ["requests", `Pedidos${inbox.pending ? ` (${inbox.pending})` : ""}`],
+                ["add", "+ Adicionar"],
+              ] as const
+            ).map(([id, label]) => (
               <button
-                type="button"
-                className="header-badge-btn"
-                onClick={() => setOpen(false)}
-                aria-label="Fechar painel de amigos"
+                key={id}
+                className={`drawer-tab-btn ${tab === id ? "active" : ""}`}
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => setTab(id)}
               >
-                <X size={18} />
+                {label}
               </button>
-            </header>
-
-            <nav className="drawer-tabs" aria-label="Abas de amigos">
-              <button
-                type="button"
-                className={`drawer-tab-btn ${activeTab === "friends" ? "active" : ""}`}
-                onClick={() => setActiveTab("friends")}
-              >
-                Amigos ({friends.length})
-              </button>
-              <button
-                type="button"
-                className={`drawer-tab-btn ${activeTab === "requests" ? "active" : ""}`}
-                onClick={() => setActiveTab("requests")}
-              >
-                Pedidos {incoming.length > 0 && `(${incoming.length})`}
-              </button>
-              <button
-                type="button"
-                className={`drawer-tab-btn ${activeTab === "add" ? "active" : ""}`}
-                onClick={() => setActiveTab("add")}
-              >
-                + Adicionar
-              </button>
-            </nav>
-
-            <div className="drawer-body">
-              {activeTab === "friends" && (
-                <div className="space-y-3">
-                  {friends.length === 0 ? (
-                    <div className="py-12 text-center text-muted-foreground">
-                      <p className="text-sm font-medium text-foreground mb-1">
-                        Nenhum amigo adicionado ainda.
-                      </p>
-                      <p className="text-xs max-w-xs mx-auto mb-4">
-                        Adicione seus colegas para estudar juntos em salas, ver o status ao vivo e
-                        trocar mensagens.
-                      </p>
-                      <button
-                        type="button"
-                        className="onboarding-next-btn text-xs py-2 px-3 mx-auto"
-                        onClick={() => setActiveTab("add")}
-                      >
-                        <UserPlus size={14} />
-                        <span>Adicionar colega</span>
-                      </button>
-                    </div>
-                  ) : (
-                    friends.map((f) => {
-                      const prof = f.profile;
-                      if (!prof) return null;
-                      return (
-                        <div
-                          key={f.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border hover:border-accent transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <div className="w-10 h-10 rounded-full bg-accent/20 text-accent font-semibold flex items-center justify-center text-sm border border-border">
-                                {prof.displayName.slice(0, 2).toUpperCase()}
-                              </div>
-                              <span
-                                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-surface ${getStatusDot(
-                                  prof.status,
-                                )}`}
-                              />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-sm text-foreground">
-                                {prof.displayName}
-                              </p>
-                              <p className="text-xs text-muted-foreground">@{prof.username}</p>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="p-2 text-muted-foreground hover:text-accent rounded-md hover:bg-surface-hover cursor-pointer border-none bg-transparent"
-                            title={`Conversar com ${prof.displayName}`}
-                            onClick={() => setActiveChatFriend(prof)}
-                          >
-                            <MessageCircle size={18} />
-                          </button>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-
-              {activeTab === "requests" && (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                      Recebidos ({incoming.length})
-                    </h3>
-                    {incoming.length === 0 ? (
-                      <p className="text-xs text-muted-foreground py-2">
-                        Nenhum pedido pendente recebido.
-                      </p>
-                    ) : (
-                      incoming.map((req) => (
-                        <div
-                          key={req.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border mb-2"
-                        >
-                          <div>
-                            <p className="font-semibold text-sm text-foreground">
-                              {req.profile?.displayName || req.profile?.username || "Estudante"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              @{req.profile?.username || "usuario"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              className="p-1.5 bg-accent text-[#17130f] rounded hover:opacity-90 border-none cursor-pointer"
-                              title="Aceitar pedido"
-                              onClick={() => handleAccept(req.id)}
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              className="p-1.5 bg-surface text-muted-foreground hover:text-foreground rounded border border-border cursor-pointer"
-                              title="Recusar pedido"
-                              onClick={() => handleReject(req.id)}
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {outgoing.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                        Enviados ({outgoing.length})
-                      </h3>
-                      {outgoing.map((req) => (
-                        <div
-                          key={req.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border opacity-75 mb-2"
-                        >
-                          <div>
-                            <p className="font-semibold text-sm text-foreground">
-                              {req.profile?.displayName || req.profile?.username || "Estudante"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              @{req.profile?.username || "usuario"}
-                            </p>
-                          </div>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock size={12} /> Pendente
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeTab === "add" && (
-                <div className="space-y-4">
-                  <p className="text-xs text-muted-foreground">
-                    Encontre seus colegas pelo @username exato ou e-mail exato cadastrado.
-                  </p>
-
-                  <form onSubmit={handleSearch} className="flex gap-2">
-                    <input
-                      type="text"
-                      className="onboarding-text-input flex-1 min-h-[44px] text-sm"
-                      placeholder="Ex: @mariana ou email exato"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <button
-                      type="submit"
-                      className="onboarding-next-btn min-h-[44px] px-3.5"
-                      disabled={!searchQuery.trim() || searching}
-                      aria-label="Buscar usuário"
-                    >
-                      <Search size={16} />
+            ))}
+          </nav>
+          <div className="drawer-body" role="tabpanel">
+            {error && (
+              <p role="alert" className="form-error">
+                {error}
+              </p>
+            )}
+            {loading && <p role="status">Atualizando amigos…</p>}
+            {tab === "friends" && (
+              <>
+                {!loading && !friends.length && (
+                  <div className="social-empty-state">
+                    <p>Nenhum amigo adicionado ainda.</p>
+                    <p>Adicione seus colegas para estudar e conversar.</p>
+                    <button onClick={() => setTab("add")}>
+                      <UserPlus size={16} />
+                      Adicionar colega
                     </button>
-                  </form>
-
-                  {searching && (
-                    <p className="text-xs text-muted-foreground py-2 flex items-center gap-1.5">
-                      <Clock size={12} className="animate-spin" /> Buscando estudante...
-                    </p>
-                  )}
-
-                  {searchNotFound && (
-                    <div className="p-4 rounded-lg bg-surface border border-border text-center text-xs text-muted-foreground">
-                      <AlertCircle size={16} className="mx-auto mb-1 text-muted-foreground" />
-                      Nenhum estudante encontrado com esse identificador exato.
-                    </div>
-                  )}
-
-                  {searchResult && (
-                    <div className="p-4 rounded-lg bg-surface border border-accent/40 flex items-center justify-between">
+                  </div>
+                )}
+                {friends.map((friend) => {
+                  const profile = friend.profile;
+                  if (!profile) return null;
+                  const unread = inbox.unread[profile.id] ?? 0;
+                  return (
+                    <article className="friend-row" key={friend.id}>
+                      <span className="friend-avatar">
+                        {profile.avatarUrl ? (
+                          <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                        ) : (
+                          profile.displayName.slice(0, 1).toUpperCase()
+                        )}
+                      </span>
                       <div>
-                        <p className="font-semibold text-sm text-foreground">
-                          {searchResult.displayName || searchResult.username}
-                        </p>
-                        <p className="text-xs text-muted-foreground">@{searchResult.username}</p>
+                        <strong>{profile.displayName}</strong>
+                        <small>@{profile.username}</small>
+                        <small>{statuses[profile.status]}</small>
                       </div>
-
                       <button
-                        type="button"
-                        className="onboarding-next-btn text-xs py-2 px-3"
-                        disabled={sendingRequest || searchResult.id === userId}
-                        onClick={() => handleSendRequest(searchResult.id)}
+                        aria-label={`Conversar com ${profile.displayName}${unread ? `, ${unread} mensagens não lidas` : ""}`}
+                        title={`Conversar com ${profile.displayName}`}
+                        onClick={() => {
+                          setOpen(false);
+                          setChat(profile);
+                        }}
                       >
-                        <UserPlus size={14} />
-                        <span>{sendingRequest ? "Enviando..." : "Adicionar Amigo"}</span>
+                        <MessageCircle size={18} />
+                        {unread > 0 && <span>{unread}</span>}
                       </button>
+                    </article>
+                  );
+                })}
+              </>
+            )}
+            {tab === "requests" && (
+              <>
+                <h3>Recebidos ({incoming.length})</h3>
+                {!incoming.length && <p>Nenhum pedido pendente recebido.</p>}
+                {requests(incoming)}
+                <h3>Enviados ({outgoing.length})</h3>
+                {!outgoing.length && <p>Nenhum pedido pendente enviado.</p>}
+                {requests(outgoing, true)}
+              </>
+            )}
+            {tab === "add" && (
+              <>
+                <p>Encontre colegas pelo @username ou e-mail exato cadastrado.</p>
+                <form
+                  className="friend-search"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void act("search", async () => {
+                      setResult(null);
+                      setSearched(false);
+                      const found = await searchUserExact(query.trim());
+                      setResult(found);
+                      setSearched(true);
+                    });
+                  }}
+                >
+                  <label>
+                    Username ou e-mail
+                    <input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Ex: @mariana ou email exato"
+                      autoComplete="off"
+                      maxLength={254}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={Boolean(busy) || !query.trim()}
+                    aria-label="Buscar usuário"
+                  >
+                    <Search size={18} />
+                  </button>
+                </form>
+                {busy === "search" && <p role="status">Buscando estudante…</p>}
+                {searched && !result && (
+                  <p>Nenhum estudante encontrado com esse identificador exato.</p>
+                )}
+                {result && (
+                  <article className="friend-row">
+                    <div>
+                      <strong>{result.displayName}</strong>
+                      <small>@{result.username}</small>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </aside>
-        </>
-      )}
-
-      {activeChatFriend && (
+                    <button
+                      disabled={Boolean(busy) || result.id === userId}
+                      onClick={() =>
+                        void act("invite", async () => {
+                          await sendFriendRequest(userId, result.id);
+                          setResult(null);
+                          setQuery("");
+                          setTab("requests");
+                          toast.success("Pedido de amizade enviado!");
+                        })
+                      }
+                    >
+                      <UserPlus size={16} />
+                      Adicionar Amigo
+                    </button>
+                  </article>
+                )}
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+      {chat && (
         <DirectMessagesModal
           currentUserId={userId}
-          friend={activeChatFriend}
-          onClose={() => setActiveChatFriend(null)}
+          friend={chat}
+          onClose={() => {
+            setChat(null);
+            setOpen(true);
+            signalSocialUpdate();
+          }}
         />
       )}
     </>

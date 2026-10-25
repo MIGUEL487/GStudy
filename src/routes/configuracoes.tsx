@@ -19,7 +19,7 @@ import { useAuth, NotionMark } from "@/components/auth-gate";
 import { Avatar, useDisplayName } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
 import { schoolYears } from "@/lib/school-year";
-import { confirmSchoolYearAdvance } from "@/lib/student-profile";
+import { saveStudentProfile } from "@/lib/student-profile";
 import { defaultSchoolDays } from "@/lib/study-model";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReviewsPanel } from "@/components/reviews-panel";
@@ -83,6 +83,24 @@ function Settings() {
   const navigate = useNavigate();
   const { tab } = Route.useSearch();
   const [name, setName] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const saveProfile = async (
+    patch: Parameters<typeof saveStudentProfile>[0],
+    apply: (value: typeof data) => typeof data,
+    message: string,
+  ) => {
+    if (savingProfile) return;
+    setSavingProfile(true);
+    try {
+      await saveStudentProfile(patch);
+      if (update(apply)) toast.success(message);
+      else toast.error("Perfil salvo na conta, mas não foi possível atualizar este aparelho.");
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "Não foi possível salvar o perfil.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
   const file = useRef<HTMLInputElement>(null);
   const days = data.schoolDays ?? defaultSchoolDays;
   return (
@@ -132,7 +150,12 @@ function Settings() {
             <div className="profile-photo">
               <Avatar className="avatar-lg" />
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => file.current?.click()}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={savingProfile}
+                  onClick={() => file.current?.click()}
+                >
                   <Camera />
                   Mudar foto
                 </Button>
@@ -140,9 +163,20 @@ function Settings() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    disabled={savingProfile}
                     onClick={() => {
-                      if (update((d) => ({ ...d, avatar: undefined })))
-                        toast.success("Foto removida.");
+                      const original =
+                        user.user_metadata?.["avatar_url"] ?? user.user_metadata?.["picture"];
+                      void saveProfile(
+                        {
+                          avatar_url:
+                            typeof original === "string" && original.startsWith("https://")
+                              ? original
+                              : null,
+                        },
+                        (d) => ({ ...d, avatar: undefined }),
+                        "Foto atualizada.",
+                      );
                     }}
                   >
                     <Trash2 />
@@ -160,8 +194,11 @@ function Settings() {
                     if (!f) return;
                     try {
                       const url = await resizeImage(f);
-                      if (update((d) => ({ ...d, avatar: url })))
-                        toast.success("Foto de perfil atualizada.");
+                      await saveProfile(
+                        { avatar_url: url },
+                        (d) => ({ ...d, avatar: url }),
+                        "Foto de perfil atualizada.",
+                      );
                     } catch (err) {
                       toast.error((err as Error).message);
                     }
@@ -175,15 +212,21 @@ function Settings() {
                 className="form-input"
                 value={name ?? data.name}
                 maxLength={100}
+                disabled={savingProfile}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={display}
               />
             </label>
             <Button
               className="mt-3"
+              disabled={savingProfile || !(name ?? data.name).trim()}
               onClick={() => {
-                if (update((d) => ({ ...d, name: (name ?? data.name).trim() })))
-                  toast.success("Seu perfil foi atualizado.");
+                const displayName = (name ?? data.name).trim();
+                void saveProfile(
+                  { display_name: displayName },
+                  (d) => ({ ...d, name: displayName }),
+                  "Seu perfil foi atualizado.",
+                );
               }}
             >
               <Save />
@@ -198,15 +241,20 @@ function Settings() {
                 aria-label="Ano escolar"
                 className="form-input"
                 value={data.schoolYear ?? ""}
+                disabled={savingProfile}
                 onChange={(e) => {
                   const year = e.target.value;
-                  if (update((d) => ({ ...d, schoolYear: year || undefined }))) {
-                    toast.success("Etapa de estudo atualizada.");
-                    if (year) void confirmSchoolYearAdvance(year);
-                  }
+                  if (year)
+                    void saveProfile(
+                      { school_year: year },
+                      (d) => ({ ...d, schoolYear: year }),
+                      "Etapa de estudo atualizada.",
+                    );
                 }}
               >
-                <option value="">Escolha seu ano ou etapa</option>
+                <option value="" disabled>
+                  Escolha seu ano ou etapa
+                </option>
                 {schoolYears.map((year) => (
                   <option key={year.value} value={year.value}>
                     {year.label}
@@ -249,17 +297,17 @@ function Settings() {
                   key={n}
                   className={`day-chip ${days.includes(i) ? "on" : ""}`}
                   aria-pressed={days.includes(i)}
-                  onClick={() =>
-                    update((d) => {
-                      const cur = d.schoolDays ?? defaultSchoolDays;
-                      return {
-                        ...d,
-                        schoolDays: cur.includes(i)
-                          ? cur.filter((x) => x !== i)
-                          : [...cur, i].sort(),
-                      };
-                    })
-                  }
+                  disabled={savingProfile}
+                  onClick={() => {
+                    const next = days.includes(i)
+                      ? days.filter((day) => day !== i)
+                      : [...days, i].sort();
+                    void saveProfile(
+                      { school_days: next },
+                      (d) => ({ ...d, schoolDays: next }),
+                      "Dias de aula atualizados.",
+                    );
+                  }}
                 >
                   {n}
                 </button>

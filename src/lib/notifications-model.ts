@@ -1,7 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
+import { backendErrorMessage } from "./backend-errors";
 
 export type NotificationType =
-  "friend_request" | "friend_accepted" | "room_invite" | "year_rollover" | "system";
+  | "friend_request"
+  | "friend_accepted"
+  | "room_invite"
+  | "year_rollover"
+  | "system"
+  | "direct_message"
+  | "missed_call"
+  | "game_challenge";
 
 export type AppNotification = {
   id: string;
@@ -25,7 +33,9 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
       .order("created_at", { ascending: false })
       .limit(30);
 
-    if (error || !data) return [];
+    if (error)
+      throw new Error(backendErrorMessage(error, "Não foi possível carregar suas notificações."));
+    if (!data) return [];
 
     return data.map((n: Record<string, unknown>) => ({
       id: String(n.id),
@@ -38,28 +48,42 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
       read: Boolean(n.read),
       createdAt: String(n.created_at),
     }));
-  } catch {
-    return [];
+  } catch (cause) {
+    throw cause instanceof Error
+      ? cause
+      : new Error("Não foi possível carregar suas notificações.");
   }
 }
 
 export async function markNotificationAsRead(id: string): Promise<void> {
   try {
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
-  } catch {
-    // silent fallback
+    const { error } = await supabase.from("notifications").update({ read: true }).eq("id", id);
+    if (error)
+      throw new Error(
+        backendErrorMessage(error, "Não foi possível marcar esta notificação como lida."),
+      );
+  } catch (cause) {
+    throw cause instanceof Error
+      ? cause
+      : new Error("Não foi possível marcar esta notificação como lida.");
   }
 }
 
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
   try {
-    await supabase
+    const { error } = await supabase
       .from("notifications")
       .update({ read: true })
       .eq("user_id", userId)
       .eq("read", false);
-  } catch {
-    // silent fallback
+    if (error)
+      throw new Error(
+        backendErrorMessage(error, "Não foi possível marcar as notificações como lidas."),
+      );
+  } catch (cause) {
+    throw cause instanceof Error
+      ? cause
+      : new Error("Não foi possível marcar as notificações como lidas.");
   }
 }
 
@@ -70,7 +94,7 @@ export function subscribeToNotifications(
   if (!userId) return () => {};
 
   const channel = supabase
-    .channel(`notifications:${userId}`)
+    .channel(`notifications:${userId}`, { config: { private: true } })
     .on(
       "postgres_changes",
       {

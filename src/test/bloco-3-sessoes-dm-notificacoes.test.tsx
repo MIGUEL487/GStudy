@@ -131,7 +131,15 @@ vi.mock("@/integrations/supabase/client", () => {
   return {
     supabase: {
       from: mockFrom,
-      rpc: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
+      rpc: vi.fn().mockImplementation((name: string) =>
+        Promise.resolve({
+          data:
+            name === "get_social_inbox"
+              ? { pending: 1, unread: { "user-2": 2 } }
+              : { success: true },
+          error: null,
+        }),
+      ),
       channel: vi.fn().mockReturnValue({
         on: vi.fn().mockReturnThis(),
         subscribe: vi.fn().mockReturnThis(),
@@ -298,7 +306,7 @@ describe("Bloco 3: Sessões, DMs, Notificações e Amigos", () => {
       });
 
       // Alterna para aba Adicionar
-      const addTab = screen.getByRole("button", { name: /\+ Adicionar/i });
+      const addTab = screen.getByRole("tab", { name: /\+ Adicionar/i });
       fireEvent.click(addTab);
 
       // Preenche busca
@@ -317,7 +325,10 @@ describe("Bloco 3: Sessões, DMs, Notificações e Amigos", () => {
       fireEvent.click(screen.getByRole("button", { name: /Adicionar Amigo/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/Enviando/i) || screen.queryByText(/Lucas Dev/i)).toBeDefined();
+        expect(screen.getByRole("tab", { name: /Pedidos/ })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
       });
     });
   });

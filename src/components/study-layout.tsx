@@ -15,6 +15,8 @@ import {
 import { useAuth } from "./auth-gate";
 import { Avatar, useDisplayName } from "./avatar";
 import { useEffect, useState, useLayoutEffect, useRef, type ReactNode } from "react";
+import { m, useAnimationControls, useReducedMotion } from "motion/react";
+import { motionTokens } from "@/lib/motion";
 import { logo } from "@/lib/images";
 import { useStudy } from "./study-provider";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,8 @@ import { SchoolYearRolloverModal } from "./school-year-rollover-modal";
 import {
   fetchCurrentStudentProfile,
   checkSchoolYearRollover,
+  getStudentRollover,
+  profileUpdatedEvent,
   type StudentProfile,
 } from "@/lib/student-profile";
 
@@ -53,14 +57,17 @@ export function StudyLayout({ children }: { children: ReactNode }) {
   const path = useLocation({ select: (l) => l.pathname });
   const name = useDisplayName();
   const focused = useTestFocus();
-  const page = useRef<HTMLDivElement>(null);
+  const previousPath = useRef(path);
+  const pageAnimation = useAnimationControls();
+  const reducedMotion = useReducedMotion();
+  const dismissedRolloverYears = useRef(new Set<number>());
 
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [rolloverPrompt, setRolloverPrompt] = useState<{
     show: boolean;
     currentSchoolYear: string;
-    suggestedNextYear?: string;
+    suggestedNextYear?: string | undefined;
     currentCalendarYear: number;
   } | null>(null);
 
@@ -68,54 +75,101 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     if (!user) return;
     let cancelled = false;
 
-    void fetchCurrentStudentProfile(user.id)
-      .then((p) => {
-        if (cancelled) return;
-        setProfile(p);
+    let revision = 0;
+    const refresh = () => {
+      const run = ++revision;
+      void fetchCurrentStudentProfile(user.id)
+        .then(async (p) => {
+          if (cancelled) return;
+          setProfile(p);
 
-        // 2.1 Checagem de Onboarding incompleto ou primeiro acesso
-        const isProfileIncomplete = !p || !p.onboardingCompleted || !p.schoolYear || !p.username;
-        if (isProfileIncomplete) {
-          setShowOnboarding(true);
-        } else if (p) {
-          if (p.schoolYear && p.schoolYear !== data.schoolYear) {
-            update((value) => ({ ...value, schoolYear: p.schoolYear ?? undefined }));
+          // 2.1 Checagem de Onboarding incompleto ou primeiro acesso
+          const isProfileIncomplete = !p || !p.onboardingCompleted || !p.schoolYear || !p.username;
+          if (isProfileIncomplete) {
+            setShowOnboarding(true);
+          } else if (p) {
+            // 2.3 Checagem de virada de ano após 1º de janeiro
+            const local = checkSchoolYearRollover(p);
+            const rollover = local.needsPrompt
+              ? await getStudentRollover().catch((cause) => {
+                  toast.error(
+                    cause instanceof Error
+                      ? cause.message
+                      : "Não foi possível conferir o novo ano.",
+                  );
+                  return local;
+                })
+              : local;
+            if (cancelled || run !== revision) return;
+            const effectiveYear = rollover.suggestedNextYear ?? p.schoolYear;
+            if (effectiveYear)
+              update((value) =>
+                value.schoolYear === effectiveYear
+                  ? value
+                  : { ...value, schoolYear: effectiveYear },
+              );
+            if (
+              rollover.needsPrompt &&
+              rollover.currentSchoolYear &&
+              !dismissedRolloverYears.current.has(rollover.currentCalendarYear)
+            ) {
+              setRolloverPrompt({
+                show: true,
+                currentSchoolYear: rollover.currentSchoolYear,
+                suggestedNextYear: rollover.suggestedNextYear,
+                currentCalendarYear: rollover.currentCalendarYear,
+              });
+            } else setRolloverPrompt(null);
           }
-          // 2.3 Checagem de virada de ano após 1º de janeiro
-          const rollover = checkSchoolYearRollover(p);
-          if (rollover.needsPrompt && rollover.currentSchoolYear) {
-            setRolloverPrompt({
-              show: true,
-              currentSchoolYear: rollover.currentSchoolYear,
-              suggestedNextYear: rollover.suggestedNextYear,
-              currentCalendarYear: rollover.currentCalendarYear,
-            });
-          }
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled)
-          toast.error(
-            error instanceof Error ? error.message : "Não foi possível carregar seu perfil.",
-          );
-      });
+        })
+        .catch((error: unknown) => {
+          if (!cancelled)
+            toast.error(
+              error instanceof Error ? error.message : "Não foi possível carregar seu perfil.",
+            );
+        });
+    };
+    refresh();
+    window.addEventListener(profileUpdatedEvent, refresh);
+    window.addEventListener("focus", refresh);
+    let calendarYear = new Intl.DateTimeFormat("en", {
+      year: "numeric",
+      timeZone: "America/Sao_Paulo",
+    }).format(new Date());
+    const timer = setInterval(() => {
+      const year = new Intl.DateTimeFormat("en", {
+        year: "numeric",
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date());
+      if (year !== calendarYear) {
+        calendarYear = year;
+        refresh();
+      }
+    }, 60000);
 
     return () => {
       cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener(profileUpdatedEvent, refresh);
+      window.removeEventListener("focus", refresh);
     };
   }, [user?.id]);
   useLayoutEffect(() => {
-    if (!page.current?.animate || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+    if (reducedMotion) {
+      previousPath.current = path;
+      pageAnimation.set({ opacity: 1, y: 0 });
       return;
-    const transition = page.current.animate(
-      [
-        { opacity: 0, transform: "translateY(10px)" },
-        { opacity: 1, transform: "translateY(0) scale(1)" },
-      ],
-      { duration: 250, easing: "cubic-bezier(.22, 1, .36, 1)", fill: "none" },
-    );
-    return () => transition.cancel();
-  }, [path]);
+    }
+    if (previousPath.current === path) return;
+    previousPath.current = path;
+    pageAnimation.set({ opacity: 0.85, y: 4 });
+    void pageAnimation.start({
+      opacity: 1,
+      y: 0,
+      transition: { duration: motionTokens.duration.instant, ease: motionTokens.easing.editorial },
+    });
+    return () => pageAnimation.stop();
+  }, [path, reducedMotion, pageAnimation]);
   const selected = (to: string) =>
     ["/aprender", "/preparar", "/salas", "/sessoes", "/amigos"].includes(to)
       ? path.startsWith(to)
@@ -235,9 +289,9 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         </header>
         <main className="content">
           {focused ? <FocusSessionHeader /> : <RecallResume />}
-          <div className="page-transition" ref={page}>
+          <m.div className="page-transition" animate={pageAnimation} initial={false}>
             {children}
-          </div>
+          </m.div>
           <footer className="page-footer">
             <span className="footer-motto">
               Sapere aude. <span className="font-sans text-[10px] not-italic">Ouse saber.</span>
@@ -289,7 +343,10 @@ export function StudyLayout({ children }: { children: ReactNode }) {
           currentSchoolYear={rolloverPrompt.currentSchoolYear}
           suggestedNextYear={rolloverPrompt.suggestedNextYear}
           currentCalendarYear={rolloverPrompt.currentCalendarYear}
-          onDismiss={() => setRolloverPrompt(null)}
+          onDismiss={() => {
+            dismissedRolloverYears.current.add(rolloverPrompt.currentCalendarYear);
+            setRolloverPrompt(null);
+          }}
         />
       )}
     </div>
