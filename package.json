@@ -16,7 +16,8 @@
     "test:games": "node scripts/games-check.mjs",
     "test:voice": "node scripts/voice-check.mjs",
     "test:social": "node scripts/social-check.mjs",
-    "verify:schema": "node scripts/verify-supabase-schema.mjs"
+    "verify:schema": "node scripts/verify-supabase-schema.mjs",
+    "test:quiz-sync": "node scripts/quiz-sync-check.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

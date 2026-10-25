@@ -454,6 +454,25 @@ describe("PostgreSQL Migrations & RLS Harness (PGlite)", () => {
     await db.exec(
       fs.readFileSync(path.join(migrationsDir, "0017_student_social_completion.sql"), "utf8"),
     );
+    await db.exec(`set role authenticated; set request.jwt.claim.sub = '${userA}'`);
+    const quizReply = await db.query<{ value: { applied: boolean; revision: number } }>(
+      `select public.sync_account_document('quizzes',0,'{"version":1,"sessions":[]}'::jsonb) as value`,
+    );
+    expect(quizReply.rows[0]!.value).toMatchObject({ applied: true, revision: 1 });
+    const staleQuiz = await db.query<{ value: { applied: boolean; revision: number } }>(
+      `select public.sync_account_document('quizzes',0,'{"version":1,"sessions":[]}'::jsonb) as value`,
+    );
+    expect(staleQuiz.rows[0]!.value).toMatchObject({ applied: false, revision: 1 });
+    await db.exec(`set request.jwt.claim.sub = '${userB}'`);
+    expect(
+      (await db.query(`select * from public.account_documents where namespace='quizzes'`)).rows,
+    ).toHaveLength(0);
+    await db.exec(`set role anon; set request.jwt.claim.sub = ''`);
+    await expect(
+      db.query(`select public.sync_account_document('quizzes',0,'{"version":1}'::jsonb)`),
+    ).rejects.toThrow();
+    await db.exec("reset role");
+    await db.exec(fs.readFileSync(path.join(migrationsDir, "0018_quiz_sync.sql"), "utf8"));
     await db.close();
 
     console.log("PGlite harness concluído com sucesso: RLS e isolamento validados sem recursão!");

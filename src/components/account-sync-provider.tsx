@@ -55,6 +55,7 @@ const baselineSchema = z
     recall: baselineEntry,
     attempts: baselineEntry,
     socrates: baselineEntry,
+    quizzes: baselineEntry,
   })
   .partial();
 type Baselines = Partial<Record<Namespace, { revision: number; nodes: Fingerprint } | undefined>>;
@@ -130,6 +131,7 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
         if (error) throw error;
         if (!alive) return;
         let socratesSetup = false;
+        let quizzesSetup = false;
         for (const ns of namespaces) {
           if (!alive) return;
           let local = read(ns);
@@ -161,10 +163,11 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
               .abortSignal(safeAnySignal([cancellation.signal, AbortSignal.timeout(10000)]));
             if (writeError) {
               if (
-                ns === "socrates" &&
+                (ns === "socrates" || ns === "quizzes") &&
                 ["PGRST202", "42P01", "23514", "22023"].includes(writeError.code)
               ) {
-                socratesSetup = true;
+                if (ns === "socrates") socratesSetup = true;
+                else quizzesSetup = true;
                 break;
               }
               throw writeError;
@@ -175,7 +178,11 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
             acknowledged = reply.document ? parseAccountDocument(ns, reply.document) : undefined;
             if (reply.applied) {
               if (proposal.copies)
-                toast.info("Edições simultâneas de um caderno foram preservadas em cópias.");
+                toast.info(
+                  ns === "quizzes"
+                    ? "Respostas simultâneas do quiz foram preservadas no histórico."
+                    : "Edições simultâneas de um caderno foram preservadas em cópias.",
+                );
               break;
             }
             remote = acknowledged;
@@ -186,7 +193,12 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
             if (attempt === 3)
               throw new Error("Há alterações em outro aparelho. Tentaremos sincronizar novamente.");
           }
-          if (!acknowledged || (ns === "socrates" && socratesSetup)) continue;
+          if (
+            !acknowledged ||
+            (ns === "socrates" && socratesSetup) ||
+            (ns === "quizzes" && quizzesSetup)
+          )
+            continue;
           const newest = read(ns);
           const effective =
             newest && canonical(newest) !== canonical(local)
@@ -202,7 +214,12 @@ export function AccountSyncProvider({ userId, children }: { userId: string; chil
           if (canonical(effective) !== canonical(acknowledged)) pending = true;
         }
         localStorage.setItem(key, JSON.stringify(baselines));
-        if (socratesSetup)
+        if (quizzesSetup)
+          show(
+            "setup",
+            "Ative a migração 0018_quiz_sync.sql para sincronizar quizzes. As respostas continuam neste aparelho.",
+          );
+        else if (socratesSetup)
           show(
             "setup",
             "Ative a migração 0003_socrates.sql no Supabase para sincronizar Sócrates. Os demais estudos foram sincronizados.",
