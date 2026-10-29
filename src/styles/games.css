@@ -1,5 +1,41 @@
 /* Dark Academia Games Styles */
 
+.games-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.games-page-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.games-page-heading h1 {
+  margin: 0 0 4px;
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1;
+}
+
+.games-page-heading p {
+  color: var(--muted-foreground);
+}
+
+.games-page-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--secondary);
+  color: var(--primary);
+}
+
 .games-catalog-container {
   display: flex;
   flex-direction: column;

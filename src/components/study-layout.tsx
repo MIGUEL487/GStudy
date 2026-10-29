@@ -34,6 +34,7 @@ import { NotificationsPopover } from "./notifications-popover";
 import { VoiceHeader } from "./voice/voice-controls";
 import { StudentOnboardingModal } from "./student-onboarding-modal";
 import { SchoolYearRolloverModal } from "./school-year-rollover-modal";
+import { PwaInstallButton } from "./pwa-install-button";
 import {
   fetchCurrentStudentProfile,
   checkSchoolYearRollover,
@@ -174,11 +175,11 @@ export function StudyLayout({ children }: { children: ReactNode }) {
     }
     if (previousPath.current === path) return;
     previousPath.current = path;
-    pageAnimation.set({ opacity: 0.85, y: 4 });
+    pageAnimation.set({ opacity: 0, y: 8 });
     void pageAnimation.start({
       opacity: 1,
       y: 0,
-      transition: { duration: motionTokens.duration.instant, ease: motionTokens.easing.editorial },
+      transition: { duration: motionTokens.duration.quick, ease: motionTokens.easing.editorial },
     });
     return () => pageAnimation.stop();
   }, [path, reducedMotion, pageAnimation]);
@@ -194,7 +195,9 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         ...navigation.slice(4),
       ]
     : navigation;
-  const pageName = currentNav.find((item) => selected(item.to))?.label ?? "Minhas matérias";
+  const pageName = path.startsWith("/jogos")
+    ? "Jogos"
+    : (currentNav.find((item) => selected(item.to))?.label ?? "Minhas matérias");
   return (
     <div className={`app-shell ${focused ? "is-test-focused" : ""}`}>
       <aside className="sidebar" inert={focused} aria-hidden={focused || undefined}>
@@ -273,6 +276,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
           <div className="topbar-right">
             <HeartsStatus />
             <SyncStatus />
+            <PwaInstallButton />
             <VoiceHeader />
             <Leaf size={14} className="desktop-crumb" />
             <span>Seu ritmo. Sua jornada.</span>

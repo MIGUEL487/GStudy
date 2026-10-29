@@ -80,7 +80,7 @@ try {
         pageErrors.length = 0;
         try {
           const seed = "qa-shared-seed";
-          await page.goto(`${base}/sessoes?tab=games&game=${id}&seed=${seed}&difficulty=facil`);
+          await page.goto(`${base}/jogos?game=${id}&seed=${seed}&difficulty=facil`);
           const dialog = page.getByRole("dialog");
           await dialog.waitFor();
           const plan = await page.evaluate(
@@ -145,8 +145,8 @@ try {
               ];
               for (const letter of letters)
                 await page.getByRole("button", { name: letter.toUpperCase(), exact: true }).click();
-            } else if (plan.type === "typing-fast") {
-              await page.getByLabel("Sua resposta").fill(String(q.correctAnswer));
+            } else if (plan.type === "typing-fast" || plan.type === "time-survival") {
+              await page.getByLabel(/resposta/i).fill(String(q.correctAnswer));
               await page.getByRole("button", { name: "Conferir resposta" }).click();
             } else if (plan.type === "drag-classify") {
               for (const item of q.items) {

@@ -231,9 +231,13 @@ textarea {
   color: var(--muted-foreground);
   max-width: 60ch;
 }
-.sessions-container .sessions-segmented-nav {
+.sessions-container .sessions-navigation {
   width: fit-content;
   margin: 24px 0 0;
+}
+.sessions-container .sessions-segmented-nav {
+  width: fit-content;
+  margin: 0;
   border-radius: 8px;
   background: var(--secondary);
 }
@@ -299,6 +303,32 @@ textarea {
   min-height: 44px;
   flex-shrink: 0;
 }
+.pwa-install-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--secondary);
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    transform 180ms var(--ease),
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+.pwa-install-button:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--secondary) 76%, var(--primary));
+  transform: translateY(-1px);
+}
+.pwa-install-button:active {
+  transform: scale(0.97);
+}
 @media (max-width: 768px) {
   .topbar-right .account-sync-status {
     display: none;
@@ -344,6 +374,16 @@ textarea {
     width: auto;
   }
   .topbar-right > button[aria-label="Sair da conta"] {
+    display: none;
+  }
+  .topbar-right > a[aria-label="Configurações"] {
+    display: none;
+  }
+  .pwa-install-button {
+    width: 44px;
+    padding: 0;
+  }
+  .pwa-install-label {
     display: none;
   }
   .mobile-bottom-nav {

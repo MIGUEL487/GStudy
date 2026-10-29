@@ -72,4 +72,27 @@ describe("Mecânicas por toque e teclado", () => {
     fireEvent.click(screen.getByRole("button", { name: "Conferir sequência" }));
     expect(onAnswer).toHaveBeenCalledWith(after);
   });
+  it("contas rápidas recebem a resposta digitada pelo teclado", () => {
+    const onAnswer = vi.fn();
+    render(
+      <GameMechanic
+        type="time-survival"
+        seed="s"
+        disabled={false}
+        onAnswer={onAnswer}
+        onMistake={vi.fn()}
+        question={{
+          id: "q",
+          prompt: "12 × 8 = ?",
+          options: ["96", "86", "106", "94"],
+          correctIndex: 0,
+          correctAnswer: "96",
+        }}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "Digite a resposta" });
+    fireEvent.change(input, { target: { value: "96" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(onAnswer).toHaveBeenCalledExactlyOnceWith("96");
+  });
 });

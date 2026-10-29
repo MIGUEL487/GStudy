@@ -18,23 +18,18 @@
 .subject-card--colored .card-footer svg {
   color: var(--subject-color, var(--primary));
 }
-.subject-grid > .subject-card,
 .resource-grid > .subject-card {
   animation: workspace-card-arrive 0.4s var(--ease) backwards;
 }
-.subject-grid > .subject-card:nth-child(2),
 .resource-grid > .subject-card:nth-child(2) {
   animation-delay: 0.05s;
 }
-.subject-grid > .subject-card:nth-child(3),
 .resource-grid > .subject-card:nth-child(3) {
   animation-delay: 0.1s;
 }
-.subject-grid > .subject-card:nth-child(4),
 .resource-grid > .subject-card:nth-child(4) {
   animation-delay: 0.15s;
 }
-.subject-grid > .subject-card:nth-child(n + 5),
 .resource-grid > .subject-card:nth-child(n + 5) {
   animation-delay: 0.2s;
 }
@@ -407,7 +402,6 @@
   .feedback-history article,
   .mobile-bottom-nav a.active,
   .sidebar > .side-nav a.active,
-  .subject-grid > .subject-card,
   .resource-grid > .subject-card {
     animation: none;
   }

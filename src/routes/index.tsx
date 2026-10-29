@@ -19,6 +19,7 @@ import { addSubject, removeSubject, type Subject } from "@/lib/study-model";
 import { studyImage } from "@/lib/images";
 import { SubjectIcon, subjectColor } from "@/components/subject-icon";
 import { AnimatedNumber } from "@/components/animated-number";
+import { motionTokens, staggerContainerVariants, staggerItemVariants } from "@/lib/motion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,7 +80,12 @@ function Index() {
 
   return (
     <>
-      <div className="welcome-row">
+      <motion.div
+        className="welcome-row"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: motionTokens.duration.quick, ease: motionTokens.easing.editorial }}
+      >
         <div>
           <h1>{data.name ? `Olá, ${data.name.split(" ")[0]}.` : "Seu próximo capítulo."}</h1>
           <p>Que tal continuar evoluindo hoje? Um passo de cada vez.</p>
@@ -88,9 +94,18 @@ function Index() {
           <Sprout size={14} className="inline mr-2" />
           Aprender é cultivar o futuro.
         </span>
-      </div>
+      </motion.div>
 
-      <section className="study-banner">
+      <motion.section
+        className="study-banner"
+        initial={{ opacity: 0, y: 12, scale: 0.995 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{
+          duration: motionTokens.duration.smooth,
+          delay: 0.04,
+          ease: motionTokens.easing.editorial,
+        }}
+      >
         <img
           src={studyImage.url}
           width={1024}
@@ -110,15 +125,20 @@ function Index() {
             Reserve um momento para você.
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <div className="overview">
+      <motion.div
+        className="overview"
+        variants={staggerContainerVariants}
+        initial="initial"
+        animate="animate"
+      >
         {[
           { icon: BookOpen, count: data.subjects.length, label: "Matérias para explorar" },
           { icon: NotebookPen, count: totalNotes, label: "Cadernos de ideias" },
           { icon: Play, count: totalCourses, label: "Cursos na sua jornada" },
         ].map((s) => (
-          <div className="overview-item" key={s.label}>
+          <motion.div className="overview-item" variants={staggerItemVariants} key={s.label}>
             <div className="stat-icon">
               <s.icon size={19} />
             </div>
@@ -131,9 +151,9 @@ function Index() {
               </strong>
               <small>{s.label}</small>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <div className="section-heading">
         <div>
@@ -147,13 +167,20 @@ function Index() {
       </div>
 
       <div className="subject-grid">
-        {data.subjects.map((s) => {
+        {data.subjects.map((s, index) => {
           return (
             <motion.article
               className="subject-card subject-card--colored"
               key={s.id}
               style={{ "--subject-color": subjectColor(s.name) } as CSSProperties}
-              whileHover={{ y: -3, transition: { type: "spring", stiffness: 300, damping: 25 } }}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: motionTokens.duration.quick,
+                delay: Math.min(index * 0.04, 0.2),
+                ease: motionTokens.easing.editorial,
+              }}
+              whileHover={{ y: -3, transition: motionTokens.easing.spring }}
               whileTap={{ scale: 0.985 }}
             >
               <div className="cover-icon subject-icon-frame" title={`Matéria: ${s.name}`}>

@@ -393,6 +393,7 @@ button {
 }
 .study-banner {
   height: 230px;
+  isolation: isolate;
   position: relative;
   overflow: hidden;
   border-radius: 12px;
@@ -406,12 +407,17 @@ button {
   object-fit: cover;
   object-position: 50% 58%;
   filter: var(--hero-image-filter);
+  transition: transform 0.7s var(--ease);
 }
 .study-banner::after {
   content: "";
   position: absolute;
   inset: 0;
   background: var(--hero-shade);
+  pointer-events: none;
+}
+.study-banner:hover img {
+  transform: scale(1.025);
 }
 .banner-copy {
   position: absolute;
@@ -512,13 +518,10 @@ button {
   background: var(--card);
   backdrop-filter: blur(10px);
   transition:
-    transform 0.3s var(--ease),
     box-shadow 0.3s var(--ease),
     border-color 0.3s var(--ease);
-  animation: card-in 0.45s var(--ease) both;
 }
 .subject-card:hover {
-  transform: translateY(-4px) scale(1.01);
   box-shadow:
     0 12px 30px rgba(0, 0, 0, 0.35),
     0 0 20px rgba(255, 255, 255, 0.1);
@@ -895,14 +898,49 @@ button {
     font-size: 36px;
   }
   .study-banner {
-    height: 225px;
+    display: grid;
+    grid-template-rows: clamp(148px, 43vw, 178px) auto;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: auto;
+    background: var(--card);
+    box-shadow: var(--shadow-soft);
+  }
+  .study-banner img {
+    grid-row: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 72% 54%;
+  }
+  .study-banner::after {
+    inset: 0 0 auto;
+    height: clamp(148px, 43vw, 178px);
+    background: linear-gradient(
+      180deg,
+      transparent 48%,
+      color-mix(in srgb, var(--card) 82%, transparent)
+    );
   }
   .banner-copy {
-    left: 23px;
-    top: 27px;
+    position: relative;
+    grid-row: 2;
+    left: auto;
+    top: auto;
+    max-width: none;
+    padding: 18px 20px 20px;
   }
   .banner-copy h2 {
-    font-size: 31px;
+    margin-top: 0;
+    font-size: clamp(27px, 8vw, 32px);
+  }
+  .banner-copy p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .banner-bottom {
+    margin-top: 16px;
+    font-size: 11px;
   }
   .overview-item {
     padding: 0 10px;
@@ -952,6 +990,17 @@ button {
   }
   .grade-scroll {
     overflow: auto;
+  }
+}
+@media (max-width: 380px) {
+  .content {
+    padding-inline: 16px;
+  }
+  .study-banner {
+    grid-template-rows: 142px auto;
+  }
+  .study-banner::after {
+    height: 142px;
   }
 }
 @media (max-width: 400px) {

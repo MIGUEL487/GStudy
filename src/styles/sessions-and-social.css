@@ -1,6 +1,14 @@
 /* GStudy - Sessions, Friends Drawer, DMs and Notifications */
 
 /* Segmented Sessions Control */
+.sessions-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 1.5rem;
+}
+
 .sessions-segmented-nav {
   display: flex;
   align-items: center;
@@ -10,7 +18,7 @@
   padding: 0.25rem;
   gap: 0.25rem;
   max-width: 480px;
-  margin: 0 0 1.5rem;
+  margin: 0;
 }
 
 .sessions-segmented-btn {
@@ -40,6 +48,40 @@
   background-color: var(--accent);
   color: #17130f;
   font-weight: 600;
+}
+
+.sessions-games-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    transform 180ms var(--ease),
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.sessions-games-link:hover {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 520px) {
+  .sessions-navigation,
+  .sessions-segmented-nav,
+  .sessions-games-link {
+    width: 100%;
+  }
 }
 
 /* Header Action Buttons */
