@@ -459,9 +459,62 @@
 .game-card-actions {
   flex-wrap: wrap;
 }
-.game-card-actions button {
+.game-card-actions :is(button, a) {
   min-width: 100px;
   min-height: 44px;
+}
+.game-page-runner {
+  width: min(860px, 100%);
+  max-width: none;
+  max-height: none;
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 42px);
+  overflow: visible;
+  box-shadow: 0 16px 44px color-mix(in srgb, #000 16%, transparent);
+}
+.game-page-runner-heading {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 26px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.game-page-runner-heading h1,
+.game-page-state h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 5vw, 42px);
+  line-height: 1.08;
+}
+.game-page-runner-heading p,
+.game-page-state p {
+  color: var(--muted-foreground);
+}
+.game-back-link {
+  width: fit-content;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.game-back-link::before {
+  content: "← ";
+}
+.game-page-state {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  width: min(680px, 100%);
+  margin: 40px auto;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+@media (max-width: 640px) {
+  .game-page-runner {
+    width: 100%;
+    border-radius: 12px;
+    padding-bottom: max(22px, env(safe-area-inset-bottom));
+  }
 }
 .games-filter-chip.active {
   color: var(--primary-foreground);

@@ -1,30 +1,22 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Gamepad2, Play, Sparkles, Trophy, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHearts } from "@/components/hearts-provider";
-import { GAMES_CATALOG, getGameById } from "@/lib/games/catalog";
+import { GAMES_CATALOG } from "@/lib/games/catalog";
 import {
   getStoredHighScores,
   cacheGameHighScores,
   type GameDefinition,
   type GameDifficulty,
-  type GameLaunch,
 } from "@/lib/games/types";
-import {
-  createGameChallenge,
-  gameLeaderboard,
-  gamePersonalRecords,
-  readGameChallenge,
-} from "@/lib/games/rpc";
-import { generateGame, readSharedGame } from "@/lib/games.functions";
+import { createGameChallenge, gameLeaderboard, gamePersonalRecords } from "@/lib/games/rpc";
+import { generateGame } from "@/lib/games.functions";
 import { listFriends, type Friendship } from "@/lib/social-model";
 import { fetchCurrentStudentProfile } from "@/lib/student-profile";
 import { normalizeAnswer } from "@/lib/games/engine";
 import "@/styles/games.css";
-const GamePlayer = lazy(() =>
-  import("./game-player").then((module) => ({ default: module.GamePlayer })),
-);
 const subjects = {
   matematica: "Matemática",
   geografia: "Geografia",
@@ -46,10 +38,8 @@ const mechanics = {
 } as const;
 export function GameCatalog({
   onChallengeFriend,
-  initialLaunch,
 }: {
   onChallengeFriend?: (game: GameDefinition) => void;
-  initialLaunch?: GameLaunch | undefined;
 }) {
   const userId = useHearts()?.userId;
   const [cloudRecords, setCloudRecords] = useState<{
@@ -59,12 +49,6 @@ export function GameCatalog({
   const [recordsError, setRecordsError] = useState("");
   const [subject, setSubject] = useState("todos"),
     [favorite, setFavorite] = useState("");
-  const [active, setActive] = useState<{
-    game: GameDefinition;
-    seed?: string | undefined;
-    difficulty?: GameDifficulty | undefined;
-    challengeId?: string | undefined;
-  } | null>(null);
   const [custom, setCustom] = useState<GameDefinition[]>([]),
     [shared, setShared] = useState<Record<string, boolean>>({});
   const [error, setError] = useState(""),
@@ -84,9 +68,7 @@ export function GameCatalog({
   const [rows, setRows] = useState<Awaited<ReturnType<typeof gameLeaderboard>>>([]),
     [rankingError, setRankingError] = useState(""),
     [rankingLoading, setRankingLoading] = useState(false);
-  const generate = useServerFn(generateGame),
-    readShared = useServerFn(readSharedGame);
-  const launchKey = JSON.stringify(initialLaunch ?? null);
+  const generate = useServerFn(generateGame);
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -126,44 +108,6 @@ export function GameCatalog({
       alive = false;
     };
   }, [userId]);
-  useEffect(() => {
-    if (!initialLaunch?.gameId && !initialLaunch?.challengeId) return;
-    let alive = true;
-    void (async () => {
-      try {
-        let launch = initialLaunch;
-        if (launch.challengeId) {
-          const { challenge } = await readGameChallenge(launch.challengeId);
-          if (Date.parse(challenge.expires_at) <= Date.now())
-            throw new Error("Este desafio expirou. Crie outro para jogar com seu amigo.");
-          launch = {
-            gameId: challenge.game_id,
-            seed: challenge.seed,
-            difficulty: challenge.difficulty,
-            challengeId: challenge.id,
-          };
-        }
-        let game = getGameById(launch.gameId ?? "");
-        if (!game && launch.gameId && /^ai-[a-f0-9]{64}$/.test(launch.gameId))
-          game = (await readShared({ data: { id: launch.gameId } })).game;
-        if (!game) throw new Error("Este jogo não está disponível. Escolha outro no catálogo.");
-        if (alive)
-          setActive({
-            game,
-            seed: launch.seed,
-            difficulty: launch.difficulty,
-            challengeId: launch.challengeId,
-          });
-      } catch (cause) {
-        if (alive)
-          setError(cause instanceof Error ? cause.message : "Não foi possível abrir o desafio.");
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [launchKey]);
   useEffect(() => {
     if (!ranking) return;
     let alive = true;
@@ -222,7 +166,9 @@ export function GameCatalog({
         difficulty,
         challengeSeed,
       );
-      setChallengeLink(`${window.location.origin}/jogos?challenge=${challenge.id}`);
+      setChallengeLink(
+        `${window.location.origin}/jogos/${encodeURIComponent(challengeGame.id)}?challenge=${challenge.id}`,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível enviar o desafio.");
     } finally {
@@ -241,7 +187,9 @@ export function GameCatalog({
         result.game,
       ]);
       setCreating(false);
-      setActive({ game: result.game, difficulty });
+      window.location.assign(
+        `/jogos/${encodeURIComponent(result.game.id)}?difficulty=${difficulty}`,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível criar o jogo agora.");
     } finally {
@@ -340,13 +288,14 @@ export function GameCatalog({
                     : `Cerca de ${game.estimatedMinutes} minutos`}
                 </p>
                 <div className="game-card-actions">
-                  <button
+                  <Link
+                    to="/jogos/$gameId"
+                    params={{ gameId: game.id }}
                     className="game-card-btn-play"
                     aria-label={`Jogar solo: ${game.title}`}
-                    onClick={() => setActive({ game })}
                   >
                     <Play size={16} /> Jogar solo
-                  </button>
+                  </Link>
                   <button
                     className="game-card-btn-challenge"
                     disabled={game.source === "ai" && shared[game.id] === false}
@@ -373,18 +322,6 @@ export function GameCatalog({
           );
         })}
       </div>
-      {active && (
-        <Suspense fallback={<p role="status">Preparando jogo…</p>}>
-          <GamePlayer
-            game={active.game}
-            seed={active.seed}
-            difficulty={active.difficulty}
-            challengeId={active.challengeId}
-            onClose={() => setActive(null)}
-            onRestart={() => setActive(null)}
-          />
-        </Suspense>
-      )}
       <Dialog
         open={creating}
         onOpenChange={(open) => {

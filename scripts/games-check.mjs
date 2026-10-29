@@ -80,9 +80,9 @@ try {
         pageErrors.length = 0;
         try {
           const seed = "qa-shared-seed";
-          await page.goto(`${base}/jogos?game=${id}&seed=${seed}&difficulty=facil`);
-          const dialog = page.getByRole("dialog");
-          await dialog.waitFor();
+          await page.goto(`${base}/jogos/${id}?seed=${seed}&difficulty=facil`);
+          const runner = page.locator(".game-page-runner");
+          await runner.waitFor();
           const plan = await page.evaluate(
             async ({ id, seed }) => {
               const { getGameById } = await import("/src/lib/games/catalog.ts");
@@ -113,14 +113,14 @@ try {
           for (const q of plan.questions) {
             await page.getByRole("heading", { name: q.prompt, exact: true }).waitFor();
             if (expectedHits === 0)
-              await dialog.screenshot({ path: `${output}/${width}-${theme}-${id}-playing.png` });
+              await runner.screenshot({ path: `${output}/${width}-${theme}-${id}-playing.png` });
             if (plan.type === "memory-pairs") {
               for (let pair = 0; pair < q.pairs.length; pair++) {
                 const indexes = q.cards.flatMap((card, i) => (card.pair === pair ? [i] : []));
                 for (const i of indexes)
                   await page.getByRole("button", { name: `Carta ${i + 1}`, exact: true }).click();
                 if (pair === 0 && expectedHits === 0)
-                  await dialog.screenshot({ path: `${output}/${width}-${theme}-${id}-pair.png` });
+                  await runner.screenshot({ path: `${output}/${width}-${theme}-${id}-pair.png` });
               }
             } else if (plan.type === "sequence-order") {
               for (let i = 0; i < q.sequence.length; i++) {
@@ -179,7 +179,7 @@ try {
             false,
           );
           assert.deepEqual(pageErrors, []);
-          await dialog.screenshot({ path: `${output}/${width}-${theme}-${id}.png` });
+          await runner.screenshot({ path: `${output}/${width}-${theme}-${id}.png` });
           results.push({ width, theme, id, passed: true, hits: last.hits, score: last.score });
           console.log(results.at(-1));
         } catch (error) {
