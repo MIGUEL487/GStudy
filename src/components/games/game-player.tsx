@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, RotateCcw, Trophy } from "lucide-react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHearts } from "@/components/hearts-provider";
 import {
@@ -34,6 +35,10 @@ interface GamePlayerProps {
   challengeId?: string | undefined;
   standalone?: boolean | undefined;
 }
+const CELEBRATION_PARTICLES = Array.from({ length: 10 }, (_, index) => {
+  const angle = (index / 10) * Math.PI * 2;
+  return { x: Math.cos(angle) * 104, y: Math.sin(angle) * 82 };
+});
 export function GamePlayer({
   game,
   onClose,
@@ -43,6 +48,7 @@ export function GamePlayer({
   challengeId,
   standalone = false,
 }: GamePlayerProps) {
+  const reduceMotion = useReducedMotion();
   const userId = useHearts()?.userId;
   const [difficulty, setDifficulty] = useState<GameDifficulty>(
     suppliedDifficulty ?? game.fixedDifficulty ?? "medio",
@@ -215,6 +221,7 @@ export function GamePlayer({
     setState(progress.current);
   };
   const question = sequence[index];
+  const isTypingGame = game.type === "time-survival" || game.type === "typing-fast";
   const mistakes = [
     ...new Map(
       state.answers.filter((item) => !item.correct).map((item) => [item.question.id, item]),
@@ -293,20 +300,63 @@ export function GamePlayer({
               <div ref={timeBar} />
             </div>
           )}
-          <h2 className="game-prompt-question">{question.prompt}</h2>
-          <GameMechanic
-            key={`${seed}:${index}`}
-            question={question}
-            type={game.type}
-            seed={seed}
-            disabled={feedback !== null}
-            onAnswer={answer}
-            onMistake={slip}
-          />
+          <div
+            className={`game-question-stage ${isTypingGame ? "is-typing" : ""} ${feedback === true ? "is-correct" : ""}`}
+          >
+            <AnimatePresence>
+              {feedback === true && (
+                <m.div
+                  key={`success-${index}`}
+                  className="game-correct-celebration"
+                  aria-hidden="true"
+                  initial={{ opacity: 0, scale: 0.78 }}
+                  animate={{ opacity: [0, 1, 0], scale: [0.78, 1.04, 1.14] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: reduceMotion ? 0.01 : 0.68, ease: "easeOut" }}
+                >
+                  {!reduceMotion &&
+                    CELEBRATION_PARTICLES.map((position, particle) => (
+                      <m.span
+                        key={particle}
+                        initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
+                        animate={{
+                          opacity: [0, 1, 0],
+                          x: position.x,
+                          y: position.y,
+                          rotate: particle * 41,
+                          scale: [0.4, 1, 0.7],
+                        }}
+                        transition={{ duration: 0.62, delay: particle * 0.014, ease: "easeOut" }}
+                      />
+                    ))}
+                </m.div>
+              )}
+            </AnimatePresence>
+            <m.h2
+              className="game-prompt-question"
+              animate={
+                feedback === true && !reduceMotion
+                  ? { scale: [1, 1.08, 1], y: [0, -5, 0] }
+                  : { scale: 1, y: 0 }
+              }
+              transition={{ duration: 0.48, ease: "easeOut" }}
+            >
+              {question.prompt}
+            </m.h2>
+            <GameMechanic
+              key={`${seed}:${index}`}
+              question={question}
+              type={game.type}
+              seed={seed}
+              disabled={feedback !== null}
+              onAnswer={answer}
+              onMistake={slip}
+            />
+          </div>
           {feedback !== null && (
             <p
               role="status"
-              className={`game-answer-feedback ${feedback ? "is-correct" : "is-wrong"}`}
+              className={`game-answer-feedback ${feedback ? "is-correct sr-only" : "is-wrong"}`}
             >
               {feedback ? "Você acertou!" : "Vamos revisar essa no resultado."}{" "}
               {question.explanation}

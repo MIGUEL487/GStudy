@@ -27,6 +27,26 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("Finalização da partida", () => {
+  it("celebra visualmente um acerto digitado sem adicionar instruções ao campo", () => {
+    const typingGame: GameDefinition = {
+      ...game,
+      id: "typing-success",
+      type: "time-survival",
+      questions: {
+        facil: [{ ...question, correctAnswer: "4" }],
+        medio: [{ ...question, correctAnswer: "4" }],
+        dificil: [{ ...question, correctAnswer: "4" }],
+      },
+    };
+    render(<GamePlayer game={typingGame} onClose={vi.fn()} seed="same" />);
+    fireEvent.click(screen.getByRole("button", { name: "Começar desafio" }));
+    const input = screen.getByRole("textbox", { name: "Resposta" });
+    fireEvent.change(input, { target: { value: "4" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(document.querySelector(".game-question-stage.is-correct")).toBeInTheDocument();
+    expect(document.querySelector(".game-correct-celebration")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Você acertou!");
+  });
   it("salva a última resposta e concede XP com o mesmo identificador numa repetição de rede", async () => {
     mocks.save
       .mockRejectedValueOnce(new Error("Rede temporariamente indisponível"))

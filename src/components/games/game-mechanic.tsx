@@ -268,19 +268,19 @@ export function GameMechanic(props: Props) {
         }}
         className="game-typing"
       >
-        <label>
-          {type === "time-survival" ? "Digite a resposta" : "Sua resposta"}
-          <input
-            autoFocus
-            value={typed}
-            disabled={disabled}
-            onChange={(event) => setTyped(event.target.value)}
-            autoComplete="off"
-            inputMode={type === "time-survival" ? "decimal" : undefined}
-          />
-        </label>
-        <button className="game-card-btn-play" disabled={disabled || !typed.trim()}>
-          Conferir resposta
+        <input
+          autoFocus
+          aria-label="Resposta"
+          value={typed}
+          disabled={disabled}
+          onChange={(event) => setTyped(event.target.value)}
+          autoComplete="off"
+          inputMode={type === "time-survival" ? "decimal" : undefined}
+          enterKeyHint="go"
+          spellCheck={false}
+        />
+        <button className="sr-only" disabled={disabled || !typed.trim()} tabIndex={-1}>
+          Conferir
         </button>
       </form>
     );
