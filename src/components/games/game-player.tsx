@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Link } from "@tanstack/react-router";
 import { ArrowRight, RotateCcw, Trophy } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useHearts } from "@/components/hearts-provider";
@@ -31,6 +32,7 @@ interface GamePlayerProps {
   seed?: string | undefined;
   difficulty?: GameDifficulty | undefined;
   challengeId?: string | undefined;
+  standalone?: boolean | undefined;
 }
 export function GamePlayer({
   game,
@@ -39,6 +41,7 @@ export function GamePlayer({
   seed: suppliedSeed,
   difficulty: suppliedDifficulty,
   challengeId,
+  standalone = false,
 }: GamePlayerProps) {
   const userId = useHearts()?.userId;
   const [difficulty, setDifficulty] = useState<GameDifficulty>(
@@ -217,6 +220,172 @@ export function GamePlayer({
       state.answers.filter((item) => !item.correct).map((item) => [item.question.id, item]),
     ).values(),
   ];
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (
+      step === "playing" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      game.type === "multiple-choice" &&
+      /^[1-4]$/.test(event.key) &&
+      question?.options &&
+      Number(event.key) <= question.options.length
+    ) {
+      event.preventDefault();
+      answer(Number(event.key) - 1);
+    }
+  };
+  const content = (
+    <>
+      {step === "rules" && (
+        <div className="game-rules-screen">
+          <p id="game-rules">{game.rules}</p>
+          <p>Acertos aumentam o combo, até ×4. Os jogos não gastam corações.</p>
+          <div className="game-diff-selector" role="radiogroup" aria-label="Dificuldade">
+            {(["facil", "medio", "dificil"] as const).map((value) => (
+              <button
+                key={value}
+                role="radio"
+                aria-checked={difficulty === value}
+                disabled={Boolean(suppliedDifficulty || game.fixedDifficulty)}
+                className={`game-diff-btn ${difficulty === value ? "selected" : ""}`}
+                onClick={() => setDifficulty(value)}
+              >
+                {value === "facil" ? "Fácil" : value === "medio" ? "Médio" : "Difícil"}
+              </button>
+            ))}
+          </div>
+          {suppliedSeed && <p>Desafio com a mesma sequência para todos.</p>}
+          <button className="game-card-btn-play" onClick={start} aria-label="Começar desafio">
+            Começar desafio <ArrowRight size={16} />
+          </button>
+        </div>
+      )}
+      {step === "playing" && question && (
+        <div>
+          <div className="game-play-header">
+            <span className="game-combo-pill">COMBO x{state.combo}</span>
+            <span>{state.score} pts</span>
+            {limit > 0 && <span aria-label="Tempo restante">{seconds}s</span>}
+          </div>
+          <div
+            className="game-progress-bar"
+            role="progressbar"
+            aria-label="Progresso da partida"
+            aria-valuemin={0}
+            aria-valuemax={sequence.length}
+            aria-valuenow={index}
+          >
+            <div
+              className="game-progress-bar-fill"
+              style={{ width: "100%", transform: `scaleX(${index / sequence.length})` }}
+            />
+          </div>
+          {limit > 0 && (
+            <div
+              className="game-time-track"
+              role="meter"
+              aria-label="Reserva de tempo"
+              aria-valuemin={0}
+              aria-valuemax={limit}
+              aria-valuenow={seconds}
+            >
+              <div ref={timeBar} />
+            </div>
+          )}
+          <h2 className="game-prompt-question">{question.prompt}</h2>
+          <GameMechanic
+            key={`${seed}:${index}`}
+            question={question}
+            type={game.type}
+            seed={seed}
+            disabled={feedback !== null}
+            onAnswer={answer}
+            onMistake={slip}
+          />
+          {feedback !== null && (
+            <p
+              role="status"
+              className={`game-answer-feedback ${feedback ? "is-correct" : "is-wrong"}`}
+            >
+              {feedback ? "Você acertou!" : "Vamos revisar essa no resultado."}{" "}
+              {question.explanation}
+            </p>
+          )}
+        </div>
+      )}
+      {step === "finished" && result && (
+        <div className="game-victory-screen">
+          <Trophy size={36} />
+          <h2>Desafio concluído!</h2>
+          <p className="game-victory-score">{result.score} pontos</p>
+          <p>
+            {result.hits} acertos · {result.mistakes} erros · Combo máx. ×{result.maxCombo}
+          </p>
+          <p>
+            {saving
+              ? "Registrando partida…"
+              : awarded !== null
+                ? `XP registrado: +${awarded}`
+                : "XP ainda não registrado"}
+          </p>
+          {result.isNewRecord && <p>Novo recorde pessoal!</p>}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          {error && (
+            <button
+              className="game-card-btn-play"
+              onClick={() => void saveResult()}
+              disabled={saving}
+            >
+              Tentar salvar partida
+            </button>
+          )}
+          {!!mistakes.length && (
+            <section aria-label="Revisão dos erros">
+              <h3>Vamos rever</h3>
+              {mistakes.map(({ question: item }, i) => (
+                <article key={i}>
+                  <h4>{item.prompt}</h4>
+                  <MistakeExplanation question={item} />
+                </article>
+              ))}
+            </section>
+          )}
+          {challengeId && <ChallengeResults id={challengeId} revision={awarded} />}
+          <div className="game-victory-actions">
+            <button className="game-card-btn-play" onClick={start} aria-label="Jogar novamente">
+              <RotateCcw size={16} /> Jogar novamente
+            </button>
+            <button className="game-card-btn-challenge" onClick={onRestart ?? onClose}>
+              Trocar de jogo
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+  if (standalone)
+    return (
+      <section
+        className="game-runner-box game-page-runner"
+        aria-labelledby="game-page-title"
+        aria-describedby={step === "rules" ? "game-rules" : undefined}
+        onKeyDown={handleKeyDown}
+      >
+        <header className="game-page-runner-heading">
+          <Link to="/jogos" className="game-back-link">
+            Voltar aos jogos
+          </Link>
+          <h1 id="game-page-title">{game.title}</h1>
+          <p>{game.description}</p>
+        </header>
+        {content}
+      </section>
+    );
   return (
     <Dialog
       open
@@ -227,152 +396,10 @@ export function GamePlayer({
       <DialogContent
         className="game-runner-box game-dialog"
         aria-describedby={step === "rules" ? "game-rules" : undefined}
-        onKeyDown={(event) => {
-          if (
-            step === "playing" &&
-            !event.ctrlKey &&
-            !event.metaKey &&
-            !event.altKey &&
-            game.type === "multiple-choice" &&
-            /^[1-4]$/.test(event.key) &&
-            question?.options &&
-            Number(event.key) <= question.options.length
-          ) {
-            event.preventDefault();
-            answer(Number(event.key) - 1);
-          }
-        }}
+        onKeyDown={handleKeyDown}
       >
         <DialogTitle>{game.title}</DialogTitle>
-        {step === "rules" && (
-          <div className="game-rules-screen">
-            <p id="game-rules">{game.rules}</p>
-            <p>Acertos aumentam o combo, até ×4. Os jogos não gastam corações.</p>
-            <div className="game-diff-selector" role="radiogroup" aria-label="Dificuldade">
-              {(["facil", "medio", "dificil"] as const).map((value) => (
-                <button
-                  key={value}
-                  role="radio"
-                  aria-checked={difficulty === value}
-                  disabled={Boolean(suppliedDifficulty || game.fixedDifficulty)}
-                  className={`game-diff-btn ${difficulty === value ? "selected" : ""}`}
-                  onClick={() => setDifficulty(value)}
-                >
-                  {value === "facil" ? "Fácil" : value === "medio" ? "Médio" : "Difícil"}
-                </button>
-              ))}
-            </div>
-            {suppliedSeed && <p>Desafio com a mesma sequência para todos.</p>}
-            <button className="game-card-btn-play" onClick={start} aria-label="Começar desafio">
-              Começar desafio <ArrowRight size={16} />
-            </button>
-          </div>
-        )}
-        {step === "playing" && question && (
-          <div>
-            <div className="game-play-header">
-              <span className="game-combo-pill">COMBO x{state.combo}</span>
-              <span>{state.score} pts</span>
-              {limit > 0 && <span aria-label="Tempo restante">{seconds}s</span>}
-            </div>
-            <div
-              className="game-progress-bar"
-              role="progressbar"
-              aria-label="Progresso da partida"
-              aria-valuemin={0}
-              aria-valuemax={sequence.length}
-              aria-valuenow={index}
-            >
-              <div
-                className="game-progress-bar-fill"
-                style={{ width: "100%", transform: `scaleX(${index / sequence.length})` }}
-              />
-            </div>
-            {limit > 0 && (
-              <div
-                className="game-time-track"
-                role="meter"
-                aria-label="Reserva de tempo"
-                aria-valuemin={0}
-                aria-valuemax={limit}
-                aria-valuenow={seconds}
-              >
-                <div ref={timeBar} />
-              </div>
-            )}
-            <h2 className="game-prompt-question">{question.prompt}</h2>
-            <GameMechanic
-              key={`${seed}:${index}`}
-              question={question}
-              type={game.type}
-              seed={seed}
-              disabled={feedback !== null}
-              onAnswer={answer}
-              onMistake={slip}
-            />
-            {feedback !== null && (
-              <p
-                role="status"
-                className={`game-answer-feedback ${feedback ? "is-correct" : "is-wrong"}`}
-              >
-                {feedback ? "Você acertou!" : "Vamos revisar essa no resultado."}{" "}
-                {question.explanation}
-              </p>
-            )}
-          </div>
-        )}
-        {step === "finished" && result && (
-          <div className="game-victory-screen">
-            <Trophy size={36} />
-            <h2>Desafio concluído!</h2>
-            <p className="game-victory-score">{result.score} pontos</p>
-            <p>
-              {result.hits} acertos · {result.mistakes} erros · Combo máx. ×{result.maxCombo}
-            </p>
-            <p>
-              {saving
-                ? "Registrando partida…"
-                : awarded !== null
-                  ? `XP registrado: +${awarded}`
-                  : "XP ainda não registrado"}
-            </p>
-            {result.isNewRecord && <p>Novo recorde pessoal!</p>}
-            {error && (
-              <p className="form-error" role="alert">
-                {error}
-              </p>
-            )}
-            {error && (
-              <button
-                className="game-card-btn-play"
-                onClick={() => void saveResult()}
-                disabled={saving}
-              >
-                Tentar salvar partida
-              </button>
-            )}
-            {!!mistakes.length && (
-              <section aria-label="Revisão dos erros">
-                <h3>Vamos rever</h3>
-                {mistakes.map(({ question: item }, i) => (
-                  <article key={i}>
-                    <h4>{item.prompt}</h4>
-                    <MistakeExplanation question={item} />
-                  </article>
-                ))}
-              </section>
-            )}
-            {challengeId && <ChallengeResults id={challengeId} revision={awarded} />}
-            <div className="game-victory-actions">
-              <button className="game-card-btn-play" onClick={start} aria-label="Jogar novamente">
-                <RotateCcw size={16} /> Jogar novamente
-              </button>
-              <button className="game-card-btn-challenge" onClick={onRestart ?? onClose}>
-                Trocar de jogo
-              </button>
-            </div>
-          </div>
-        )}
+        {content}
       </DialogContent>
     </Dialog>
   );

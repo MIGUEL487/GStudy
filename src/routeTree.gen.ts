@@ -28,6 +28,8 @@ import { Route as AprenderRecallRouteImport } from './routes/aprender.recall'
 import { Route as AprenderRevisaoRouteImport } from './routes/aprender.revisao'
 import { Route as CadernosNotebookIdRouteImport } from './routes/cadernos.$notebookId'
 import { Route as DesempenhoSubjectIdRouteImport } from './routes/desempenho.$subjectId'
+import { Route as JogosIndexRouteImport } from './routes/jogos.index'
+import { Route as JogosGameIdRouteImport } from './routes/jogos.$gameId'
 import { Route as MateriasSubjectIdRouteImport } from './routes/materias.$subjectId'
 import { Route as PrepararFlashcardsRouteImport } from './routes/preparar_.flashcards'
 import { Route as PrepararQuestoesRouteImport } from './routes/preparar_.questoes'
@@ -127,6 +129,16 @@ const DesempenhoSubjectIdRoute = DesempenhoSubjectIdRouteImport.update({
   path: '/desempenho/$subjectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JogosIndexRoute = JogosIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => JogosRoute,
+} as any)
+const JogosGameIdRoute = JogosGameIdRouteImport.update({
+  id: '/$gameId',
+  path: '/$gameId',
+  getParentRoute: () => JogosRoute,
+} as any)
 const MateriasSubjectIdRoute = MateriasSubjectIdRouteImport.update({
   id: '/materias/$subjectId',
   path: '/materias/$subjectId',
@@ -149,7 +161,7 @@ export interface FileRoutesByFullPath {
   '/calendario': typeof CalendarioRoute
   '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/jogos': typeof JogosRoute
+  '/jogos': typeof JogosRouteWithChildren
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
   '/sessoes': typeof SessoesRoute
@@ -162,10 +174,12 @@ export interface FileRoutesByFullPath {
   '/aprender/revisao': typeof AprenderRevisaoRoute
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
+  '/jogos/$gameId': typeof JogosGameIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
   '/preparar/flashcards': typeof PrepararFlashcardsRoute
   '/preparar/questoes': typeof PrepararQuestoesRoute
   '/aprender/': typeof AprenderIndexRoute
+  '/jogos/': typeof JogosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -173,7 +187,6 @@ export interface FileRoutesByTo {
   '/calendario': typeof CalendarioRoute
   '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/jogos': typeof JogosRoute
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
   '/sessoes': typeof SessoesRoute
@@ -186,10 +199,12 @@ export interface FileRoutesByTo {
   '/aprender/revisao': typeof AprenderRevisaoRoute
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
+  '/jogos/$gameId': typeof JogosGameIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
   '/preparar/flashcards': typeof PrepararFlashcardsRoute
   '/preparar/questoes': typeof PrepararQuestoesRoute
   '/aprender': typeof AprenderIndexRoute
+  '/jogos': typeof JogosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -198,7 +213,7 @@ export interface FileRoutesById {
   '/calendario': typeof CalendarioRoute
   '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/jogos': typeof JogosRoute
+  '/jogos': typeof JogosRouteWithChildren
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
   '/sessoes': typeof SessoesRoute
@@ -211,10 +226,12 @@ export interface FileRoutesById {
   '/aprender/revisao': typeof AprenderRevisaoRoute
   '/cadernos/$notebookId': typeof CadernosNotebookIdRoute
   '/desempenho/$subjectId': typeof DesempenhoSubjectIdRoute
+  '/jogos/$gameId': typeof JogosGameIdRoute
   '/materias/$subjectId': typeof MateriasSubjectIdRoute
   '/preparar_/flashcards': typeof PrepararFlashcardsRoute
   '/preparar_/questoes': typeof PrepararQuestoesRoute
   '/aprender/': typeof AprenderIndexRoute
+  '/jogos/': typeof JogosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -237,10 +254,12 @@ export interface FileRouteTypes {
     | '/aprender/revisao'
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
+    | '/jogos/$gameId'
     | '/materias/$subjectId'
     | '/preparar/flashcards'
     | '/preparar/questoes'
     | '/aprender/'
+    | '/jogos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -248,7 +267,6 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/chamada'
     | '/configuracoes'
-    | '/jogos'
     | '/preparar'
     | '/salas'
     | '/sessoes'
@@ -261,10 +279,12 @@ export interface FileRouteTypes {
     | '/aprender/revisao'
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
+    | '/jogos/$gameId'
     | '/materias/$subjectId'
     | '/preparar/flashcards'
     | '/preparar/questoes'
     | '/aprender'
+    | '/jogos'
   id:
     | '__root__'
     | '/'
@@ -285,10 +305,12 @@ export interface FileRouteTypes {
     | '/aprender/revisao'
     | '/cadernos/$notebookId'
     | '/desempenho/$subjectId'
+    | '/jogos/$gameId'
     | '/materias/$subjectId'
     | '/preparar_/flashcards'
     | '/preparar_/questoes'
     | '/aprender/'
+    | '/jogos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -297,7 +319,7 @@ export interface RootRouteChildren {
   CalendarioRoute: typeof CalendarioRoute
   ChamadaRoute: typeof ChamadaRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
-  JogosRoute: typeof JogosRoute
+  JogosRoute: typeof JogosRouteWithChildren
   PrepararRoute: typeof PrepararRoute
   SalasRoute: typeof SalasRoute
   SessoesRoute: typeof SessoesRoute
@@ -451,6 +473,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DesempenhoSubjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/jogos/': {
+      id: '/jogos/'
+      path: '/'
+      fullPath: '/jogos/'
+      preLoaderRoute: typeof JogosIndexRouteImport
+      parentRoute: typeof JogosRoute
+    }
+    '/jogos/$gameId': {
+      id: '/jogos/$gameId'
+      path: '/$gameId'
+      fullPath: '/jogos/$gameId'
+      preLoaderRoute: typeof JogosGameIdRouteImport
+      parentRoute: typeof JogosRoute
+    }
     '/materias/$subjectId': {
       id: '/materias/$subjectId'
       path: '/materias/$subjectId'
@@ -475,13 +511,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface JogosRouteChildren {
+  JogosGameIdRoute: typeof JogosGameIdRoute
+  JogosIndexRoute: typeof JogosIndexRoute
+}
+
+const JogosRouteChildren: JogosRouteChildren = {
+  JogosGameIdRoute: JogosGameIdRoute,
+  JogosIndexRoute: JogosIndexRoute,
+}
+
+const JogosRouteWithChildren = JogosRoute._addFileChildren(JogosRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AmigosRoute: AmigosRoute,
   CalendarioRoute: CalendarioRoute,
   ChamadaRoute: ChamadaRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
-  JogosRoute: JogosRoute,
+  JogosRoute: JogosRouteWithChildren,
   PrepararRoute: PrepararRoute,
   SalasRoute: SalasRoute,
   SessoesRoute: SessoesRoute,

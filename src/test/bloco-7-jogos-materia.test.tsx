@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import type { AnchorHTMLAttributes } from "react";
 import { GAMES_CATALOG, getGamesBySubject, getGameById } from "@/lib/games/catalog";
 import {
   calculateGameStars,
@@ -11,6 +12,21 @@ import {
 import { GameCatalog } from "@/components/games/game-catalog";
 import { GamePlayer } from "@/components/games/game-player";
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({
+    to,
+    params,
+    children,
+    ...props
+  }: AnchorHTMLAttributes<HTMLAnchorElement> & {
+    to: string;
+    params?: { gameId?: string };
+  }) => (
+    <a href={to.replace("$gameId", params?.gameId ?? "")} {...props}>
+      {children}
+    </a>
+  ),
+}));
 vi.mock("@/lib/games.functions", () => ({
   generateGame: vi.fn(),
   readSharedGame: vi.fn(),
@@ -162,17 +178,12 @@ describe("Bloco 7: Catálogo de Jogos por Matéria e Motor GameDefinition", () =
       expect(screen.queryByText("Relâmpago de Cálculo Mental")).not.toBeInTheDocument();
     });
 
-    it("abre o player de jogo ao clicar em 'Jogar solo'", async () => {
+    it("abre cada jogo em uma página própria", () => {
       render(<GameCatalog />);
 
       const playBtn = screen.getByLabelText(/Jogar solo: Relâmpago de Cálculo Mental/i);
-      fireEvent.click(playBtn);
-
-      expect(
-        await screen.findByRole("dialog", { name: /Relâmpago de Cálculo Mental/i }),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/Os jogos não gastam corações/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Começar desafio/i })).toBeInTheDocument();
+      expect(playBtn).toHaveAttribute("href", "/jogos/math-calc-mental");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 
