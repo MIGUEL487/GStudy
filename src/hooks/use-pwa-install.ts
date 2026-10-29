@@ -16,6 +16,11 @@ export function isPwaStandalone() {
   );
 }
 
+export function isAndroidChrome() {
+  const agent = navigator.userAgent;
+  return /Android/i.test(agent) && /Chrome\//i.test(agent) && !/EdgA|OPR\//i.test(agent);
+}
+
 function wasDismissed() {
   try {
     return sessionStorage.getItem(dismissalKey) === "1";
@@ -29,6 +34,7 @@ export function usePwaInstall() {
   const blocked = useRef(false);
   const pending = useRef(false);
   const [available, setAvailable] = useState(false);
+  const [canPrompt, setCanPrompt] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,12 +43,19 @@ export function usePwaInstall() {
     const hide = () => {
       promptRef.current = null;
       setAvailable(false);
+      setCanPrompt(false);
     };
+    const fallbackTimer = window.setTimeout(() => {
+      if (!blocked.current && !promptRef.current && !isPwaStandalone() && isAndroidChrome())
+        setAvailable(true);
+    }, 2500);
     const ready = (event: Event) => {
       event.preventDefault();
       if (blocked.current || pending.current || isPwaStandalone()) return;
+      window.clearTimeout(fallbackTimer);
       promptRef.current = event as InstallPromptEvent;
       setError("");
+      setCanPrompt(true);
       setAvailable(true);
     };
     const complete = () => {
@@ -58,6 +71,7 @@ export function usePwaInstall() {
     window.addEventListener("appinstalled", complete);
     window.addEventListener("pageshow", checkDisplayMode);
     return () => {
+      window.clearTimeout(fallbackTimer);
       promptRef.current = null;
       displayMode.removeEventListener?.("change", checkDisplayMode);
       window.removeEventListener("beforeinstallprompt", ready);
@@ -70,6 +84,7 @@ export function usePwaInstall() {
     blocked.current = true;
     promptRef.current = null;
     setAvailable(false);
+    setCanPrompt(false);
     try {
       sessionStorage.setItem(dismissalKey, "1");
     } catch {
@@ -100,5 +115,5 @@ export function usePwaInstall() {
     }
   };
 
-  return { available, installing, error, install, dismiss };
+  return { available, canPrompt, installing, error, install, dismiss };
 }

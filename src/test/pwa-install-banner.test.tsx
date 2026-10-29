@@ -2,6 +2,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
+const defaultUserAgent = navigator.userAgent;
+
 function offer(outcome: "accepted" | "dismissed" = "accepted") {
   const prompt = vi.fn().mockResolvedValue(undefined);
   const event = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
@@ -21,6 +23,11 @@ describe("PwaInstallBanner", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+    vi.useRealTimers();
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: defaultUserAgent,
+    });
     Object.defineProperty(navigator, "standalone", { configurable: true, value: undefined });
   });
 
@@ -91,6 +98,23 @@ describe("PwaInstallBanner", () => {
     render(<PwaInstallBanner />);
     offer();
     expect(screen.queryByRole("button", { name: "Instalar GStudy" })).toBeNull();
+  });
+
+  it("oferece no Android um caminho manual quando o Chrome não libera o prompt", () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36",
+    });
+    render(<PwaInstallBanner />);
+    expect(screen.queryByRole("button", { name: "Instalar GStudy" })).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(2500);
+    });
+    const button = screen.getByRole("button", { name: "Instalar GStudy" });
+    expect(button).toHaveTextContent("Como instalar");
+    fireEvent.click(button);
+    expect(screen.getByText(/toque em ⋮/i)).toBeVisible();
   });
 
   it("oculta imediatamente ao receber appinstalled", () => {
