@@ -233,7 +233,7 @@ export function GamePlayer({
             !event.ctrlKey &&
             !event.metaKey &&
             !event.altKey &&
-            (game.type === "multiple-choice" || game.type === "time-survival") &&
+            game.type === "multiple-choice" &&
             /^[1-4]$/.test(event.key) &&
             question?.options &&
             Number(event.key) <= question.options.length

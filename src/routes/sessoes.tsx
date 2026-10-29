@@ -9,14 +9,16 @@ export const Route = createFileRoute("/sessoes")({
     search: Record<string, unknown>,
   ): {
     tab?: SessionTab | undefined;
+    legacyGames?: true | undefined;
     game?: string | undefined;
     seed?: string | undefined;
     difficulty?: GameDifficulty | undefined;
     challenge?: string | undefined;
   } => {
-    const tab = search.tab as SessionTab | undefined;
+    const tab = search.tab;
     return {
-      ...(["rooms", "groups", "games"].includes(String(tab)) ? { tab } : {}),
+      ...(["rooms", "groups"].includes(String(tab)) ? { tab: tab as SessionTab } : {}),
+      ...(tab === "games" ? { legacyGames: true as const } : {}),
       ...(typeof search.game === "string" && /^[a-z][a-z0-9-]{2,80}$/.test(search.game)
         ? { game: search.game }
         : {}),
@@ -48,22 +50,23 @@ function SessoesRoute() {
   useEffect(() => {
     if (!enabled) {
       void navigate({ to: "/" });
+    } else if (search.legacyGames || search.game || search.challenge) {
+      void navigate({
+        to: "/jogos",
+        search: {
+          game: search.game,
+          seed: search.seed,
+          difficulty: search.difficulty,
+          challenge: search.challenge,
+        },
+        replace: true,
+      });
     }
-  }, [enabled, navigate]);
+  }, [enabled, navigate, search]);
 
-  if (!enabled) {
+  if (!enabled || search.legacyGames || search.game || search.challenge) {
     return null;
   }
 
-  return (
-    <SessionsView
-      initialTab={search.game || search.challenge ? "games" : (search.tab ?? "rooms")}
-      initialGame={{
-        gameId: search.game,
-        seed: search.seed,
-        difficulty: search.difficulty,
-        challengeId: search.challenge,
-      }}
-    />
-  );
+  return <SessionsView initialTab={search.tab ?? "rooms"} />;
 }

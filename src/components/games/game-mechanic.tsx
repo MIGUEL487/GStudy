@@ -259,7 +259,7 @@ export function GameMechanic(props: Props) {
         <WorldMap disabled={disabled} onAnswer={onAnswer} />
       </Suspense>
     );
-  if (type === "typing-fast")
+  if (type === "typing-fast" || type === "time-survival")
     return (
       <form
         onSubmit={(event) => {
@@ -269,13 +269,14 @@ export function GameMechanic(props: Props) {
         className="game-typing"
       >
         <label>
-          Sua resposta
+          {type === "time-survival" ? "Digite a resposta" : "Sua resposta"}
           <input
             autoFocus
             value={typed}
             disabled={disabled}
             onChange={(event) => setTyped(event.target.value)}
             autoComplete="off"
+            inputMode={type === "time-survival" ? "decimal" : undefined}
           />
         </label>
         <button className="game-card-btn-play" disabled={disabled || !typed.trim()}>

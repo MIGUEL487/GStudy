@@ -14,6 +14,7 @@ import { Route as AmigosRouteImport } from './routes/amigos'
 import { Route as CalendarioRouteImport } from './routes/calendario'
 import { Route as ChamadaRouteImport } from './routes/chamada'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
+import { Route as JogosRouteImport } from './routes/jogos'
 import { Route as PrepararRouteImport } from './routes/preparar'
 import { Route as SalasRouteImport } from './routes/salas'
 import { Route as SessoesRouteImport } from './routes/sessoes'
@@ -54,6 +55,11 @@ const ChamadaRoute = ChamadaRouteImport.update({
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JogosRoute = JogosRouteImport.update({
+  id: '/jogos',
+  path: '/jogos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrepararRoute = PrepararRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/calendario': typeof CalendarioRoute
   '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/jogos': typeof JogosRoute
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
   '/sessoes': typeof SessoesRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/calendario': typeof CalendarioRoute
   '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/jogos': typeof JogosRoute
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
   '/sessoes': typeof SessoesRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/calendario': typeof CalendarioRoute
   '/chamada': typeof ChamadaRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/jogos': typeof JogosRoute
   '/preparar': typeof PrepararRoute
   '/salas': typeof SalasRoute
   '/sessoes': typeof SessoesRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/chamada'
     | '/configuracoes'
+    | '/jogos'
     | '/preparar'
     | '/salas'
     | '/sessoes'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/chamada'
     | '/configuracoes'
+    | '/jogos'
     | '/preparar'
     | '/salas'
     | '/sessoes'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/chamada'
     | '/configuracoes'
+    | '/jogos'
     | '/preparar'
     | '/salas'
     | '/sessoes'
@@ -285,6 +297,7 @@ export interface RootRouteChildren {
   CalendarioRoute: typeof CalendarioRoute
   ChamadaRoute: typeof ChamadaRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
+  JogosRoute: typeof JogosRoute
   PrepararRoute: typeof PrepararRoute
   SalasRoute: typeof SalasRoute
   SessoesRoute: typeof SessoesRoute
@@ -338,6 +351,13 @@ declare module '@tanstack/react-router' {
       path: '/configuracoes'
       fullPath: '/configuracoes'
       preLoaderRoute: typeof ConfiguracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jogos': {
+      id: '/jogos'
+      path: '/jogos'
+      fullPath: '/jogos'
+      preLoaderRoute: typeof JogosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/preparar': {
@@ -461,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarioRoute: CalendarioRoute,
   ChamadaRoute: ChamadaRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
+  JogosRoute: JogosRoute,
   PrepararRoute: PrepararRoute,
   SalasRoute: SalasRoute,
   SessoesRoute: SessoesRoute,

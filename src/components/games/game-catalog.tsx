@@ -222,7 +222,7 @@ export function GameCatalog({
         difficulty,
         challengeSeed,
       );
-      setChallengeLink(`${window.location.origin}/sessoes?tab=games&challenge=${challenge.id}`);
+      setChallengeLink(`${window.location.origin}/jogos?challenge=${challenge.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível enviar o desafio.");
     } finally {
