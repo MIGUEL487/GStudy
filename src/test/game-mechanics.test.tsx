@@ -90,7 +90,10 @@ describe("Mecânicas por toque e teclado", () => {
         }}
       />,
     );
-    const input = screen.getByRole("textbox", { name: "Digite a resposta" });
+    const input = screen.getByRole("textbox", { name: "Resposta" });
+    expect(input).toHaveAttribute("inputmode", "decimal");
+    expect(input).toHaveAttribute("enterkeyhint", "go");
+    expect(screen.queryByText(/digite a resposta|sua resposta/i)).not.toBeInTheDocument();
     fireEvent.change(input, { target: { value: "96" } });
     fireEvent.submit(input.closest("form")!);
     expect(onAnswer).toHaveBeenCalledExactlyOnceWith("96");
