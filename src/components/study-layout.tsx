@@ -34,7 +34,7 @@ import { NotificationsPopover } from "./notifications-popover";
 import { VoiceHeader } from "./voice/voice-controls";
 import { StudentOnboardingModal } from "./student-onboarding-modal";
 import { SchoolYearRolloverModal } from "./school-year-rollover-modal";
-import { PwaInstallButton } from "./pwa-install-button";
+import { PwaInstallBanner } from "./pwa-install-banner";
 import {
   fetchCurrentStudentProfile,
   checkSchoolYearRollover,
@@ -276,7 +276,6 @@ export function StudyLayout({ children }: { children: ReactNode }) {
           <div className="topbar-right">
             <HeartsStatus />
             <SyncStatus />
-            <PwaInstallButton />
             <VoiceHeader />
             <Leaf size={14} className="desktop-crumb" />
             <span>Seu ritmo. Sua jornada.</span>
@@ -342,6 +341,7 @@ export function StudyLayout({ children }: { children: ReactNode }) {
         ))}
       </nav>
       <RecallTimerPopup />
+      <PwaInstallBanner suppressed={focused} />
 
       {showOnboarding && (
         <StudentOnboardingModal
