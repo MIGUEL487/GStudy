@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 
 export function PwaInstallBanner({ suppressed = false }: { suppressed?: boolean }) {
-  const { available, installing, error, install, dismiss } = usePwaInstall();
+  const { available, canPrompt, installing, error, install, dismiss } = usePwaInstall();
+  const [showManualHelp, setShowManualHelp] = useState(false);
 
   useEffect(() => {
     if (import.meta.env.PROD && "serviceWorker" in navigator)
@@ -26,7 +27,9 @@ export function PwaInstallBanner({ suppressed = false }: { suppressed?: boolean 
           <span className="pwa-install-eyebrow">Seu espaço de estudo, sempre por perto</span>
           <h2 id="pwa-install-title">Leve o GStudy com você</h2>
           <p id="pwa-install-description">
-            Instale o app e abra seus estudos direto da tela inicial.
+            {showManualHelp
+              ? "No Chrome, toque em ⋮ e escolha Instalar app ou Adicionar à tela inicial."
+              : "Instale o app e abra seus estudos direto da tela inicial."}
           </p>
         </div>
         <div className="pwa-install-actions">
@@ -34,11 +37,14 @@ export function PwaInstallBanner({ suppressed = false }: { suppressed?: boolean 
             type="button"
             className="pwa-install-primary"
             disabled={installing}
-            onClick={() => void install()}
+            onClick={() => {
+              if (canPrompt) void install();
+              else setShowManualHelp(true);
+            }}
             aria-label="Instalar GStudy"
           >
             <Download size={16} aria-hidden="true" />
-            {installing ? "Instalando…" : "Instalar"}
+            {installing ? "Instalando…" : canPrompt ? "Instalar" : "Como instalar"}
           </button>
           <button type="button" disabled={installing} onClick={dismiss}>
             Agora não
