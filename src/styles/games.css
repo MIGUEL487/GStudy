@@ -724,6 +724,27 @@
 .game-correct-celebration.is-wrong span {
   background: #d05a50;
 }
+.game-correct-celebration .game-feedback-symbol {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #287c4e;
+  color: white;
+  font: 700 48px/1 system-ui;
+  box-shadow: 0 12px 36px #0003;
+}
+.game-correct-celebration.is-wrong .game-feedback-symbol {
+  background: #b6453e;
+}
+.game-question-stage:not(.is-typing) .game-correct-celebration {
+  z-index: 2;
+}
 .game-flag-image {
   display: block;
   width: min(320px, 72%);
@@ -824,15 +845,20 @@
 .game-map-scroll {
   overflow: auto;
   width: 100%;
-  max-height: 68dvh;
+  max-height: 70dvh;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--muted);
+  border-radius: 18px;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, #8cbac4 34%, var(--card)),
+    color-mix(in srgb, #bcd6d7 40%, var(--background))
+  );
 }
 .game-map-scroll svg {
   display: block;
-  width: max(100%, 960px);
+  width: max(100%, 1100px);
   height: auto;
+  min-height: 430px;
 }
 .game-map-container > small {
   display: block;
@@ -977,11 +1003,12 @@
   margin-bottom: 20px;
 }
 .game-page-runner:has(.game-map-container) {
-  width: min(1400px, 100%);
+  width: min(1600px, 100%);
 }
 @media (max-width: 640px) {
   .game-map-scroll svg {
-    width: 900px;
+    width: 980px;
+    min-height: 0;
   }
   .game-letter-form {
     flex-wrap: wrap;

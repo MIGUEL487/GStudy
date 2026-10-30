@@ -315,6 +315,7 @@ export function GamePlayer({
                   exit={{ opacity: 0 }}
                   transition={{ duration: reduceMotion ? 0.01 : 0.68, ease: "easeOut" }}
                 >
+                  <span className="game-feedback-symbol">{feedback ? "✓" : "×"}</span>
                   {!reduceMotion &&
                     CELEBRATION_PARTICLES.map((position, particle) => (
                       <m.span
