@@ -7,34 +7,11 @@ export function WorldMap({
   disabled: boolean;
   onAnswer: (answer: string) => void;
 }) {
-  const [zoom, setZoom] = useState(1),
-    [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState("");
   return (
     <section className="game-map-container" aria-label="Mapa-múndi">
-      <div className="game-map-controls">
-        <button
-          onClick={() => setZoom((v) => Math.max(1, v - 0.5))}
-          disabled={zoom <= 1}
-          aria-label="Diminuir zoom"
-        >
-          −
-        </button>
-        <span>{Math.round(zoom * 100)}%</span>
-        <button
-          onClick={() => setZoom((v) => Math.min(4, v + 0.5))}
-          disabled={zoom >= 4}
-          aria-label="Aumentar zoom"
-        >
-          +
-        </button>
-      </div>
       <div className="game-map-scroll">
-        <svg
-          viewBox="0 0 900 390"
-          style={{ width: `${zoom * 100}%`, maxWidth: "none" }}
-          role="group"
-          aria-label="Países do mundo"
-        >
+        <svg viewBox="0 0 900 390" role="group" aria-label="Países do mundo">
           {countries.map((country) => (
             <path
               key={country.id}
@@ -76,9 +53,7 @@ export function WorldMap({
       <button disabled={disabled || !selected} onClick={() => onAnswer(selected)}>
         Marcar país
       </button>
-      <small>
-        Limites: Natural Earth, domínio público. Projeção equiretangular; Antártida omitida.
-      </small>
+      <small>Mapa: Natural Earth, domínio público. Arraste para explorar.</small>
     </section>
   );
 }

@@ -535,3 +535,67 @@
   background: var(--surface);
   cursor: pointer;
 }
+/* Groups use the same surface and control language as study rooms. */
+.sessions-groups-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+}
+.sessions-groups-join {
+  display: flex;
+  flex: 1 1 300px;
+  gap: 10px;
+  max-width: 440px;
+}
+.sessions-groups-join input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--foreground);
+}
+.sessions-groups-join input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.sessions-groups-toolbar .social-btn {
+  min-height: 44px;
+  border-radius: 12px;
+}
+.sessions-groups-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+.sessions-group-card {
+  min-height: 150px;
+  align-items: flex-start;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+.sessions-group-card .social-user-meta {
+  display: grid;
+  gap: 8px;
+}
+@media (max-width: 540px) {
+  .sessions-groups-join {
+    max-width: none;
+  }
+  .sessions-groups-toolbar > .social-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

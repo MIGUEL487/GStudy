@@ -187,8 +187,8 @@ function Hangman({ question, disabled, onAnswer, onMistake }: Props) {
   const answer = String(question.correctAnswer ?? ""),
     normalized = normalizeAnswer(answer);
   const [letters, setLetters] = useState<string[]>([]);
-  const locked = useRef(false),
-    root = useRef<HTMLDivElement>(null);
+  const [typedLetter, setTypedLetter] = useState("");
+  const locked = useRef(false);
   const wrong = letters.filter((letter) => !normalized.includes(letter));
   const guess = (letter: string) => {
     if (disabled || locked.current || letters.includes(letter)) return;
@@ -204,24 +204,38 @@ function Hangman({ question, disabled, onAnswer, onMistake }: Props) {
       onAnswer("[palavra não descoberta]");
     }
   };
-  useEffect(() => {
-    root.current?.focus({ preventScroll: true });
-  }, []);
   return (
-    <div
-      ref={root}
-      tabIndex={0}
-      className="game-hangman"
-      onKeyDown={(event) => {
-        if (!event.ctrlKey && !event.metaKey && !event.altKey && /^[a-z]$/i.test(event.key)) {
-          event.preventDefault();
-          guess(event.key.toLowerCase());
-        }
-      }}
-    >
-      <p aria-label={`${6 - wrong.length} tentativas de letra restantes`}>
-        Letras erradas: {wrong.length}/6
-      </p>
+    <div className="game-hangman">
+      <div
+        className="game-gallows"
+        role="img"
+        aria-label={`Forca: ${wrong.length} de 6 partes desenhadas`}
+      >
+        <svg viewBox="0 0 240 250" aria-hidden="true">
+          <path className="game-gallows-wood" d="M30 235h165M65 235V18h100v29" />
+          <circle
+            className="game-gallows-part"
+            data-visible={wrong.length >= 1}
+            cx="165"
+            cy="68"
+            r="20"
+          />
+          <path className="game-gallows-part" data-visible={wrong.length >= 2} d="M165 89v70" />
+          <path
+            className="game-gallows-part"
+            data-visible={wrong.length >= 3}
+            d="M165 106l-34 40"
+          />
+          <path className="game-gallows-part" data-visible={wrong.length >= 4} d="M165 106l34 40" />
+          <path
+            className="game-gallows-part"
+            data-visible={wrong.length >= 5}
+            d="M165 159l-30 47"
+          />
+          <path className="game-gallows-part" data-visible={wrong.length >= 6} d="M165 159l30 47" />
+        </svg>
+      </div>
+      <p aria-label={`${6 - wrong.length} tentativas restantes`}>Tentativas: {6 - wrong.length}</p>
       <p className="game-secret-word" aria-label="Palavra">
         {[...answer].map((letter, i) =>
           !/[a-z]/.test(normalizeAnswer(letter)) || letters.includes(normalizeAnswer(letter)) ? (
@@ -231,17 +245,38 @@ function Hangman({ question, disabled, onAnswer, onMistake }: Props) {
           ),
         )}
       </p>
-      <div className="game-letter-grid">
-        {[..."abcdefghijklmnopqrstuvwxyz"].map((letter) => (
-          <button
-            key={letter}
-            disabled={disabled || letters.includes(letter)}
-            onClick={() => guess(letter)}
-          >
-            {letter.toUpperCase()}
-          </button>
-        ))}
-      </div>
+      <form
+        className="game-letter-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (typedLetter) {
+            guess(typedLetter);
+            setTypedLetter("");
+          }
+        }}
+      >
+        <input
+          aria-label="Digite uma letra"
+          autoFocus
+          autoComplete="off"
+          maxLength={1}
+          value={typedLetter}
+          disabled={disabled || locked.current}
+          onChange={(event) =>
+            setTypedLetter(
+              normalizeAnswer(event.target.value)
+                .replace(/[^a-z]/g, "")
+                .slice(-1),
+            )
+          }
+        />
+        <button className="game-card-btn-play" disabled={!typedLetter || disabled}>
+          Tentar letra
+        </button>
+      </form>
+      {wrong.length > 0 && (
+        <p className="game-used-letters">Letras usadas: {letters.join(" · ").toUpperCase()}</p>
+      )}
     </div>
   );
 }

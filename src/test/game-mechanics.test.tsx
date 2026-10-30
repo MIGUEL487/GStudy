@@ -43,8 +43,11 @@ describe("Mecânicas por toque e teclado", () => {
         question={{ id: "q", prompt: "Palavra", correctAnswer: "ação" }}
       />,
     );
-    for (const key of ["a", "c", "o"])
-      fireEvent.keyDown(screen.getByRole("button", { name: "A" }), { key });
+    for (const key of ["a", "c", "o"]) {
+      const input = screen.getByRole("textbox", { name: "Digite uma letra" });
+      fireEvent.change(input, { target: { value: key } });
+      fireEvent.submit(input.closest("form")!);
+    }
     expect(onAnswer).toHaveBeenCalledExactlyOnceWith("ação");
     expect(screen.getByLabelText("Palavra")).toHaveTextContent("ação");
   });

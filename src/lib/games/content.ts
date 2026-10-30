@@ -310,7 +310,7 @@ export const MAP_GAME = definition(
   "Mapa-múndi Interativo",
   "geografia",
   "map-click",
-  "Encontre o país no mapa. Use o zoom para regiões menores. Com teclado, navegue pelos países e pressione Enter para responder.",
+  "Encontre o país no mapa. Arraste para explorar e toque no país. Com teclado, selecione o país na lista.",
   COUNTRIES.map(([id, country, capital]) => ({
     id: `map-${id}`,
     prompt: `Encontre ${country} no mapa`,
@@ -323,14 +323,31 @@ export const FLAGS_GAME = definition(
   "geo-bandeiras",
   "Bandeiras do Mundo",
   "geografia",
-  "memory-pairs",
-  "Encontre os pares entre bandeiras e países. Vire duas cartas por vez; cada tentativa errada desfaz o combo.",
-  [0, 1, 2, 3].map((i) => ({
-    id: `flags-${i}`,
-    prompt: "Que país corresponde a cada bandeira?",
-    pairs: COUNTRIES.slice(i * 4, i * 4 + 4).map(([, country, , flag]) => ({
-      left: flag,
-      right: country,
-    })),
+  "typing-fast",
+  "Observe a bandeira e digite o nome do país. Cada rodada traz outro país.",
+  COUNTRIES.map(([id, country]) => ({
+    id: `flags-${id}`,
+    prompt: "Qual é o país desta bandeira?",
+    flagCode: (
+      {
+        BRA: "br",
+        ARG: "ar",
+        CAN: "ca",
+        USA: "us",
+        MEX: "mx",
+        FRA: "fr",
+        ESP: "es",
+        ITA: "it",
+        CHN: "cn",
+        JPN: "jp",
+        IND: "in",
+        AUS: "au",
+        EGY: "eg",
+        ZAF: "za",
+        DZA: "dz",
+        SWE: "se",
+      } as Record<string, string>
+    )[id],
+    correctAnswer: country,
   })),
 );
