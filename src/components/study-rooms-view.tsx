@@ -693,34 +693,37 @@ export function StudyRoomsView({ initialRoomId }: { initialRoomId?: string }) {
 
         <button
           type="button"
-          className="social-btn social-btn-primary"
+          className="rooms-create-button"
           onClick={() => setShowCreateModal(true)}
         >
           <PlusCircle size={16} /> Criar Sala de Estudo
         </button>
       </div>
 
-      <div className="rooms-filters">
+      <div className="rooms-filters" role="group" aria-label="Visualizar salas">
         <button
           type="button"
           className={`rooms-filter-btn ${filter === "all" ? "active" : ""}`}
+          aria-pressed={filter === "all"}
           onClick={() => setFilter("all")}
         >
-          Todas as salas
+          <Globe size={16} /> Todas as salas
         </button>
         <button
           type="button"
           className={`rooms-filter-btn ${filter === "friends" ? "active" : ""}`}
+          aria-pressed={filter === "friends"}
           onClick={() => setFilter("friends")}
         >
-          Salas com amigos
+          <Users size={16} /> Salas com amigos
         </button>
         <button
           type="button"
           className={`rooms-filter-btn ${filter === "groups" ? "active" : ""}`}
+          aria-pressed={filter === "groups"}
           onClick={() => setFilter("groups")}
         >
-          Meus grupos
+          <Lock size={16} /> Meus grupos
         </button>
       </div>
 

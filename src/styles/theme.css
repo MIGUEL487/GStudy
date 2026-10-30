@@ -274,9 +274,9 @@ textarea {
   min-height: 44px;
 }
 .sessions-panel .rooms-filter-btn.active {
-  background: var(--secondary);
+  background: color-mix(in srgb, var(--primary) 14%, var(--card));
   color: var(--foreground);
-  border-color: var(--border);
+  border-color: var(--primary);
 }
 .sessions-panel .social-empty-state {
   background: var(--card);

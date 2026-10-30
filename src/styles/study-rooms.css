@@ -32,21 +32,26 @@
 
 .rooms-filters {
   display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 26px;
 }
 
 .rooms-filter-btn {
-  padding: 8px 16px;
-  border-radius: var(--radius-md, 6px);
-  font-size: 13px;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 11px 17px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
   border: 1px solid var(--border);
   background: var(--card);
-  color: var(--muted-foreground);
+  color: var(--foreground);
   cursor: pointer;
   transition: all 0.15s ease;
-  min-height: 40px;
+  min-height: 48px;
 }
 
 .rooms-filter-btn:hover {
@@ -56,10 +61,50 @@
 }
 
 .rooms-filter-btn.active {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: color-mix(in srgb, var(--primary) 14%, var(--card));
+  color: var(--foreground);
   border-color: var(--primary);
   font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.rooms-filter-btn:focus-visible,
+.rooms-create-button:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+.rooms-create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 11px 20px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: 600 14px var(--font-sans);
+  cursor: pointer;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 20%, transparent);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+.rooms-create-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+@media (max-width: 600px) {
+  .rooms-create-button {
+    width: 100%;
+  }
+  .rooms-filters {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .rooms-filter-btn {
+    justify-content: flex-start;
+  }
 }
 
 .rooms-grid {
