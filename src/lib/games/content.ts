@@ -211,7 +211,7 @@ export const EXTRA_GAMES: GameDefinition[] = [
     "Forca de vocabulário",
     "portugues",
     "word-hangman",
-    "Descubra a palavra com até seis letras erradas. Acentos aparecem automaticamente. Use as letras na tela ou o teclado.",
+    "Descubra a palavra digitando uma letra por vez. Acentos aparecem automaticamente; você tem até seis erros.",
     vocabulary.map((word, i) => ({
       id: `word-${i}`,
       prompt: vocabularyHints[word]!,
