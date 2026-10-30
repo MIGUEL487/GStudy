@@ -38,6 +38,7 @@ export interface GameQuestion {
   categories?: string[] | undefined;
   items?: { label: string; category: string }[] | undefined;
   explanation?: string | undefined;
+  flagCode?: string | undefined;
 }
 
 export interface GameDefinition {

@@ -222,6 +222,7 @@ export function GamePlayer({
   };
   const question = sequence[index];
   const isTypingGame = game.type === "time-survival" || game.type === "typing-fast";
+  const isFlagGame = game.id === "geo-bandeiras" && Boolean(question?.flagCode);
   const mistakes = [
     ...new Map(
       state.answers.filter((item) => !item.correct).map((item) => [item.question.id, item]),
@@ -301,13 +302,13 @@ export function GamePlayer({
             </div>
           )}
           <div
-            className={`game-question-stage ${isTypingGame ? "is-typing" : ""} ${feedback === true ? "is-correct" : ""}`}
+            className={`game-question-stage ${isTypingGame ? "is-typing" : ""} ${isFlagGame ? "is-flag" : ""} ${feedback === true ? "is-correct" : ""} ${feedback === false ? "is-wrong" : ""}`}
           >
             <AnimatePresence>
-              {feedback === true && (
+              {feedback !== null && (
                 <m.div
-                  key={`success-${index}`}
-                  className="game-correct-celebration"
+                  key={`feedback-${index}`}
+                  className={`game-correct-celebration ${feedback ? "" : "is-wrong"}`}
                   aria-hidden="true"
                   initial={{ opacity: 0, scale: 0.78 }}
                   animate={{ opacity: [0, 1, 0], scale: [0.78, 1.04, 1.14] }}
@@ -332,6 +333,16 @@ export function GamePlayer({
                 </m.div>
               )}
             </AnimatePresence>
+            {isFlagGame && (
+              <img
+                className="game-flag-image"
+                src={`https://flagcdn.com/w320/${question.flagCode}.png`}
+                srcSet={`https://flagcdn.com/w640/${question.flagCode}.png 2x`}
+                width="320"
+                height="240"
+                alt="Bandeira do país a identificar"
+              />
+            )}
             <m.h2
               className="game-prompt-question"
               animate={
@@ -354,12 +365,8 @@ export function GamePlayer({
             />
           </div>
           {feedback !== null && (
-            <p
-              role="status"
-              className={`game-answer-feedback ${feedback ? "is-correct sr-only" : "is-wrong"}`}
-            >
-              {feedback ? "Você acertou!" : "Vamos revisar essa no resultado."}{" "}
-              {question.explanation}
+            <p role="status" className="game-answer-feedback sr-only">
+              {feedback ? "Você acertou!" : "Você errou. Veja a revisão no fim da partida."}
             </p>
           )}
         </div>

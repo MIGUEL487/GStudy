@@ -553,32 +553,14 @@ export function SocialFriendsPanel({
 
       {/* Tab: Grupos */}
       {tab === "groups" && (
-        <div className="social-tab-content">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 16,
-              flexWrap: "wrap",
-              gap: 10,
-            }}
-          >
-            <form
-              onSubmit={handleJoinGroup}
-              style={{ display: "flex", gap: 8, flex: 1, maxWidth: 360 }}
-            >
+        <div className="social-tab-content sessions-groups-content">
+          <div className="sessions-groups-toolbar">
+            <form onSubmit={handleJoinGroup} className="sessions-groups-join">
               <input
                 type="text"
                 placeholder="Código de convite (ex: ABC123)"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(108,88,76,0.25)",
-                  flex: 1,
-                }}
               />
               <button type="submit" className="social-btn">
                 Entrar
@@ -602,9 +584,9 @@ export function SocialFriendsPanel({
               </p>
             </div>
           ) : (
-            <div className="social-card-list">
+            <div className="social-card-list sessions-groups-list">
               {groups.map((g) => (
-                <div key={g.id} className="social-user-card">
+                <div key={g.id} className="social-user-card sessions-group-card">
                   <div className="social-user-info">
                     <div className="social-user-meta">
                       <h3>{g.name}</h3>
